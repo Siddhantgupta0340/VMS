@@ -144,7 +144,7 @@ const patchVendor = (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Vendor patched successfully",
+      message: "Vendor patched successfully done",
       data: patched
     });
   } catch (err) {
