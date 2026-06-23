@@ -1,13 +1,57 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  password               String
+  role                   String
+  first_name             String?
+  last_name              String?
+  is_active              Boolean   @default(true)
+  deleted_at             DateTime?
+  last_login_at          DateTime?
+  refresh_token          String?
+  password_reset_token   String?
+  password_reset_expires DateTime?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Vendor {
+  id              String    @id @default(uuid())
+  name            String
+  vendor_code     String    @unique
+  email           String    @unique
+  phone           String
+  address         String
+  city            String?
+  state           String?
+  zip_code        String?
+  tax_id          String    @unique
+  category        String
+  contact_person  String?
+  bank_account_no String?
+  ifsc_code       String?
+  payment_terms   String?
+  is_active       Boolean   @default(true)
+  deleted_at      DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@map("vendors")
+}
+
+model playing_with_neon {
+  id    Int    @id @default(autoincrement())
+  name  String
+  value Float? @db.Real
 }
