@@ -4,6 +4,7 @@ const path = require("path");
 const authRoutes = require("./modules/auth/auth.routes");
 const vendorRoutes = require("./modules/vendors/vendor.routes");
 const purchaseOrderRoutes = require("./modules/purchase-orders/po.routes");
+const invoiceRoutes = require("./modules/invoices/invoice.routes");
 
 const app = express();
 
@@ -17,6 +18,10 @@ console.log("Vendor Route Registered");
 console.log("Purchase Order Routes Loaded");
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 console.log("Purchase Order Route Registered");
+
+console.log("Invoice Routes Loaded");
+app.use("/api/invoices", invoiceRoutes);
+console.log("Invoice Route Registered");
 
 app.use("/api/auth", authRoutes);
 
