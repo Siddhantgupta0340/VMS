@@ -27,7 +27,7 @@ export const changePasswordSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   body: z.object({
-    email: z.string({ required_error: 'Email is required' }).email('Invalid email address'),
+    email: z.string({ required_error: 'Email is required' }).email('Invalid email address'), 
   }),
 });
 

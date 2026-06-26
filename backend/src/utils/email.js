@@ -1,50 +1,83 @@
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
-/**
- * Sends an email using Nodemailer.
- * For development, it uses an Ethereal.email test account.
- * For production, it should be configured with a real email service provider.
- *
- * @param {object} options - Email options.
- * @param {string} options.to - Recipient's email address.
- * @param {string} options.subject - Email subject.
- * @param {string} options.html - Email body in HTML format.
- */
 const sendEmail = async (options) => {
-  let transporter;
+  console.log("\n================ EMAIL DEBUG =================");
 
-  // For development, use a test account from Ethereal.
-  if (process.env.NODE_ENV !== 'production') {
-    const testAccount = await nodemailer.createTestAccount();
-    transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false, // false for port 587, true for 465
+  try {
+    console.log("[1] Loading SMTP Configuration...");
+
+    console.log("SMTP_HOST :", process.env.SMTP_HOST);
+    console.log("SMTP_PORT :", process.env.SMTP_PORT);
+    console.log("SMTP_USER :", process.env.SMTP_USER);
+    console.log(
+      "SMTP_PASS :",
+      process.env.SMTP_PASS ? "Loaded ✅" : "Missing ❌"
+    );
+    console.log("EMAIL_FROM :", process.env.EMAIL_FROM);
+
+    if (
+      !process.env.SMTP_HOST ||
+      !process.env.SMTP_PORT ||
+      !process.env.SMTP_USER ||
+      !process.env.SMTP_PASS
+    ) {
+      throw new Error("SMTP configuration is missing in the .env file.");
+    }
+
+    console.log("\n[2] Creating Gmail SMTP Transport...");
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: {
-        user: testAccount.user, // generated ethereal user
-        pass: testAccount.pass, // generated ethereal password
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     });
-  } else {
-    // For production, use a real email service (e.g., Gmail, SendGrid).
-    // Ensure you have set these environment variables:
-    // EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS
-    transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      secure: process.env.EMAIL_PORT === '465',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+
+    console.log("[3] Verifying SMTP Connection...");
+
+    await transporter.verify();
+
+    console.log("✅ SMTP Connection Successful");
+
+    console.log("\n[4] Email Details");
+    console.log("To      :", options.to);
+    console.log("Subject :", options.subject);
+
+    console.log("\n[5] Sending Email...");
+
+    const info = await transporter.sendMail({
+      from:
+        process.env.EMAIL_FROM ||
+        `"VMS" <${process.env.SMTP_USER}>`,
+      to: options.to,
+      subject: options.subject,
+      text: options.text || "",
+      html: options.html || "",
+      cc: options.cc,
+      bcc: options.bcc,
+      attachments: options.attachments || [],
     });
-  }
 
-  const info = await transporter.sendMail(options);
+    console.log("\n========== EMAIL SENT ==========");
+    console.log("Message ID :", info.messageId);
+    console.log("Accepted :", info.accepted);
+    console.log("Rejected :", info.rejected);
+    console.log("Response :", info.response);
+    console.log("================================\n");
 
-  console.log(`[EMAIL] Message sent: ${info.messageId}`);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+    return info;
+  } catch (error) {
+    console.error("\n========== EMAIL ERROR ==========");
+    console.error("Message :", error.message);
+    console.error("Code :", error.code);
+    console.error("Response :", error.response);
+    console.error("Stack :", error.stack);
+    console.error("=================================\n");
+
+    throw error;
   }
 };
 

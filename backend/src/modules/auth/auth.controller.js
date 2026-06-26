@@ -13,6 +13,7 @@ class AuthController {
    * @access  Public
    */
   login = asyncHandler(async (req, res) => {
+    console.log("login",req.body)
     const { email, password } = req.body;
     const { user, accessToken, refreshToken } = await authService.login(email, password);
     res.status(200).json({
@@ -39,6 +40,7 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
+    console.log("token received")
     const { refreshToken: oldRefreshToken } = req.body;
     const { accessToken, refreshToken } = await authService.refreshToken(oldRefreshToken);
     res.status(200).json({
@@ -76,11 +78,32 @@ class AuthController {
    * @route   POST /api/v1/auth/forgot-password
    * @access  Public
    */
-  forgotPassword = asyncHandler(async (req, res) => {
-    const { email } = req.body;
-    const message = await authService.forgotPassword(email);
-    res.status(200).json({ success: true, message });
+  /**
+ * @desc    Initiate password reset process
+ * @route   POST /api/v1/auth/forgot-password
+ * @access  Public
+ */
+forgotPassword = asyncHandler(async (req, res) => {
+  console.log("\n================ FORGOT PASSWORD =================");
+  console.log("[Controller] Forgot Password API Hit");
+  console.log("[Controller] Request Body:", req.body);
+
+  const { email } = req.body;
+
+  console.log("[Controller] Email Received:", email);
+
+  const message = await authService.forgotPassword(email);
+
+  console.log("[Controller] Service Response:", message);
+
+  res.status(200).json({
+    success: true,
+    message,
   });
+
+  console.log("[Controller] Response Sent Successfully");
+  console.log("=================================================\n");
+});
 
   /**
    * @desc    Reset password using a token

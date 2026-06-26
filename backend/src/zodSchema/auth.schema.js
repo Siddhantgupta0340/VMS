@@ -18,7 +18,7 @@ export const loginSchema = z.object({
 export const refreshTokenSchema = z.object({ body: z.object({ refreshToken: z.string().min(1) }) });
 export const forgotPasswordSchema = z.object({ body: z.object({ email: z.string().email() }) });
 export const resetPasswordSchema = z.object({ body: z.object({ password: passwordSchema }) });
-export const logoutSchema = z.object({ body: z.object({ refreshToken: z.string().optional() }) });
+export const logoutSchema = z.object({ body: z.object({ refreshToken: z.string().optional() }) }); 
 export const changePasswordSchema = z.object({
   body: z.object({
     oldPassword: z.string().min(1),

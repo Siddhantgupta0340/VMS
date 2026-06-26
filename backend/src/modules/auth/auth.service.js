@@ -131,7 +131,7 @@ class AuthService {
    * @returns {string} - Success message (generic to prevent enumeration).
    */
   async forgotPassword(email) {
-    const user = await userRepository.findByEmail(email);
+    const user = await userRepository.findByEmail(email); 
 
     if (user) {
       const resetToken = uuidv4();
