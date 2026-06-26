@@ -7,20 +7,23 @@ datasource db {
 }
 
 model User {
-  id                     String    @id @default(uuid())
-  email                  String    @unique
-  password               String
-  role                   String
-  first_name             String?
-  last_name              String?
-  is_active              Boolean   @default(true)
-  deleted_at             DateTime?
-  last_login_at          DateTime?
-  refresh_token          String?
-  password_reset_token   String?
-  password_reset_expires DateTime?
-  created_at             DateTime  @default(now())
-  updated_at             DateTime  @updatedAt
+  id                         String    @id @default(uuid())
+  email                      String    @unique
+  password                   String
+  role                       String
+  first_name                 String?
+  last_name                  String?
+  is_active                  Boolean   @default(true)
+  deleted_at                 DateTime?
+  last_login_at              DateTime?
+  refresh_token              String?
+
+  // Password Reset OTP
+  password_reset_otp         String?
+  password_reset_otp_expires DateTime?
+
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
 
   @@map("users")
 }

@@ -79,11 +79,15 @@ class UserRepository {
   /**
    * Find a user by their password reset token.
    */
-  async findByResetToken(token) {
-    return await prisma.user.findFirst({
-      where: { [UserEntity.columns.PASSWORD_RESET_TOKEN]: token },
-    });
-  }
+  async findByResetOtp(email, otp) { 
+  return await prisma.user.findFirst({
+    where: {
+      [UserEntity.columns.EMAIL]: email,
+      [UserEntity.columns.PASSWORD_RESET_OTP]: otp,
+      [UserEntity.columns.DELETED_AT]: null,
+    },
+  });
+}
 
   /**
    * Create a new user.
