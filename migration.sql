@@ -7,4 +7,6 @@ ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMP(3),
 ADD COLUMN IF NOT EXISTS "last_login_at" TIMESTAMP(3),
 ADD COLUMN IF NOT EXISTS "refresh_token" TEXT,
 ADD COLUMN IF NOT EXISTS "password_reset_token" TEXT,
-ADD COLUMN IF NOT EXISTS "password_reset_expires" TIMESTAMP(3);
+ADD COLUMN IF NOT EXISTS "password_reset_expires" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "password_reset_otp" TEXT,
+ADD COLUMN IF NOT EXISTS "password_reset_otp_expires" TIMESTAMP(3);
