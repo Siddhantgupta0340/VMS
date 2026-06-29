@@ -2,7 +2,7 @@ import express from 'express';
 import authController from './auth.controller.js';
 import { protect } from '../../middleware/auth.middleware.js';
 import validate from '../../middleware/validate.middleware.js';
-import { loginSchema, changePasswordSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../../zodSchema/auth.schema.js';
+import { loginSchema, changePasswordSchema, refreshTokenSchema, forgotPasswordSchema, verifyOtpSchema, resetPasswordSchema } from '../../zodSchema/auth.schema.js';
 import authorize from '../../middleware/authorize.middleware.js';
 import { PERMISSIONS } from './auth.permissions.js';
 
@@ -21,6 +21,7 @@ router.post('/login', validate(loginSchema), authController.login);
 
 // --- Password Recovery Routes ---
 router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/verify-otp', validate(verifyOtpSchema), authController.verifyOtp);
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 

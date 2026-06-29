@@ -14,7 +14,7 @@ export const AUTH_MESSAGES = {
   TOKEN_EXPIRED: 'Session expired, please login again.',
   USER_NOT_FOUND: 'User not found.',
   REFRESH_SUCCESS: 'Token refreshed successfully.',
-  FORGOT_PASSWORD_SENT: 'If an account exists with that email, a password reset link has been sent.', 
+  FORGOT_PASSWORD_SENT: 'If an account exists with that email, a password reset OTP has been sent.',
   PASSWORD_RESET_SUCCESS: 'Password has been reset successfully.',
-  INVALID_RESET_TOKEN: 'Password reset token is invalid or has expired.',
+  INVALID_RESET_OTP: 'Password reset OTP is invalid or has expired.',
 };

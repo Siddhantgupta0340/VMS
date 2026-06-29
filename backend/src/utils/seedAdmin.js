@@ -9,7 +9,7 @@ import { ROLES, UserEntity } from '../zodSchema/index.js';
 const seedAdmin = async () => {
   try {
     // Use environment variables for credentials with sensible defaults for development.
-    const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@vms.com';
+    const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@vms.com'; 
     const adminPassword = process.env.SUPER_ADMIN_PASSWORD || 'Admin@123';
 
     // Check if the super admin already exists

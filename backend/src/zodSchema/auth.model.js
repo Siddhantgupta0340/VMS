@@ -26,8 +26,8 @@ export const USER_COLUMNS = {
   DELETED_AT: 'deleted_at',
   LAST_LOGIN_AT: 'last_login_at',
   REFRESH_TOKEN: 'refresh_token',
- PASSWORD_RESET_OTP: 'password_reset_token',
-  PASSWORD_RESET_OTP_EXPIRES: 'password_reset_expires',
+  PASSWORD_RESET_OTP: 'password_reset_otp',
+  PASSWORD_RESET_OTP_EXPIRES: 'password_reset_otp_expires',
   CREATED_AT: 'created_at',
   UPDATED_AT: 'updated_at',
 };

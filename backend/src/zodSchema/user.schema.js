@@ -60,7 +60,7 @@ export const searchUsersSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   body: z.object({
-    password: passwordSchema,
+    newPassword: passwordSchema,
   }),
   params: z.object({
     id: z.string().uuid('Invalid user ID format'),

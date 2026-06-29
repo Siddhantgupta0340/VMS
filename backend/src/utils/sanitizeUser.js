@@ -7,6 +7,12 @@ import { UserEntity } from '../zodSchema/index.js';
  */
 export const sanitizeUser = (user) => {
   if (!user) return null;
-  const { [UserEntity.columns.PASSWORD]: _, [UserEntity.columns.REFRESH_TOKEN]: __, ...sanitized } = user;
+  const {
+    [UserEntity.columns.PASSWORD]: _,
+    [UserEntity.columns.REFRESH_TOKEN]: __,
+    [UserEntity.columns.PASSWORD_RESET_OTP]: ___,
+    [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: ____,
+    ...sanitized
+  } = user;
   return sanitized;
 };

@@ -17,11 +17,8 @@ model User {
   deleted_at                 DateTime?
   last_login_at              DateTime?
   refresh_token              String?
-
-  // Password Reset OTP
   password_reset_otp         String?
   password_reset_otp_expires DateTime?
-
   created_at                 DateTime  @default(now())
   updated_at                 DateTime  @updatedAt
 

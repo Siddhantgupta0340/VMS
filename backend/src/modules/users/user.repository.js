@@ -6,6 +6,30 @@ class UserRepository {
    * @class UserRepository
    * @description A data access layer for interacting with the User model in the database.
    */
+
+  sanitizeUpdateData(updateData) {
+    if (!updateData || typeof updateData !== 'object' || Array.isArray(updateData)) {
+      throw new Error('Update data must be a non-array object');
+    }
+
+    const normalizedData = Object.fromEntries(
+      Object.entries(updateData).filter(([, value]) => value !== undefined)
+    );
+
+    if (Object.keys(normalizedData).length === 0) {
+      throw new Error('No valid fields provided for update');
+    }
+
+    const validColumns = new Set(Object.values(UserEntity.columns));
+    const invalidKeys = Object.keys(normalizedData).filter((key) => !validColumns.has(key));
+
+    if (invalidKeys.length > 0) {
+      throw new Error(`Invalid user update field(s): ${invalidKeys.join(', ')}`);
+    }
+
+    return normalizedData;
+  }
+
   /**
    * Fetch all users with filters, search, and pagination.
    */
@@ -76,18 +100,15 @@ class UserRepository {
     });
   }
 
-  /**
-   * Find a user by their password reset token.
-   */
-  async findByResetOtp(email, otp) { 
-  return await prisma.user.findFirst({
-    where: {
-      [UserEntity.columns.EMAIL]: email,
-      [UserEntity.columns.PASSWORD_RESET_OTP]: otp,
-      [UserEntity.columns.DELETED_AT]: null,
-    },
-  });
-}
+  async findByResetOtp(email, otp) {
+    return await prisma.user.findFirst({
+      where: {
+        [UserEntity.columns.EMAIL]: email,
+        [UserEntity.columns.PASSWORD_RESET_OTP]: otp,
+        [UserEntity.columns.DELETED_AT]: null,
+      },
+    });
+  }
 
   /**
    * Create a new user.
@@ -102,9 +123,17 @@ class UserRepository {
    * Update a user's details by their ID.
    */
   async updateUser(id, updateData) {
+    const safeUpdateData = this.sanitizeUpdateData(updateData);
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('UserEntity.columns =', UserEntity.columns);
+      console.debug('Update Data =', safeUpdateData);
+      console.debug('Keys =', Object.keys(safeUpdateData));
+    }
+
     return await prisma.user.update({
       where: { [UserEntity.columns.ID]: id },
-      data: updateData,
+      data: safeUpdateData,
     });
   }
 

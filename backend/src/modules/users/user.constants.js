@@ -9,4 +9,5 @@ export const USER_MESSAGES = {
   STATUS_UPDATED: 'User status updated successfully.',
   EMAIL_ALREADY_EXISTS: 'User with this email already exists.',
   USER_NOT_FOUND: 'User not found.',
+  PASSWORD_RESET_SUCCESS: 'Password has been reset successfully.',
 };

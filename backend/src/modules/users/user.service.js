@@ -66,7 +66,25 @@ class UserService {
    */
   async updateUser(userId, updateData) {
     await this.getUserById(userId); // Ensures user exists
-    const updatedUser = await userRepository.updateUser(userId, updateData);
+    const mappedUpdateData = {};
+
+    if (updateData.email !== undefined) {
+      mappedUpdateData[UserEntity.columns.EMAIL] = updateData.email;
+    }
+
+    if (updateData.firstName !== undefined) {
+      mappedUpdateData[UserEntity.columns.FIRST_NAME] = updateData.firstName;
+    }
+
+    if (updateData.lastName !== undefined) {
+      mappedUpdateData[UserEntity.columns.LAST_NAME] = updateData.lastName;
+    }
+
+    if (updateData.role !== undefined) {
+      mappedUpdateData[UserEntity.columns.ROLE] = updateData.role;
+    }
+
+    const updatedUser = await userRepository.updateUser(userId, mappedUpdateData);
     return sanitizeUser(updatedUser);
   }
 
@@ -91,6 +109,26 @@ class UserService {
     await this.getUserById(userId); // Ensures user exists
     const updatedUser = await userRepository.updateUser(userId, { [UserEntity.columns.IS_ACTIVE]: isActive });
     return sanitizeUser(updatedUser);
+  }
+
+  /**
+   * Resets a user's password by an admin.
+   * @param {string} userId - The ID of the user.
+   * @param {string} newPassword - The replacement password.
+   * @returns {string} A success message.
+   */
+  async adminResetPassword(userId, newPassword) {
+    await this.getUserById(userId);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await userRepository.updateUser(userId, {
+      [UserEntity.columns.PASSWORD]: hashedPassword,
+      [UserEntity.columns.PASSWORD_RESET_OTP]: null,
+      [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: null,
+    });
+
+    return USER_MESSAGES.PASSWORD_RESET_SUCCESS;
   }
 }
 

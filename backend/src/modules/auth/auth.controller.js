@@ -1,6 +1,6 @@
-import authService from './auth.service.js';
-import { AUTH_MESSAGES } from './auth.constants.js';
-import asyncHandler from '../../middleware/asyncHandler.middleware.js';
+import authService from "./auth.service.js";
+import { AUTH_MESSAGES } from "./auth.constants.js";
+import asyncHandler from "../../middleware/asyncHandler.middleware.js";
 
 /**
  * @class AuthController
@@ -13,9 +13,12 @@ class AuthController {
    * @access  Public
    */
   login = asyncHandler(async (req, res) => {
-    console.log("login",req.body)
+    console.log("login", req.body);
     const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await authService.login(email, password);
+    const { user, accessToken, refreshToken } = await authService.login(
+      email,
+      password,
+    );
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
@@ -40,9 +43,10 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
-    console.log("token received")
+    console.log("token received");
     const { refreshToken: oldRefreshToken } = req.body;
-    const { accessToken, refreshToken } = await authService.refreshToken(oldRefreshToken);
+    const { accessToken, refreshToken } =
+      await authService.refreshToken(oldRefreshToken);
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.REFRESH_SUCCESS,
@@ -69,7 +73,11 @@ class AuthController {
   changePassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword } = req.body;
     // Assuming userId is available from an authentication middleware
-    const message = await authService.changePassword(req.user.id, oldPassword, newPassword);
+    const message = await authService.changePassword(
+      req.user.id,
+      oldPassword,
+      newPassword,
+    );
     res.status(200).json({ success: true, message });
   });
 
@@ -79,40 +87,55 @@ class AuthController {
    * @access  Public
    */
   /**
- * @desc    Initiate password reset process
- * @route   POST /api/v1/auth/forgot-password
- * @access  Public
- */
-forgotPassword = asyncHandler(async (req, res) => {
-  console.log("\n================ FORGOT PASSWORD =================");
-  console.log("[Controller] Forgot Password API Hit");
-  console.log("[Controller] Request Body:", req.body);
+   * @desc    Initiate password reset process
+   * @route   POST /api/v1/auth/forgot-password
+   * @access  Public
+   */
+  forgotPassword = asyncHandler(async (req, res) => {
+    console.log("\n================ FORGOT PASSWORD =================");
+    console.log("[Controller] Forgot Password API Hit");
+    console.log("[Controller] Request Body:", req.body);
 
-  const { email } = req.body;
+    const { email } = req.body;
 
-  console.log("[Controller] Email Received:", email);
-s
-  const message = await authService.forgotPassword(email);
+    console.log("[Controller] Email Received:", email);
+    const message = await authService.forgotPassword(email);
 
-  console.log("[Controller] Service Response:", message);
+    console.log("[Controller] Service Response:", message);
 
-  res.status(200).json({
-    success: true,
-    message,
+    // Required response format
+    return res.status(200).json({
+      success: true,
+      message: message || "OTP sent successfully",
+    });
   });
 
-  console.log("[Controller] Response Sent Successfully");
-  console.log("=================================================\n");
-});
+  /**
+   * @desc    Verify password reset OTP
+   * @route   POST /api/v1/auth/verify-otp
+   * @access  Public
+   */
+  verifyOtp = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+    const message = await authService.verifyOtp(email, otp);
+
+    res.status(200).json({ success: true, message });
+  });
 
   /**
-   * @desc    Reset password using a token
+   * @desc    Reset password using OTP
    * @route   POST /api/v1/auth/reset-password
    * @access  Public
    */
   resetPassword = asyncHandler(async (req, res) => {
-    const { token, newPassword } = req.body;
-    const message = await authService.resetPassword(token, newPassword);
+    const { email, otp, newPassword } = req.body;
+
+    const message = await authService.resetPassword(
+      email,
+      otp,
+      newPassword,
+    );
+
     res.status(200).json({ success: true, message });
   });
 }
