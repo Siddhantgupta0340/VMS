@@ -91,7 +91,7 @@ forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
   console.log("[Controller] Email Received:", email);
-
+s
   const message = await authService.forgotPassword(email);
 
   console.log("[Controller] Service Response:", message);
