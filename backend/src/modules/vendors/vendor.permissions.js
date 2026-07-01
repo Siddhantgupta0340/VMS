@@ -1,1 +1,7 @@
-/** DELETED: Vendor module removed per request */
+import { ROLES } from '../../zodSchema/index.js';
+
+export const VENDOR_PERMISSIONS = {
+  CREATE: [ROLES.CASE_MANAGER],
+  READ: [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_MANAGER, ROLES.L1, ROLES.L2, ROLES.L3],
+  REVIEW: [ROLES.FINANCE_MANAGER],
+};

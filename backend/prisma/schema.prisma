@@ -22,6 +22,29 @@ model User {
   created_at                 DateTime  @default(now())
   updated_at                 DateTime  @updatedAt
 
+  vendors_created          Vendor[]        @relation("VendorCreatedBy")
+  vendors_approved         Vendor[]        @relation("VendorApprovedBy")
+  purchase_orders_created  PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  invoices_created         Invoice[]       @relation("InvoiceCreatedBy")
+  invoices_updated         Invoice[]       @relation("InvoiceUpdatedBy")
+  invoices_l1_approved     Invoice[]       @relation("InvoiceL1ApprovedBy")
+  invoices_l2_approved     Invoice[]       @relation("InvoiceL2ApprovedBy")
+  invoices_l3_approved     Invoice[]       @relation("InvoiceL3ApprovedBy")
+  invoices_rejected        Invoice[]       @relation("InvoiceRejectedBy")
+  
+  payments_created         Payment[]       @relation("PaymentCreatedBy")
+  payments_approved        Payment[]       @relation("PaymentApprovedBy")
+  payments_processed       Payment[]       @relation("PaymentProcessedBy")
+  payments_updated         Payment[]       @relation("PaymentUpdatedBy")
+  
+  payments_created_old     PaymentOld[]    @relation("PaymentOldCreatedBy")
+  payments_approved_old    PaymentOld[]    @relation("PaymentOldApprovedBy")
+  payments_rejected_old    PaymentOld[]    @relation("PaymentOldRejectedBy")
+  payments_blocked_old     PaymentOld[]    @relation("PaymentOldBlockedBy")
+  
+  approval_logs            ApprovalLog[]   @relation("ApprovalLogPerformedBy")
+  notifications            Notification[]  @relation("NotificationRecipient")
+
   @@map("users")
 }
 
@@ -41,16 +64,220 @@ model Vendor {
   bank_account_no String?
   ifsc_code       String?
   payment_terms   String?
+  status          String    @default("pending")
+  created_by_id   String?
+  approved_by_id  String?
+  approved_at     DateTime?
+  rejected_at     DateTime?
+  blocked_at      DateTime?
   is_active       Boolean   @default(true)
   deleted_at      DateTime?
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 
+  created_by      User?           @relation("VendorCreatedBy", fields: [created_by_id], references: [id])
+  approved_by     User?           @relation("VendorApprovedBy", fields: [approved_by_id], references: [id])
+  purchase_orders PurchaseOrder[]
+  invoices        Invoice[]
+  payments        Payment[]
+
   @@map("vendors")
 }
 
-model playing_with_neon {
-  id    Int    @id @default(autoincrement())
-  name  String
-  value Float? @db.Real
+model PurchaseOrder {
+  id                     String    @id @default(uuid())
+  po_number              String    @unique
+  vendor_id              String
+  created_by_id          String?
+  amount                 Decimal   @db.Decimal(14, 2)
+  currency               String    @default("INR")
+  status                 String    @default("pending")
+  description            String?
+  order_date             DateTime  @default(now())
+  expected_delivery_date DateTime?
+  closed_at              DateTime?
+  cancelled_at           DateTime?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
+
+  vendor     Vendor    @relation(fields: [vendor_id], references: [id])
+  created_by User?     @relation("PurchaseOrderCreatedBy", fields: [created_by_id], references: [id])
+  invoices   Invoice[]
+  payments   Payment[]
+
+  @@map("purchase_orders")
+}
+
+model Invoice {
+  id                     String    @id @default(uuid())
+  invoice_number         String    @unique
+  vendor_id              String
+  purchase_order_id      String
+  created_by_id          String?
+  updated_by_id          String?
+  amount                 Decimal   @db.Decimal(14, 2)
+  currency               String    @default("INR")
+  status                 String    @default("PENDING_L1")
+  required_approval_role String
+  current_approval_level String?
+  payment_status         String    @default("UNPAID")
+  invoice_total          Decimal   @default(0.00) @db.Decimal(14, 2)
+  paid_amount            Decimal   @default(0.00) @db.Decimal(14, 2)
+  remaining_amount       Decimal   @default(0.00) @db.Decimal(14, 2)
+  last_payment_date      DateTime?
+  last_payment_id        String?
+  
+  l1_approver_id         String?
+  l1_approved_at         DateTime?
+  l1_remarks             String?
+  
+  l2_approver_id         String?
+  l2_approved_at         DateTime?
+  l2_remarks             String?
+  
+  l3_approver_id         String?
+  l3_approved_at         DateTime?
+  l3_remarks             String?
+  
+  final_approved_at      DateTime?
+  rejected_by_id         String?
+  rejected_at            DateTime?
+  rejection_reason       String?
+  cancelled_at           DateTime?
+  
+  invoice_date           DateTime  @default(now())
+  due_date               DateTime?
+  description            String?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
+
+  vendor         Vendor        @relation(fields: [vendor_id], references: [id])
+  purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  created_by     User?         @relation("InvoiceCreatedBy",    fields: [created_by_id],   references: [id])
+  updated_by     User?         @relation("InvoiceUpdatedBy",    fields: [updated_by_id],   references: [id])
+  l1_approver    User?         @relation("InvoiceL1ApprovedBy", fields: [l1_approver_id],  references: [id])
+  l2_approver    User?         @relation("InvoiceL2ApprovedBy", fields: [l2_approver_id],  references: [id])
+  l3_approver    User?         @relation("InvoiceL3ApprovedBy", fields: [l3_approver_id],  references: [id])
+  rejected_by    User?         @relation("InvoiceRejectedBy",   fields: [rejected_by_id],  references: [id])
+  
+  payments       Payment[]
+  payments_old   PaymentOld[]
+
+  @@index([status])
+  @@index([vendor_id])
+  @@index([purchase_order_id])
+  @@index([required_approval_role, status])
+  @@map("invoices")
+}
+
+// ─── Rebuilt Multi-Payment model for partial, advance & recurring flows ───────
+model Payment {
+  id                      String    @id @default(uuid())
+  payment_number          String    @unique
+  invoice_id              String
+  vendor_id               String
+  purchase_order_id       String
+  amount                  Decimal   @db.Decimal(14, 2)
+  currency                String    @default("INR")
+  status                  String    @default("PENDING") // PENDING | INITIATED | PROCESSING | SUCCESS | FAILED | CANCELLED | REFUNDED | PARTIALLY_PAID | COMPLETED
+  payment_method          String?   // NEFT | RTGS | IMPS | UPI | Cheque | Cash | Credit Card | Debit Card | Net Banking | Wallet | ACH | Wire Transfer
+  payment_type            String    @default("FULL")    // FULL | PARTIAL | ADVANCE | FINAL | SCHEDULED | RECURRING | REFUND | ADJUSTMENT
+  payment_provider        String    @default("MANUAL")  // RAZORPAY | STRIPE | PAYPAL | CASHFREE | PHONEPE | PAYU | BANK_API | MANUAL
+  provider_transaction_id String?
+  gateway_reference       String?
+  payment_gateway_response Json?
+  gateway_status          String?
+  response_message        String?
+  payment_date            DateTime?
+  due_date                DateTime?
+  remarks                 String?
+
+  processed_by_id         String?
+  approved_by_id          String?
+  created_by_id           String?
+  updated_by_id           String?
+
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+
+  invoice        Invoice        @relation(fields: [invoice_id], references: [id])
+  vendor         Vendor         @relation(fields: [vendor_id], references: [id])
+  purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  
+  processed_by   User?          @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
+  approved_by    User?          @relation("PaymentApprovedBy",  fields: [approved_by_id],  references: [id])
+  created_by     User?          @relation("PaymentCreatedBy",   fields: [created_by_id],   references: [id])
+  updated_by     User?          @relation("PaymentUpdatedBy",   fields: [updated_by_id],   references: [id])
+
+  @@index([status])
+  @@index([invoice_id])
+  @@index([vendor_id])
+  @@index([purchase_order_id])
+  @@map("payments")
+}
+
+// Keeping the old one for migration safety
+model PaymentOld {
+  id             String    @id @default(uuid())
+  invoice_id     String    @unique
+  created_by_id  String?
+  amount         Decimal   @db.Decimal(14, 2)
+  currency       String    @default("INR")
+  status         String    @default("pending")
+  payment_method String?
+  reference_no   String?
+  notes          String?
+  approved_by_id String?
+  rejected_by_id String?
+  blocked_by_id  String?
+  approved_at    DateTime?
+  rejected_at    DateTime?
+  blocked_at     DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  invoice     Invoice @relation(fields: [invoice_id], references: [id])
+  created_by  User?   @relation("PaymentOldCreatedBy",  fields: [created_by_id],  references: [id])
+  approved_by User?   @relation("PaymentOldApprovedBy", fields: [approved_by_id], references: [id])
+  rejected_by User?   @relation("PaymentOldRejectedBy", fields: [rejected_by_id], references: [id])
+  blocked_by  User?   @relation("PaymentOldBlockedBy",  fields: [blocked_by_id],  references: [id])
+
+  @@map("payments_old")
+}
+
+model ApprovalLog {
+  id              String   @id @default(uuid())
+  entity_type     String
+  entity_id       String
+  action          String
+  from_status     String?
+  to_status       String?
+  performed_by_id String?
+  remarks         String?
+  created_at      DateTime @default(now())
+
+  performed_by User? @relation("ApprovalLogPerformedBy", fields: [performed_by_id], references: [id])
+
+  @@index([entity_type, entity_id])
+  @@index([performed_by_id])
+  @@map("approval_logs")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  user_id     String
+  title       String
+  message     String
+  type        String
+  entity_type String?
+  entity_id   String?
+  is_read     Boolean   @default(false)
+  read_at     DateTime?
+  created_at  DateTime  @default(now())
+
+  user User @relation("NotificationRecipient", fields: [user_id], references: [id])
+
+  @@index([user_id, is_read])
+  @@index([user_id, created_at])
+  @@map("notifications")
 }

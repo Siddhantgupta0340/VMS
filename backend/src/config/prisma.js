@@ -1,21 +1,24 @@
-import pkg from '@prisma/client';
+import pg from 'pg';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const { PrismaClient } = pkg;
-
 /**
- * PrismaClient Singleton
- * Ensures only one instance of PrismaClient is used throughout the application.
+ * PrismaClient Singleton (Prisma v7 pattern)
+ * Database connection is configured via adapter, not datasource url in schema.
  */
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-  }),
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
-// In development, you might want to see the queries
-if (process.env.NODE_ENV === 'development' && prisma.$on) {
-  // Optional: Add logging logic here if necessary
-}
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({
+  adapter,
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+});
 
 export default prisma;
