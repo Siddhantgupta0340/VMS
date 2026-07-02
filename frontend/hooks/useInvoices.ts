@@ -1,123 +1,175 @@
-'use client';
-
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
 import type {
   Invoice,
-  CreateInvoicePayload,
   InvoiceListResponse,
-  ApprovalLog,
+  ThreeWayMatch,
+  GoodsReceiptNote,
 } from '@/types/invoice';
 
-export const INVOICE_QUERY_KEYS = {
-  all: ['invoices'] as const,
-  list: (params?: object) => ['invoices', 'list', params] as const,
-  pending: (level: string, params?: object) => ['invoices', 'pending', level, params] as const,
-  detail: (id: string) => ['invoices', 'detail', id] as const,
-  history: (id: string) => ['invoices', 'history', id] as const,
+// ─── Query Keys ───────────────────────────────────────────────────────────────
+export const invoiceKeys = {
+  all:              () => ['invoices'],
+  lists:            () => [...invoiceKeys.all(), 'list'],
+  list:             (filters: Record<string, unknown>) => [...invoiceKeys.lists(), filters],
+  details:          () => [...invoiceKeys.all(), 'detail'],
+  detail:           (id: string) => [...invoiceKeys.details(), id],
+  history:          (id: string) => [...invoiceKeys.detail(id), 'history'],
+  pending:          (level: string) => [...invoiceKeys.all(), 'pending', level],
+  myPending:        () => [...invoiceKeys.all(), 'my-pending'],
+  myApproved:       () => [...invoiceKeys.all(), 'my-approved'],
+  observation:      () => [...invoiceKeys.all(), 'finance-head-observation'],
+  matching:         (invoiceId: string) => [...invoiceKeys.detail(invoiceId), 'matching'],
 };
 
-// ─── API Requests ────────────────────────────────────────────────────────────
+// ─── LIST INVOICES ────────────────────────────────────────────────────────────
+export function useInvoices(filters: Record<string, unknown> = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.list(filters),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices', { params: filters });
+      return data;
+    },
+  });
+}
 
-const createInvoice = async (payload: CreateInvoicePayload) => {
-  const response = await apiClient.post<{ success: boolean; data: Invoice }>('/invoices', payload);
-  return response.data.data;
-};
+// ─── GET SINGLE INVOICE ───────────────────────────────────────────────────────
+export function useInvoice(id: string) {
+  return useQuery<{ success: boolean; data: Invoice }>({
+    queryKey: invoiceKeys.detail(id),
+    queryFn:  async () => {
+      const { data } = await apiClient.get(`/invoices/${id}`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
 
-const getInvoices = async (params?: object) => {
-  const response = await apiClient.get<InvoiceListResponse>('/invoices', { params });
-  return response.data;
-};
+// ─── APPROVAL HISTORY ─────────────────────────────────────────────────────────
+export function useInvoiceHistory(id: string) {
+  return useQuery<{ success: boolean; data: unknown[] }>({
+    queryKey: invoiceKeys.history(id),
+    queryFn:  async () => {
+      const { data } = await apiClient.get(`/invoices/${id}/history`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
 
-const getInvoiceById = async (id: string) => {
-  const response = await apiClient.get<{ success: boolean; data: Invoice }>(`/invoices/${id}`);
-  return response.data.data;
-};
+// ─── PENDING QUEUES ───────────────────────────────────────────────────────────
 
-const approveInvoice = async ({ id, remarks }: { id: string; remarks?: string }) => {
-  const response = await apiClient.patch<{ success: boolean; data: Invoice }>(
-    `/invoices/${id}/approve`,
-    { remarks }
-  );
-  return response.data.data;
-};
+export function usePendingThreeWayMatch(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending('three-way-match'),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/pending/three-way-match', { params });
+      return data;
+    },
+  });
+}
 
-const rejectInvoice = async ({ id, rejectionReason }: { id: string; rejectionReason: string }) => {
-  const response = await apiClient.patch<{ success: boolean; data: Invoice }>(
-    `/invoices/${id}/reject`,
-    { rejectionReason }
-  );
-  return response.data.data;
-};
+export function usePendingAdminReview(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending('admin-review'),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/pending/admin-review', { params });
+      return data;
+    },
+  });
+}
 
-const cancelInvoice = async ({ id, remarks }: { id: string; remarks?: string }) => {
-  const response = await apiClient.patch<{ success: boolean; data: Invoice }>(
-    `/invoices/${id}/cancel`,
-    { remarks }
-  );
-  return response.data.data;
-};
+/** Formerly useGetPendingL1 */
+export function usePendingTeamLead(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending('team-lead'),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/pending/team-lead', { params });
+      return data;
+    },
+  });
+}
 
-const getPendingInvoices = async (level: 'l1' | 'l2' | 'l3' | 'my', params?: object) => {
-  const endpoint = level === 'my' ? '/invoices/my/pending' : `/invoices/pending/${level}`;
-  const response = await apiClient.get<InvoiceListResponse>(endpoint, { params });
-  return response.data;
-};
+/** Formerly useGetPendingL2 */
+export function usePendingManager(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending('manager'),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/pending/manager', { params });
+      return data;
+    },
+  });
+}
 
-const getMyApprovedInvoices = async (params?: object) => {
-  const response = await apiClient.get<InvoiceListResponse>('/invoices/my/approved', { params });
-  return response.data;
-};
+/** Formerly useGetPendingL3 */
+export function usePendingFinanceHead(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending('finance-head'),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/pending/finance-head', { params });
+      return data;
+    },
+  });
+}
 
-const getInvoiceHistory = async (id: string) => {
-  const response = await apiClient.get<{ success: boolean; data: ApprovalLog[] }>(
-    `/invoices/${id}/history`
-  );
-  return response.data.data;
-};
+export function useMyPendingInvoices(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.myPending(),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/my/pending', { params });
+      return data;
+    },
+  });
+}
 
-// ─── React Query Hooks ────────────────────────────────────────────────────────
+export function useMyApprovedInvoices(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.myApproved(),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/my/approved', { params });
+      return data;
+    },
+  });
+}
+
+// ─── FINANCE HEAD OBSERVATION ─────────────────────────────────────────────────
+export function useFinanceHeadObservation(params = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.observation(),
+    queryFn:  async () => {
+      const { data } = await apiClient.get('/invoices/observation', { params });
+      return data;
+    },
+  });
+}
+
+// ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createInvoice,
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const { data } = await apiClient.post('/invoices', payload);
+      return data;
+    },
     onSuccess: () => {
-      toast.success('Invoice created successfully.');
-      queryClient.invalidateQueries({ queryKey: INVOICE_QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('three-way-match') });
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Failed to create invoice.');
-    },
-  });
-}
-
-export function useInvoices(params?: object) {
-  return useQuery({
-    queryKey: INVOICE_QUERY_KEYS.list(params),
-    queryFn: () => getInvoices(params),
-  });
-}
-
-export function useInvoice(id: string) {
-  return useQuery({
-    queryKey: INVOICE_QUERY_KEYS.detail(id),
-    queryFn: () => getInvoiceById(id),
-    enabled: !!id,
   });
 }
 
 export function useApproveInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: approveInvoice,
-    onSuccess: (data) => {
-      toast.success(data.status === 'APPROVED' ? 'Invoice fully approved!' : 'Invoice approved at current level.');
-      queryClient.invalidateQueries({ queryKey: INVOICE_QUERY_KEYS.all });
+    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
+      const { data } = await apiClient.patch(`/invoices/${id}/approve`, { remarks });
+      return data;
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Approval failed.');
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.myPending() });
     },
   });
 }
@@ -125,13 +177,13 @@ export function useApproveInvoice() {
 export function useRejectInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: rejectInvoice,
-    onSuccess: () => {
-      toast.success('Invoice rejected successfully.');
-      queryClient.invalidateQueries({ queryKey: INVOICE_QUERY_KEYS.all });
+    mutationFn: async ({ id, rejectionReason, remarks }: { id: string; rejectionReason: string; remarks?: string }) => {
+      const { data } = await apiClient.patch(`/invoices/${id}/reject`, { rejectionReason, remarks });
+      return data;
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Rejection failed.');
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
     },
   });
 }
@@ -139,35 +191,170 @@ export function useRejectInvoice() {
 export function useCancelInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: cancelInvoice,
+    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
+      const { data } = await apiClient.patch(`/invoices/${id}/cancel`, { remarks });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    },
+  });
+}
+
+// Admin Review mutations
+export function useAdminApproveInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
+      const { data } = await apiClient.patch(`/invoices/${id}/admin-review/approve`, { remarks });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('admin-review') });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('team-lead') });
+    },
+  });
+}
+
+export function useAdminRejectInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, remarks }: { id: string; remarks: string }) => {
+      const { data } = await apiClient.patch(`/invoices/${id}/admin-review/reject`, { remarks });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('admin-review') });
+    },
+  });
+}
+
+// Soft Delete & Restore
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, deleteReason }: { id: string; deleteReason: string }) => {
+      const { data } = await apiClient.delete(`/invoices/${id}`, { data: { deleteReason } });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+    },
+  });
+}
+
+export function useRestoreInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data } = await apiClient.post(`/invoices/${id}/restore`);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
+    },
+  });
+}
+
+// Finance Head remark
+export function useAddFinanceHeadRemark() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, remark }: { id: string; remark: string }) => {
+      const { data } = await apiClient.post(`/invoices/${id}/remark`, { remark });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.history(variables.id) });
+    },
+  });
+}
+
+// ─── THREE-WAY MATCHING HOOKS ─────────────────────────────────────────────────
+
+export function useInvoiceMatching(invoiceId: string) {
+  return useQuery<{ success: boolean; data: ThreeWayMatch[] }>({
+    queryKey: invoiceKeys.matching(invoiceId),
+    queryFn:  async () => {
+      const { data } = await apiClient.get(`/three-way-matching/invoice/${invoiceId}`);
+      return data;
+    },
+    enabled: !!invoiceId,
+  });
+}
+
+export function useStartMatching() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { invoiceId: string; grnId?: string }) => {
+      const { data } = await apiClient.post('/three-way-matching/start', payload);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.invoiceId) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.matching(variables.invoiceId) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('three-way-match') });
+    },
+  });
+}
+
+// ─── GRN HOOKS ────────────────────────────────────────────────────────────────
+
+export const grnKeys = {
+  all: () => ['grns'],
+  byPO: (poId: string) => ['grns', 'by-po', poId],
+  detail: (id: string) => ['grns', id],
+};
+
+export function useGRNsByPurchaseOrder(poId: string) {
+  return useQuery<{ success: boolean; data: GoodsReceiptNote[] }>({
+    queryKey: grnKeys.byPO(poId),
+    queryFn:  async () => {
+      const { data } = await apiClient.get(`/three-way-matching/grn/by-po/${poId}`);
+      return data;
+    },
+    enabled: !!poId,
+  });
+}
+
+export function useCreateGRN() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const { data } = await apiClient.post('/three-way-matching/grn', payload);
+      return data;
+    },
     onSuccess: () => {
-      toast.success('Invoice cancelled successfully.');
-      queryClient.invalidateQueries({ queryKey: INVOICE_QUERY_KEYS.all });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Cancellation failed.');
+      queryClient.invalidateQueries({ queryKey: grnKeys.all() });
     },
   });
 }
 
-export function usePendingInvoices(level: 'l1' | 'l2' | 'l3' | 'my', params?: object) {
-  return useQuery({
-    queryKey: INVOICE_QUERY_KEYS.pending(level, params),
-    queryFn: () => getPendingInvoices(level, params),
-  });
-}
-
-export function useMyApprovedInvoices(params?: object) {
-  return useQuery({
-    queryKey: INVOICE_QUERY_KEYS.pending('approved', params),
-    queryFn: () => getMyApprovedInvoices(params),
-  });
-}
-
-export function useInvoiceHistory(id: string) {
-  return useQuery({
-    queryKey: INVOICE_QUERY_KEYS.history(id),
-    queryFn: () => getInvoiceHistory(id),
-    enabled: !!id,
+/** Unified pending invoices fetch hook */
+export function usePendingInvoices(level: string, params: Record<string, unknown> = {}) {
+  return useQuery<InvoiceListResponse>({
+    queryKey: invoiceKeys.pending(level),
+    queryFn: async () => {
+      let url = '/invoices/my/pending';
+      const lvl = String(level || 'my').toLowerCase();
+      if (lvl === 'team-lead') {
+        url = '/invoices/pending/team-lead';
+      } else if (lvl === 'manager') {
+        url = '/invoices/pending/manager';
+      } else if (lvl === 'finance-head') {
+        url = '/invoices/pending/finance-head';
+      } else if (lvl === 'three-way-match' || lvl === '3wm') {
+        url = '/invoices/pending/three-way-match';
+      } else if (lvl === 'admin-review') {
+        url = '/invoices/pending/admin-review';
+      }
+      const { data } = await apiClient.get(url, { params });
+      return data;
+    },
   });
 }

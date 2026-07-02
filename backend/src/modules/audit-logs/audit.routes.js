@@ -10,13 +10,15 @@ router.use(protect);
 
 /**
  * GET /api/v1/audit-logs
- * Query: entityType, entityId, action, performedById, dateFrom, dateTo, page, limit
+ * Query: entityType, entityId, action, performedById, dateFrom, dateTo, page, limit, source
+ * Access: Super Admin + Finance Head (observation)
  */
-router.get('/', authorize([ROLES.SUPER_ADMIN]), auditController.getAuditLogs);
+router.get('/', authorize([ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD]), auditController.getAuditLogs);
 
 /**
  * GET /api/v1/audit-logs/:id
+ * Access: Super Admin + Finance Head
  */
-router.get('/:id', authorize([ROLES.SUPER_ADMIN]), auditController.getAuditLogById);
+router.get('/:id', authorize([ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD]), auditController.getAuditLogById);
 
 export default router;

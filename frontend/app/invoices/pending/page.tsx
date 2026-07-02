@@ -8,6 +8,7 @@ import { useMyDashboard } from '@/hooks/useDashboard';
 import StatusBadge from '@/components/invoice/StatusBadge';
 import { format } from 'date-fns';
 import { FileText, ArrowRight, ClipboardList, CheckSquare, Clock } from 'lucide-react';
+import Sidebar from '@/components/Sidebar';
 
 export default function PendingApprovalDashboard() {
   const router = useRouter();
@@ -32,11 +33,11 @@ export default function PendingApprovalDashboard() {
     }
   }, []);
 
-  const getPendingLevel = (): 'l1' | 'l2' | 'l3' | 'my' => {
+  const getPendingLevel = (): string => {
     if (!user) return 'my';
-    if (user.role === 'L1') return 'l1';
-    if (user.role === 'L2') return 'l2';
-    if (user.role === 'L3') return 'l3';
+    if (user.role === 'TEAM_LEAD') return 'team-lead';
+    if (user.role === 'MANAGER') return 'manager';
+    if (user.role === 'FINANCE_HEAD') return 'finance-head';
     return 'my';
   };
 
@@ -68,7 +69,7 @@ export default function PendingApprovalDashboard() {
   const totalPages = currentData?.totalPages || 1;
 
   const isCM = user?.role === 'CASE_MANAGER';
-  const isApprover = ['L1', 'L2', 'L3'].includes(user?.role || '');
+  const isApprover = ['TEAM_LEAD', 'MANAGER', 'FINANCE_HEAD'].includes(user?.role || '');
 
   const formatDate = (dateStr: string) => {
     try {
@@ -79,8 +80,10 @@ export default function PendingApprovalDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-zinc-950">
+      <Sidebar user={user} />
+      <div className="flex-1 overflow-y-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
         {/* Welcome Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -396,6 +399,7 @@ export default function PendingApprovalDashboard() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

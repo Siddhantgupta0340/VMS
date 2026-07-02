@@ -8,6 +8,7 @@ import ApprovalTimeline from '@/components/invoice/ApprovalTimeline';
 import ApprovalActions from '@/components/invoice/ApprovalActions';
 import PaymentForm from '@/components/payment/PaymentForm';
 import { format } from 'date-fns';
+import Sidebar from '@/components/Sidebar';
 import {
   Building2,
   Calendar,
@@ -16,7 +17,7 @@ import {
   DollarSign,
   Briefcase,
 } from 'lucide-react';
-import type { Invoice } from '@/types/invoice';
+import type { Invoice, AuditLog } from '@/types/invoice';
 
 interface ExtendedInvoice extends Invoice {
   payments?: {
@@ -96,8 +97,10 @@ export default function InvoiceDetailPage() {
   const isRejected = invoice.status === 'REJECTED';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-zinc-950">
+      <Sidebar user={user} />
+      <div className="flex-1 overflow-y-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
         {/* Breadcrumb Header */}
         <div className="mb-8">
           <button
@@ -124,7 +127,7 @@ export default function InvoiceDetailPage() {
               <div className="flex items-center gap-3">
                 <ApprovalActions invoice={invoice} currentUser={user} />
                 {['APPROVED', 'PAID'].includes(invoice.status.toUpperCase()) &&
-                  ['CASE_MANAGER', 'FINANCE_MANAGER', 'SUPER_ADMIN'].includes(user.role) && (
+                  ['CASE_MANAGER', 'FINANCE_HEAD', 'SUPER_ADMIN'].includes(user.role) && (
                     <button
                       type="button"
                       className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shadow-sm"
@@ -227,17 +230,17 @@ export default function InvoiceDetailPage() {
             </div>
 
             {/* Audit & Transition Logs History */}
-            {history && history.length > 0 && (
+            {history?.data && history.data.length > 0 && (
               <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-150 dark:border-zinc-850 p-6 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-zinc-50 border-b border-gray-100 dark:border-zinc-800 pb-3 mb-4">
                   Approval Logs Audit Trail
                 </h3>
                 <div className="flow-root">
                   <ul className="-mb-8">
-                    {history.map((log, logIdx) => (
+                    {(history.data as AuditLog[]).map((log: AuditLog, logIdx: number) => (
                       <li key={log.id}>
                         <div className="relative pb-8">
-                          {logIdx !== history.length - 1 && (
+                          {logIdx !== history.data.length - 1 && (
                             <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-100 dark:bg-zinc-850" />
                           )}
                           <div className="relative flex space-x-3">
@@ -313,6 +316,7 @@ export default function InvoiceDetailPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
       <PaymentForm

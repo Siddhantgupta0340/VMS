@@ -11,7 +11,7 @@ const sendEmail = async (options) => {
     console.log("SMTP_USER :", process.env.SMTP_USER);
     console.log(
       "SMTP_PASS :",
-      process.env.SMTP_PASS ? "Loaded ✅" : "Missing ❌"
+      process.env.SMTP_PASS ? "Loaded " : "Missing "
     );
     console.log("EMAIL_FROM :", process.env.EMAIL_FROM);
 
@@ -40,7 +40,7 @@ const sendEmail = async (options) => {
 
     await transporter.verify();
 
-    console.log("✅ SMTP Connection Successful");
+    console.log("SMTP Connection Successful");
 
     console.log("\n[4] Email Details");
     console.log("To      :", options.to);

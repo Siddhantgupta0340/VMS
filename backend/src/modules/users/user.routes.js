@@ -9,7 +9,7 @@ import {
   updateUserSchema,
   deleteUserSchema,
   searchUsersSchema,
-  toggleStatusSchema,
+  updateUserStatusSchema,
   adminResetPasswordSchema,
 } from '../../zodSchema/index.js';
 import { PERMISSIONS } from '../auth/auth.permissions.js';
@@ -25,7 +25,7 @@ router.route('/').post(validate(createUserSchema), userController.createUser).ge
 
 router.route('/:id').get(userController.getUserById).put(validate(updateUserSchema), userController.updateUser).delete(validate(deleteUserSchema), userController.deleteUser);
 
-router.patch('/:id/status', validate(toggleStatusSchema), userController.toggleUserStatus);
+router.patch('/:id/status', validate(updateUserStatusSchema), userController.updateUserStatus);
 router.post('/:id/reset-password', validate(adminResetPasswordSchema), userController.adminResetPassword);
 
 export default router;

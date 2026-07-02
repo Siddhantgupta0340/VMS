@@ -9,13 +9,13 @@ const invoiceInclude = {
   updated_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
-  l1_approver: {
+  team_lead_approver: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
-  l2_approver: {
+  manager_approver: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
-  l3_approver: {
+  finance_head_approver: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
   rejected_by: {

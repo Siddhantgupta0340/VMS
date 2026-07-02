@@ -9,6 +9,8 @@ import {
   MessageSquare,
   MinusCircle,
   Ban,
+  Shield,
+  Activity,
 } from 'lucide-react';
 
 interface ApprovalTimelineProps {
@@ -29,8 +31,8 @@ interface TimelineStep {
 
 export default function ApprovalTimeline({ invoice }: ApprovalTimelineProps) {
   const amount = invoice.amount;
-  const requiresL2 = amount > 10000;
-  const requiresL3 = amount > 100000;
+  const requiresManager = amount > 10000;
+  const requiresFinanceHead = amount > 100000;
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '';
@@ -41,106 +43,12 @@ export default function ApprovalTimeline({ invoice }: ApprovalTimelineProps) {
     }
   };
 
-  // Helper to determine status icon and styling for L1/L2/L3 steps
-  const getStepDetails = (
-    level: 'L1' | 'L2' | 'L3',
-    approver: any,
-    approvedAt: string | null,
-    remarks: string | null
-  ) => {
-    const isL2Required = requiresL2;
-    const isL3Required = requiresL3;
-
-    if (level === 'L2' && !isL2Required) {
-      return {
-        status: 'not_required',
-        color: 'text-gray-400 border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900',
-        icon: <MinusCircle className="h-5 w-5 text-gray-400" />,
-        title: 'Level 2 Approval (Not Required)',
-        description: 'Invoice amount is ₹10,000 or below.',
-        approverName: null,
-        date: null,
-        remarks: null,
-      };
-    }
-
-    if (level === 'L3' && !isL3Required) {
-      return {
-        status: 'not_required',
-        color: 'text-gray-400 border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900',
-        icon: <MinusCircle className="h-5 w-5 text-gray-400" />,
-        title: 'Level 3 Approval (Not Required)',
-        description: 'Invoice amount is ₹100,000 or below.',
-        approverName: null,
-        date: null,
-        remarks: null,
-      };
-    }
-
-    if (approvedAt) {
-      return {
-        status: 'approved',
-        color: 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20',
-        icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
-        title: `Level ${level} Approved`,
-        approverName: approver
-          ? `${approver.first_name || ''} ${approver.last_name || ''}`.trim() || approver.email
-          : 'Approver',
-        date: formatDate(approvedAt),
-        remarks,
-        description: null,
-      };
-    }
-
-    // Check if rejected at this level
-    if (invoice.status === 'REJECTED' && invoice.rejected_by?.role === level) {
-      return {
-        status: 'rejected',
-        color: 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-950/20',
-        icon: <XCircle className="h-5 w-5 text-rose-600" />,
-        title: `Level ${level} Rejected`,
-        approverName: invoice.rejected_by
-          ? `${invoice.rejected_by.first_name || ''} ${invoice.rejected_by.last_name || ''}`.trim() || invoice.rejected_by.email
-          : 'Approver',
-        date: formatDate(invoice.rejected_at),
-        remarks: invoice.rejection_reason,
-        description: null,
-      };
-    }
-
-    // Check if it is currently waiting at this level
-    const isCurrentLevel = invoice.current_approval_level === level;
-
-    if (isCurrentLevel && invoice.status !== 'REJECTED' && invoice.status !== 'CANCELLED') {
-      return {
-        status: 'pending',
-        color: 'text-amber-600 border-amber-500 bg-amber-50 dark:bg-amber-950/10 ring-4 ring-amber-100 dark:ring-amber-900/30',
-        icon: <Clock className="h-5 w-5 text-amber-600 animate-pulse" />,
-        title: `Pending Level ${level} Approval`,
-        description: `Awaiting action from a Level ${level} Manager.`,
-        approverName: null,
-        date: null,
-        remarks: null,
-      };
-    }
-
-    return {
-      status: 'upcoming',
-      color: 'text-gray-400 border-gray-200 bg-white dark:bg-zinc-950',
-      icon: <Clock className="h-5 w-5 text-gray-300" />,
-      title: `Level ${level} Approval`,
-      description: 'Waiting for previous levels to complete.',
-      approverName: null,
-      date: null,
-      remarks: null,
-    };
-  };
-
   const steps: TimelineStep[] = [
+    // Step 1: Submission
     {
       key: 'submit',
       title: 'Invoice Submitted',
-      icon: <CheckCircle2 className="h-5 w-5 text-indigo-600" />,
+      icon: <CheckCircle2 className="h-5 w-5 text-indigo-650" />,
       color: 'text-indigo-600 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/20',
       approverName: invoice.created_by
         ? `${invoice.created_by.first_name || ''} ${invoice.created_by.last_name || ''}`.trim() || invoice.created_by.email
@@ -150,17 +58,160 @@ export default function ApprovalTimeline({ invoice }: ApprovalTimelineProps) {
       remarks: null,
       status: 'approved',
     },
+
+    // Step 2: Three-Way Matching
     {
-      key: 'L1',
-      ...getStepDetails('L1', invoice.l1_approver, invoice.l1_approved_at, invoice.l1_remarks),
+      key: 'three-way-match',
+      title: 'Three-Way Matching',
+      icon: invoice.three_way_match_status === 'MATCHED' ? (
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+      ) : invoice.three_way_match_status === 'UNMATCHED' ? (
+        <XCircle className="h-5 w-5 text-rose-600" />
+      ) : (
+        <Activity className="h-5 w-5 text-purple-600 animate-pulse" />
+      ),
+      color: invoice.three_way_match_status === 'MATCHED'
+        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
+        : invoice.three_way_match_status === 'UNMATCHED'
+        ? 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-950/20'
+        : 'text-purple-600 border-purple-500 bg-purple-50 dark:bg-purple-950/10',
+      approverName: invoice.matching_completed_by_id ? 'Case Manager' : null,
+      date: formatDate(invoice.matching_completed_at),
+      description: invoice.three_way_match_status === 'MATCHED'
+        ? `Verification completed successfully (${invoice.three_way_match_percentage}% match).`
+        : invoice.three_way_match_status === 'UNMATCHED'
+        ? `Verification failed. Discrepancy found (${invoice.three_way_match_percentage || 0}% match).`
+        : 'Awaiting Case Manager to run automated comparison of PO, GRN, and Invoice.',
+      remarks: invoice.matching_remarks,
+      status: invoice.three_way_match_status ? (invoice.three_way_match_status === 'MATCHED' ? 'approved' : 'rejected') : 'pending',
     },
+
+    // Step 3: Admin Review
     {
-      key: 'L2',
-      ...getStepDetails('L2', invoice.l2_approver, invoice.l2_approved_at, invoice.l2_remarks),
+      key: 'admin-review',
+      title: 'Admin Match Review',
+      icon: invoice.admin_review_status === 'APPROVED' ? (
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+      ) : invoice.admin_review_status === 'REJECTED' ? (
+        <XCircle className="h-5 w-5 text-rose-600" />
+      ) : (
+        <Shield className="h-5 w-5 text-orange-600" />
+      ),
+      color: invoice.admin_review_status === 'APPROVED'
+        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
+        : invoice.admin_review_status === 'REJECTED'
+        ? 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-950/20'
+        : 'text-orange-600 border-orange-500 bg-orange-50 dark:bg-orange-950/10',
+      approverName: invoice.admin_review_status ? 'Super Admin' : null,
+      date: formatDate(invoice.admin_reviewed_at),
+      description: invoice.admin_review_status === 'APPROVED'
+        ? 'Admin approved the matching report and pushed invoice to Team Lead approval.'
+        : invoice.admin_review_status === 'REJECTED'
+        ? 'Admin rejected matching report due to mismatches. Correction requested.'
+        : 'Waiting for Admin to review and authorize the Three-Way Match results.',
+      remarks: invoice.admin_remarks,
+      status: invoice.admin_review_status ? (invoice.admin_review_status === 'APPROVED' ? 'approved' : 'rejected') : 'pending',
     },
+
+    // Step 4: Team Lead Approval (Mandatory first role level)
     {
-      key: 'L3',
-      ...getStepDetails('L3', invoice.l3_approver, invoice.l3_approved_at, invoice.l3_remarks),
+      key: 'team-lead',
+      title: 'Team Lead Approval',
+      icon: invoice.team_lead_approved_at ? (
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+      ) : invoice.status === 'REJECTED' && invoice.rejected_by_id && invoice.current_approval_level === 'TEAM_LEAD' ? (
+        <XCircle className="h-5 w-5 text-rose-600" />
+      ) : (
+        <Clock className="h-5 w-5 text-amber-600" />
+      ),
+      color: invoice.team_lead_approved_at
+        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
+        : invoice.status === 'REJECTED' && invoice.rejected_by_id && invoice.current_approval_level === 'TEAM_LEAD'
+        ? 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-950/20'
+        : 'text-amber-600 border-amber-500 bg-amber-50 dark:bg-amber-950/10',
+      approverName: invoice.team_lead_approver
+        ? `${invoice.team_lead_approver.first_name || ''} ${invoice.team_lead_approver.last_name || ''}`.trim() || invoice.team_lead_approver.email
+        : null,
+      date: formatDate(invoice.team_lead_approved_at),
+      description: invoice.team_lead_approved_at
+        ? 'Team Lead verified and approved.'
+        : invoice.status === 'REJECTED' && invoice.current_approval_level === 'TEAM_LEAD'
+        ? 'Rejected by Team Lead.'
+        : invoice.current_approval_level === 'TEAM_LEAD'
+        ? 'Awaiting review and approval from Team Lead.'
+        : 'Pending previous workflow steps.',
+      remarks: invoice.team_lead_remarks,
+      status: invoice.team_lead_approved_at ? 'approved' : (invoice.current_approval_level === 'TEAM_LEAD' ? 'pending' : 'upcoming'),
+    },
+
+    // Step 5: Manager Approval (Amount > 10K)
+    {
+      key: 'manager',
+      title: 'Manager Approval',
+      icon: !requiresManager ? (
+        <MinusCircle className="h-5 w-5 text-gray-400" />
+      ) : invoice.manager_approved_at ? (
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+      ) : invoice.status === 'REJECTED' && invoice.rejected_by_id && invoice.current_approval_level === 'MANAGER' ? (
+        <XCircle className="h-5 w-5 text-rose-600" />
+      ) : (
+        <Clock className="h-5 w-5 text-amber-600" />
+      ),
+      color: !requiresManager
+        ? 'text-gray-450 border-gray-250 bg-gray-50 dark:bg-zinc-900'
+        : invoice.manager_approved_at
+        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
+        : 'text-amber-600 border-amber-500 bg-amber-50 dark:bg-amber-950/10',
+      approverName: invoice.manager_approver
+        ? `${invoice.manager_approver.first_name || ''} ${invoice.manager_approver.last_name || ''}`.trim() || invoice.manager_approver.email
+        : null,
+      date: formatDate(invoice.manager_approved_at),
+      description: !requiresManager
+        ? 'Not required (Amount is ≤ ₹10,000).'
+        : invoice.manager_approved_at
+        ? 'Manager verified and approved.'
+        : invoice.status === 'REJECTED' && invoice.current_approval_level === 'MANAGER'
+        ? 'Rejected by Manager.'
+        : invoice.current_approval_level === 'MANAGER'
+        ? 'Awaiting review and approval from Manager.'
+        : 'Pending previous workflow steps.',
+      remarks: invoice.manager_remarks,
+      status: !requiresManager ? 'not_required' : (invoice.manager_approved_at ? 'approved' : (invoice.current_approval_level === 'MANAGER' ? 'pending' : 'upcoming')),
+    },
+
+    // Step 6: Finance Head Approval (Amount > 100K)
+    {
+      key: 'finance-head',
+      title: 'Finance Head Approval',
+      icon: !requiresFinanceHead ? (
+        <MinusCircle className="h-5 w-5 text-gray-400" />
+      ) : invoice.finance_head_approved_at ? (
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+      ) : invoice.status === 'REJECTED' && invoice.rejected_by_id && invoice.current_approval_level === 'FINANCE_HEAD' ? (
+        <XCircle className="h-5 w-5 text-rose-600" />
+      ) : (
+        <Clock className="h-5 w-5 text-amber-600" />
+      ),
+      color: !requiresFinanceHead
+        ? 'text-gray-450 border-gray-250 bg-gray-50 dark:bg-zinc-900'
+        : invoice.finance_head_approved_at
+        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
+        : 'text-amber-600 border-amber-500 bg-amber-50 dark:bg-amber-950/10',
+      approverName: invoice.finance_head_approver
+        ? `${invoice.finance_head_approver.first_name || ''} ${invoice.finance_head_approver.last_name || ''}`.trim() || invoice.finance_head_approver.email
+        : null,
+      date: formatDate(invoice.finance_head_approved_at),
+      description: !requiresFinanceHead
+        ? 'Not required (Amount is ≤ ₹1,00,000).'
+        : invoice.finance_head_approved_at
+        ? 'Finance Head verified and approved.'
+        : invoice.status === 'REJECTED' && invoice.current_approval_level === 'FINANCE_HEAD'
+        ? 'Rejected by Finance Head.'
+        : invoice.current_approval_level === 'FINANCE_HEAD'
+        ? 'Awaiting review and approval from Finance Head.'
+        : 'Pending previous workflow steps.',
+      remarks: invoice.finance_head_remarks,
+      status: !requiresFinanceHead ? 'not_required' : (invoice.finance_head_approved_at ? 'approved' : (invoice.current_approval_level === 'FINANCE_HEAD' ? 'pending' : 'upcoming')),
     },
   ];
 
@@ -257,11 +308,7 @@ export default function ApprovalTimeline({ invoice }: ApprovalTimelineProps) {
                       {isApproved
                         ? 'This invoice has passed all required approval checks and is queued for payment.'
                         : isRejected
-                        ? `Rejected by ${
-                            invoice.rejected_by
-                              ? `${invoice.rejected_by.first_name || ''} ${invoice.rejected_by.last_name || ''}`.trim()
-                              : 'Manager'
-                          }.`
+                        ? `Rejected: ${invoice.rejection_reason || 'Discrepancy found in verification.'}`
                         : 'This invoice was cancelled and will not proceed.'}
                     </p>
                   </div>

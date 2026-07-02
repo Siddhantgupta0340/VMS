@@ -55,7 +55,7 @@ const validate = (schema) => (req, res, next) => {
     }
 
     if (isDev) {
-      console.log('[Validate] ✅ Validation passed');
+      console.log('[Validate]  Validation passed');
     }
     return next();
   }

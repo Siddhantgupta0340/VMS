@@ -11,13 +11,30 @@ const ALL_ROLES = Object.values(ROLES);
 router.use(protect);
 
 /**
- * GET /api/v1/dashboard/overview — SUPER_ADMIN only
+ * GET /api/v1/dashboard/overview — Full system overview
+ * Access: Super Admin
  */
-router.get('/overview', authorize([ROLES.SUPER_ADMIN]), dashboardController.getOverview);
+router.get('/overview',
+  authorize([ROLES.SUPER_ADMIN]),
+  dashboardController.getOverview,
+);
 
 /**
- * GET /api/v1/dashboard/me — All authenticated roles
+ * GET /api/v1/dashboard/finance-head/observation — Finance Head observation stats
+ * Access: Finance Head + Super Admin
  */
-router.get('/me', authorize(ALL_ROLES), dashboardController.getMyDashboard);
+router.get('/finance-head/observation',
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  dashboardController.getFinanceHeadObservation,
+);
+
+/**
+ * GET /api/v1/dashboard/me — Role-specific dashboard
+ * Access: All authenticated roles
+ */
+router.get('/me',
+  authorize(ALL_ROLES),
+  dashboardController.getMyDashboard,
+);
 
 export default router;

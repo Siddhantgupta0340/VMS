@@ -123,7 +123,7 @@ class PaymentService {
       notificationService.createNotification(
         user.id,
         'payment_created',
-        '💳 Payment Requested',
+        ' Payment Requested',
         `Payment request ${payment.payment_number} created for amount ${payment.currency} ${payment.amount}.`,
         'payment',
         payment.id
@@ -201,7 +201,7 @@ class PaymentService {
       throw new ApiError(400, 'Only pending or cancelled payments can be deleted.');
     }
 
-    if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_MANAGER) {
+    if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
       throw new ApiError(403, 'Unauthorized access.');
     }
 
@@ -630,7 +630,7 @@ class PaymentService {
         notificationService.createNotification(
           payment.created_by_id,
           finalStatus === PAYMENT_STATUS.SUCCESS ? 'payment_completed' : 'payment_failed',
-          finalStatus === PAYMENT_STATUS.SUCCESS ? '✅ Payment Success' : '❌ Payment Failed',
+          finalStatus === PAYMENT_STATUS.SUCCESS ? ' Payment Success' : ' Payment Failed',
           `Payment request ${payment.payment_number} for amount ${payment.currency} ${payment.amount} has ${finalStatus.toLowerCase()}.`,
           'payment',
           paymentId

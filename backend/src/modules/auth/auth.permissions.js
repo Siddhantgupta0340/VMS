@@ -2,19 +2,21 @@ import { ROLES } from '../../zodSchema/index.js';
 import { USER_PERMISSIONS } from '../users/user.permissions.js';
 
 /**
- * Permission mapping for the Authentication module.
- * In a full system, this would also include permissions for vendors, POs, etc.
+ * RBAC Permissions for the Authentication module.
+ * All roles that are active in the system have access to profile & auth routes.
  */
+const ALL_ACTIVE_ROLES = Object.values(ROLES);
+
 export const PERMISSIONS = {
   AUTH: {
-    GET_PROFILE: [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_MANAGER, ROLES.L1, ROLES.L2, ROLES.L3],
-    CHANGE_PASSWORD: [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_MANAGER, ROLES.L1, ROLES.L2, ROLES.L3],
-    LOGOUT: [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_MANAGER, ROLES.L1, ROLES.L2, ROLES.L3],
+    GET_PROFILE:     ALL_ACTIVE_ROLES,
+    CHANGE_PASSWORD: ALL_ACTIVE_ROLES,
+    LOGOUT:          ALL_ACTIVE_ROLES,
   },
   USER: USER_PERMISSIONS,
   ADMIN: {
     ALL: [ROLES.SUPER_ADMIN],
-  }
+  },
 };
 
 export default PERMISSIONS;

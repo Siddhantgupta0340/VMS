@@ -4,6 +4,7 @@ import ApiError from '../../utils/ApiError.js';
 import { USER_MESSAGES } from './user.constants.js';
 import { UserEntity } from '../../zodSchema/index.js';
 import { sanitizeUser } from '../../utils/sanitizeUser.js';
+import notificationService from '../notifications/notification.service.js';
 
 /**
  * @class UserService
@@ -100,14 +101,58 @@ class UserService {
   }
 
   /**
-   * Toggles the active status of a user.
+   * Updates the status of a user.
    * @param {string} userId - The ID of the user.
-   * @param {boolean} isActive - The new active status.
+   * @param {string} newStatus - The new status.
+   * @param {object} updater - The user performing the update.
+   * @param {string} [remarks] - Optional remarks.
+   * @param {string} [ipAddress] - Client IP address.
+   * @param {string} [userAgent] - User agent.
    * @returns {object} The updated user data.
    */
-  async toggleUserStatus(userId, isActive) {
-    await this.getUserById(userId); // Ensures user exists
-    const updatedUser = await userRepository.updateUser(userId, { [UserEntity.columns.IS_ACTIVE]: isActive });
+  async updateUserStatus(userId, newStatus, updater, remarks = null, ipAddress = null, userAgent = null) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new ApiError(404, USER_MESSAGES.USER_NOT_FOUND);
+    }
+    if (user.deleted_at) {
+      throw new ApiError(400, 'Cannot update status of a deleted user.');
+    }
+
+    const oldStatus = user.status || 'ACTIVE';
+    if (oldStatus === newStatus) {
+      throw new ApiError(400, `User status is already ${newStatus}.`);
+    }
+
+    const statusData = {
+      [UserEntity.columns.STATUS]: newStatus,
+      [UserEntity.columns.STATUS_CHANGED_AT]: new Date(),
+      [UserEntity.columns.STATUS_CHANGED_BY]: updater.email,
+      [UserEntity.columns.UPDATED_BY]: updater.email,
+    };
+
+    const auditLogData = {
+      entity_type: 'user',
+      entity_id: userId,
+      action: 'status_updated',
+      from_status: oldStatus,
+      to_status: newStatus,
+      performed_by_id: updater.id,
+      remarks: remarks || `Status changed from ${oldStatus} to ${newStatus}`,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+    };
+
+    const updatedUser = await userRepository.updateUserStatus(userId, statusData, auditLogData);
+
+    // Send in-app notification to the updated user
+    await notificationService.createNotification(
+      userId,
+      'user_status_changed',
+      '👤 Account Status Updated',
+      `Your account status has been updated to ${newStatus} by ${updater.first_name || ''} ${updater.last_name || ''}`.trim()
+    );
+
     return sanitizeUser(updatedUser);
   }
 

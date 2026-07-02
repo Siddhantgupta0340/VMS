@@ -6,7 +6,7 @@ import { ROLES } from '../../zodSchema/index.js';
 
 const router = express.Router();
 
-const HISTORY_ROLES = [ROLES.SUPER_ADMIN, ROLES.FINANCE_MANAGER];
+const HISTORY_ROLES = [ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD, ROLES.TEAM_LEAD, ROLES.MANAGER];
 
 router.use(protect);
 

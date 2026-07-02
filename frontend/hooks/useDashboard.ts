@@ -27,7 +27,13 @@ export interface DashboardStats {
       pending: number;
       approved: number;
       rejected: number;
-      pendingByLevel: { L1: number; L2: number; L3: number };
+      pendingByLevel: {
+        TEAM_LEAD?: number;
+        MANAGER?: number;
+        FINANCE_HEAD?: number;
+        PENDING_THREE_WAY_MATCH?: number;
+        PENDING_ADMIN_REVIEW?: number;
+      };
       totalInvoiceAmount: number;
       totalPaidAmount: number;
       remainingOutstanding: number;

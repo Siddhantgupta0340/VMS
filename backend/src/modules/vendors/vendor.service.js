@@ -4,6 +4,7 @@ import approvalRepository from '../approvals/approval.repository.js';
 import notificationService from '../notifications/notification.service.js';
 import { ROLES } from '../../zodSchema/index.js';
 import { VENDOR_MESSAGES, VENDOR_STATUS } from './vendor.constants.js';
+import prisma from '../../config/prisma.js';
 
 const buildVendorCode = (name) => {
   const prefix = name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'VEND';

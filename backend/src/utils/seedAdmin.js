@@ -26,7 +26,7 @@ const seedAdmin = async () => {
         [UserEntity.columns.ROLE]: ROLES.SUPER_ADMIN,
         [UserEntity.columns.FIRST_NAME]: 'System',
         [UserEntity.columns.LAST_NAME]: 'Admin',
-        [UserEntity.columns.IS_ACTIVE]: true,
+        [UserEntity.columns.STATUS]: 'ACTIVE',
       });
 
       console.log('Seeding process: Super Admin created successfully.');

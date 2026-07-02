@@ -1,16 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePayments } from '@/hooks/usePayments';
 import StatusBadge from '@/components/payment/StatusBadge';
 import { format } from 'date-fns';
 import { DollarSign, Clock, FileSpreadsheet, ArrowRight } from 'lucide-react';
+import Sidebar from '@/components/Sidebar';
 
 export default function PaymentsDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
   const [page, setPage] = useState(1);
+  const [user, setUser] = useState<{ id: string; role: string; email: string } | null>(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('vms_user');
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (e) {
+        console.error('Failed to parse user session:', e);
+      }
+    }
+  }, []);
 
   // Filter params
   const params: { page: number; limit: number; status?: string } = {
@@ -34,8 +47,10 @@ export default function PaymentsDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-zinc-950">
+      <Sidebar user={user} />
+      <div className="flex-1 overflow-y-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
         
         {/* Header section */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -224,7 +239,7 @@ export default function PaymentsDashboard() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
-  );
-}
+  );}

@@ -33,11 +33,11 @@ class UserRepository {
   /**
    * Fetch all users with filters, search, and pagination.
    */
-  async findAll({ search, role, isActive, skip = 0, take = 10 }) {
+  async findAll({ search, role, status, skip = 0, take = 10 }) {
     const where = {
       [UserEntity.columns.DELETED_AT]: null, // Exclude soft-deleted users
       ...(role && { [UserEntity.columns.ROLE]: role }),
-      ...(isActive !== undefined && { [UserEntity.columns.IS_ACTIVE]: isActive === 'true' }),
+      ...(status && { [UserEntity.columns.STATUS]: status }),
       ...(search && {
         OR: [
           { [UserEntity.columns.FIRST_NAME]: { contains: search, mode: 'insensitive' } },
@@ -59,7 +59,11 @@ class UserRepository {
           [UserEntity.columns.FIRST_NAME]: true,
           [UserEntity.columns.LAST_NAME]: true,
           [UserEntity.columns.ROLE]: true,
-          [UserEntity.columns.IS_ACTIVE]: true,
+          [UserEntity.columns.STATUS]: true,
+          [UserEntity.columns.STATUS_CHANGED_AT]: true,
+          [UserEntity.columns.STATUS_CHANGED_BY]: true,
+          [UserEntity.columns.UPDATED_BY]: true,
+          [UserEntity.columns.UPDATED_AT]: true,
           [UserEntity.columns.LAST_LOGIN_AT]: true,
           [UserEntity.columns.CREATED_AT]: true,
         },
@@ -138,6 +142,24 @@ class UserRepository {
   }
 
   /**
+   * Update user status and create audit log within a database transaction.
+   */
+  async updateUserStatus(id, statusData, auditLogData) {
+    return await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: statusData,
+      });
+
+      await tx.auditLog.create({
+        data: auditLogData,
+      });
+
+      return updatedUser;
+    });
+  }
+
+  /**
    * Soft delete a user by their ID.
    */
   async softDeleteUser(id) {
@@ -145,7 +167,7 @@ class UserRepository {
       where: { [UserEntity.columns.ID]: id },
       data: {
         [UserEntity.columns.DELETED_AT]: new Date(),
-        [UserEntity.columns.IS_ACTIVE]: false, // Also deactivate on delete
+        [UserEntity.columns.STATUS]: 'INACTIVE', // Update status on soft delete
         [UserEntity.columns.REFRESH_TOKEN]: null, // Invalidate session
       },
     });

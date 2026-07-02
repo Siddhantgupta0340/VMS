@@ -66,12 +66,20 @@ class UserController {
   });
 
   /**
-   * @desc    Toggle user active status
+   * @desc    Update user account status
    * @route   PATCH /api/v1/users/:id/status
    * @access  Private (Admin)
    */
-  toggleUserStatus = asyncHandler(async (req, res) => {
-    const updatedUser = await userService.toggleUserStatus(req.params.id, req.body.isActive);
+  updateUserStatus = asyncHandler(async (req, res) => {
+    const { status, remarks } = req.body;
+    const updatedUser = await userService.updateUserStatus(
+      req.params.id,
+      status,
+      req.user,
+      remarks,
+      req.ip,
+      req.headers['user-agent']
+    );
     res.status(200).json({ success: true, message: USER_MESSAGES.STATUS_UPDATED, data: updatedUser });
   });
 

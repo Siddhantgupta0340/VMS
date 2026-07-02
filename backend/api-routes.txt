@@ -23,12 +23,11 @@ Header format:
 
 ROLES & HIERARCHY
 -----------------
-* SUPER_ADMIN      : Complete system control, user CRUD, toggle status, bypass actions.
-* CASE_MANAGER     : Creator role for Vendors, POs, Invoices, and Payments. Can only access own records.
-* FINANCE_MANAGER  : Reviewer/Approver for Vendors, POs, Invoices, and Payments.
-* L1 APPROVER      : Approves Invoices where Amount <= 10,000 INR.
-* L2 APPROVER      : Approves Invoices where Amount <= 100,000 INR.
-* L3 APPROVER      : Approves Invoices where Amount > 100,000 INR.
+* SUPER_ADMIN   : Complete system control, user CRUD, toggle status, bypass actions.
+* CASE_MANAGER  : Creator role for Vendors, POs, Invoices, and Payments. Can only access own records.
+* TEAM_LEAD     : Approves Invoices where Amount <= 10,000 INR, or first level for larger amounts.
+* MANAGER       : Approves Invoices where Amount <= 100,000 INR (secondary level).
+* FINANCE_HEAD  : Approves Invoices where Amount > 100,000 INR (final level). Merged from former L3 + Finance Head. Authorized to record remarks.
 
 STANDARD ERROR RESPONSES
 ------------------------
@@ -311,7 +310,7 @@ curl -X POST http://localhost:5000/api/v1/auth/refresh-token \
 * Complete Endpoint: /api/v1/auth/logout
 * Description: Invalidate current user session and nullify stored refresh token.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
   Authorization: Bearer <JWT_ACCESS_TOKEN>
@@ -339,7 +338,7 @@ curl -X POST http://localhost:5000/api/v1/auth/logout \
 * Complete Endpoint: /api/v1/auth/profile
 * Description: Retrieve detailed profile properties of the authenticated session owner.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Success Response (Status: 200 OK):
@@ -374,7 +373,7 @@ curl -X GET http://localhost:5000/api/v1/auth/profile \
 * Complete Endpoint: /api/v1/auth/password
 * Description: Modify password of the logged-in user session.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
   Authorization: Bearer <JWT_ACCESS_TOKEN>
@@ -426,7 +425,7 @@ Testing Sequence: Login -> Get Profile -> Change Password -> Login (New Pass) ->
 MODULE : USERS
 ==============
 Description: Provides system-wide administrative control over internal user profiles.
-Purpose: Manage internal roles (Case Manager, Finance Manager, L1-L3 approvers).
+Purpose: Manage internal roles (Case Manager, Team Lead, Manager, Finance Head).
 Required Role: SUPER_ADMIN only
 Required Authentication: YES (SUPER_ADMIN Bearer Token)
 Database Tables Used: users
@@ -456,26 +455,26 @@ USERS MODULE - APIS
   Authorization: Bearer <SUPER_ADMIN_JWT>
 * Complete Request Body:
 {
-  "email": "finance.manager@vms.com",
+  "email": "finance.head@vms.com",
   "password": "Manager@123",
   "firstName": "John",
   "lastName": "Doe",
-  "role": "FINANCE_MANAGER"
+  "role": "FINANCE_HEAD"
 }
   * Validation Rules:
     - email: Required, valid email string, unique
     - password: Required, string, complex security rules
     - firstName: Required, string, minimum length 1
     - lastName: Required, string, minimum length 1
-    - role: Required, string (SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3)
+    - role: Required, string (SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD)
 * Success Response (Status: 201 Created):
 {
   "success": true,
-  "message": "User created successfully.",
-  "data": {
+  "message": "User created successfully.", 
+  "data": 
     "id": "5cb8276f-ef87-4340-97eb-29177112ea11",
-    "email": "finance.manager@vms.com",
-    "role": "FINANCE_MANAGER",
+    "email": "finance.head@vms.com",
+    "role": "FINANCE_HEAD",
     "first_name": "John",
     "last_name": "Doe",
     "is_active": true,
@@ -491,7 +490,7 @@ USERS MODULE - APIS
 curl -X POST http://localhost:5000/api/v1/users \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <SUPER_ADMIN_JWT>" \
-  -d '{"email": "finance.manager@vms.com", "password": "Manager@123", "firstName": "John", "lastName": "Doe", "role": "FINANCE_MANAGER"}'
+  -d '{"email": "finance.head@vms.com", "password": "Manager@123", "firstName": "John", "lastName": "Doe", "role": "FINANCE_HEAD"}'
 * Expected Status Codes: 201 (Created), 409 (Email already exists), 401/403 (Unauthorized/Forbidden)
 
 ---
@@ -517,10 +516,10 @@ curl -X POST http://localhost:5000/api/v1/users \
   "users": [
     {
       "id": "5cb8276f-ef87-4340-97eb-29177112ea11",
-      "email": "finance.manager@vms.com",
+      "email": "finance.head@vms.com",
       "first_name": "John",
       "last_name": "Doe",
-      "role": "FINANCE_MANAGER",
+      "role": "FINANCE_HEAD",
       "is_active": true,
       "created_at": "2026-06-30T10:15:00.000Z"
     }
@@ -533,7 +532,7 @@ curl -X POST http://localhost:5000/api/v1/users \
   - Repository Function: userRepository.findAll()
   - Database Operation: findMany, count
 * cURL Request:
-curl -X GET "http://localhost:5000/api/v1/users?role=FINANCE_MANAGER&limit=5" \
+curl -X GET "http://localhost:5000/api/v1/users?role=FINANCE_HEAD&limit=5" \
   -H "Authorization: Bearer <SUPER_ADMIN_JWT>"
 * Expected Status Codes: 200 (Success)
 
@@ -555,8 +554,8 @@ curl -X GET "http://localhost:5000/api/v1/users?role=FINANCE_MANAGER&limit=5" \
   "success": true,
   "data": {
     "id": "5cb8276f-ef87-4340-97eb-29177112ea11",
-    "email": "finance.manager@vms.com",
-    "role": "FINANCE_MANAGER",
+    "email": "finance.head@vms.com",
+    "role": "FINANCE_HEAD",
     "first_name": "John",
     "last_name": "Doe",
     "is_active": true,
@@ -592,7 +591,7 @@ curl -X GET http://localhost:5000/api/v1/users/5cb8276f-ef87-4340-97eb-29177112e
   "email": "john.new@vms.com",
   "firstName": "Johnathan",
   "lastName": "Doe",
-  "role": "L1"
+  "role": "TEAM_LEAD"
 }
   * Validation Rules:
     - At least one field must be provided. Optional updates.
@@ -605,7 +604,7 @@ curl -X GET http://localhost:5000/api/v1/users/5cb8276f-ef87-4340-97eb-29177112e
     "email": "john.new@vms.com",
     "first_name": "Johnathan",
     "last_name": "Doe",
-    "role": "L1",
+    "role": "TEAM_LEAD",
     "is_active": true,
     "created_at": "2026-06-30T10:15:00.000Z"
   }
@@ -676,8 +675,8 @@ curl -X DELETE http://localhost:5000/api/v1/users/5cb8276f-ef87-4340-97eb-291771
   "message": "User status updated successfully.",
   "data": {
     "id": "5cb8276f-ef87-4340-97eb-29177112ea11",
-    "email": "finance.manager@vms.com",
-    "role": "FINANCE_MANAGER",
+    "email": "finance.head@vms.com",
+    "role": "FINANCE_HEAD",
     "is_active": false
   }
 }
@@ -753,7 +752,7 @@ MODULE : VENDORS
 ================
 Description: Manages external vendor profiles, approvals, audits, and compliance.
 Purpose: Maintain vendor records, draft workflows, and approve statuses.
-Required Role: CASE_MANAGER (create, update), FINANCE_MANAGER (review, update, approve/reject/block)
+Required Role: CASE_MANAGER (create, update), FINANCE_HEAD (review, update, approve/reject/block)
 Required Authentication: YES (Bearer Access Token)
 Database Tables Used: vendors, approval_logs, notifications, users
 Prisma Models Used: Vendor, ApprovalLog, Notification, User
@@ -839,7 +838,7 @@ curl -X POST http://localhost:5000/api/v1/vendors \
 * Complete Endpoint: /api/v1/vendors
 * Description: Fetch active vendors. Scoped: Case Managers see only their own drafts; other roles see all.
 * Bearer Token Required: YES
-* Role Required: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Role Required: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
@@ -882,7 +881,7 @@ curl -X GET "http://localhost:5000/api/v1/vendors?status=pending" \
 * Complete Endpoint: /api/v1/vendors/:id
 * Description: Retrieve detailed vendor properties.
 * Bearer Token Required: YES
-* Role Required: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Role Required: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * URL Parameters:
@@ -919,7 +918,7 @@ curl -X GET http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
 * Complete Endpoint: /api/v1/vendors/:id
 * Description: Edit metadata columns of an unapproved (pending/rejected) vendor.
 * Bearer Token Required: YES
-* Role Required: CASE_MANAGER, FINANCE_MANAGER
+* Role Required: CASE_MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
   Authorization: Bearer <JWT_ACCESS_TOKEN>
@@ -966,10 +965,10 @@ curl -X PUT http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
 * Complete Endpoint: /api/v1/vendors/:id/approve
 * Description: Review and transition a vendor status to 'approved'.
 * Bearer Token Required: YES
-* Role Required: FINANCE_MANAGER
+* Role Required: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, string (UUID format)
 * Complete Request Body:
@@ -997,7 +996,7 @@ curl -X PUT http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb501ba1/approve \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Approved"}'
 * Expected Status Codes: 200 (Success), 404 (Not found)
 
@@ -1009,10 +1008,10 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * Complete Endpoint: /api/v1/vendors/:id/reject
 * Description: Transition vendor status to 'rejected'.
 * Bearer Token Required: YES
-* Role Required: FINANCE_MANAGER
+* Role Required: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, string (UUID format)
 * Complete Request Body:
@@ -1037,7 +1036,7 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb501ba1/reject \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Incorrect routing"}'
 * Expected Status Codes: 200 (Success)
 
@@ -1049,10 +1048,10 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * Complete Endpoint: /api/v1/vendors/:id/block
 * Description: Block a vendor to suspend their actions (creating POs/invoices).
 * Bearer Token Required: YES
-* Role Required: FINANCE_MANAGER
+* Role Required: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, string (UUID format)
 * Complete Request Body:
@@ -1077,7 +1076,7 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb501ba1/block \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Internal audit flag"}'
 * Expected Status Codes: 200 (Success)
 
@@ -1089,10 +1088,10 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * Complete Endpoint: /api/v1/vendors/:id/unblock
 * Description: Unblock a previously blocked vendor, transitioning them back to approved status.
 * Bearer Token Required: YES
-* Role Required: FINANCE_MANAGER
+* Role Required: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, string (UUID format)
 * Complete Request Body:
@@ -1116,7 +1115,7 @@ curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014f
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb501ba1/unblock \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Resolved audit issue"}'
 * Expected Status Codes: 200 (Success), 400 (Bad Request if not currently blocked), 404 (Not Found)
 
@@ -1137,7 +1136,7 @@ Missing CRUD APIs:
   - PATCH /api/v1/vendors/:id/status (Toggle vendor status)
 Dependencies: None
 Required Database Tables: vendors, approval_logs, notifications, users
-Required Roles: CASE_MANAGER, FINANCE_MANAGER
+Required Roles: CASE_MANAGER, FINANCE_HEAD
 Required Permissions: VENDOR.CREATE, VENDOR.READ, VENDOR.REVIEW
 Testing Sequence: Create Vendor -> List Vendors -> Update Vendor -> Approve Vendor -> Block Vendor
 
@@ -1146,7 +1145,7 @@ MODULE : PURCHASE ORDERS
 ========================
 Description: Manages commercial purchase orders linked to approved vendors.
 Purpose: Create and close PO records.
-Required Role: CASE_MANAGER, FINANCE_MANAGER (create), FINANCE_MANAGER (status update)
+Required Role: CASE_MANAGER, FINANCE_HEAD (create), FINANCE_HEAD (status update)
 Required Authentication: YES (Bearer Access Token)
 Database Tables Used: purchase_orders, vendors, users
 Prisma Models Used: PurchaseOrder, Vendor, User
@@ -1169,7 +1168,7 @@ PURCHASE ORDERS MODULE - APIS
 * Complete Endpoint: /api/v1/purchase-orders
 * Description: Register a new PO in 'pending' status.
 * Bearer Token Required: YES
-* Allowed Roles: CASE_MANAGER, FINANCE_MANAGER
+* Allowed Roles: CASE_MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
   Authorization: Bearer <JWT_ACCESS_TOKEN>
@@ -1221,7 +1220,7 @@ curl -X POST http://localhost:5000/api/v1/purchase-orders \
 * Complete Endpoint: /api/v1/purchase-orders
 * Description: Fetch active POs. Scoped by creator ownership for CM.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
@@ -1263,7 +1262,7 @@ curl -X GET http://localhost:5000/api/v1/purchase-orders \
 * Complete Endpoint: /api/v1/purchase-orders/:id
 * Description: Fetch a single PO.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * URL Parameters:
@@ -1297,10 +1296,10 @@ curl -X GET http://localhost:5000/api/v1/purchase-orders/cfa3e6d8-90f1-432a-bc9e
 * Complete Endpoint: /api/v1/purchase-orders/:id/status
 * Description: Approve, cancel or close a PO.
 * Bearer Token Required: YES
-* Allowed Roles: FINANCE_MANAGER
+* Allowed Roles: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
@@ -1328,7 +1327,7 @@ curl -X GET http://localhost:5000/api/v1/purchase-orders/cfa3e6d8-90f1-432a-bc9e
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/purchase-orders/cfa3e6d8-90f1-432a-bc9e-7164ea2b1a11/status \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"status": "open"}'
 * Expected Status Codes: 200 (Success), 404 (PO not found)
 
@@ -1345,7 +1344,7 @@ Missing CRUD APIs:
   - DELETE /api/v1/purchase-orders/:id (Delete PO is missing)
 Dependencies: Approved Vendor is required
 Required Database Tables: purchase_orders, vendors, users
-Required Roles: CASE_MANAGER, FINANCE_MANAGER
+Required Roles: CASE_MANAGER, FINANCE_HEAD
 Required Permissions: Read/write on PO scopes
 Testing Sequence: Create PO -> List POs -> Get PO details -> Update Status to Open
 
@@ -1355,17 +1354,10 @@ MODULE : INVOICES
 Description: Manages accounts payable invoices, verification details, and
              three-way matching routing workflows.
 Purpose: Upload and route invoices for approvals.
-Required Role: CASE_MANAGER (create), L1, L2, L3 (review & approve based on limits)
+Required Role: CASE_MANAGER (create), TEAM_LEAD, MANAGER, FINANCE_HEAD (review & approve based on limits)
 Required Authentication: YES (Bearer Access Token)
 Database Tables Used: invoices, vendors, purchase_orders, approval_logs, notifications, users
 Prisma Models Used: Invoice, Vendor, PurchaseOrder, ApprovalLog, Notification, User
-Controller: src/modules/invoices/invoice.controller.js
-Service: src/modules/invoices/invoice.service.js
-Repository: src/modules/invoices/invoice.repository.js
-Validation Files: src/modules/invoices/invoice.validation.js
-Middleware Used: auth.middleware.js, authorize.middleware.js, validate.middleware.js
-File Upload Middleware: None
-
 ////////////////////////////////////////////////////
 INVOICES MODULE - APIS
 ////////////////////////////////////////////////////
@@ -1407,16 +1399,12 @@ INVOICES MODULE - APIS
     "id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
     "invoice_number": "INV-2026-999",
     "amount": "9500.00",
-    "status": "pending",
-    "required_approval_role": "L1",
+    "status": "PENDING_THREE_WAY_MATCH",
+    "required_approval_role": "TEAM_LEAD",
     "created_by_id": "creator-uuid"
   }
 }
-* Business Logic: Validate vendor is approved and belongs to creator. Validate PO is not cancelled and belongs to selected vendor. Run three-way matching helper:
-  - If Amount <= 10,000 INR => required_approval_role = 'L1'
-  - If Amount <= 100,000 INR => required_approval_role = 'L2'
-  - If Amount > 100,000 INR => required_approval_role = 'L3'
-  Create invoice.
+* Business Logic: Validate vendor is approved. Validate PO is open. Auto-set status to 'PENDING_THREE_WAY_MATCH' to await CM three-way match calculation.
   - Controller Function: createInvoice()
   - Service Function: invoiceService.createInvoice()
   - Repository Function: vendorRepository.findById(), purchaseOrderRepository.findById(), invoiceRepository.create()
@@ -1434,16 +1422,16 @@ curl -X POST http://localhost:5000/api/v1/invoices \
 * API Name: List Invoices
 * HTTP Method: GET
 * Complete Endpoint: /api/v1/invoices
-* Description: Fetch active invoices. Scopes: CM sees own invoices; L1/L2/L3 see only invoices matching their specific assigned level.
+* Description: Fetch active invoices. Scopes: CM sees own invoices; TEAM_LEAD, MANAGER, FINANCE_HEAD see only invoices matching their specific assigned level.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
-  - status (optional): enum ('pending', 'approved', 'rejected')
+  - status (optional): enum ('PENDING_THREE_WAY_MATCH', 'PENDING_ADMIN_REVIEW', 'PENDING_TEAM_LEAD', 'PENDING_MANAGER', 'PENDING_FINANCE_HEAD', 'APPROVED', 'REJECTED')
   - vendorId (optional): UUID
   - purchaseOrderId (optional): UUID
-  - requiredApprovalRole (optional): enum ('L1', 'L2', 'L3')
+  - requiredApprovalRole (optional): enum ('TEAM_LEAD', 'MANAGER', 'FINANCE_HEAD')
   - page (optional): integer (default: 1)
   - limit (optional): integer (default: 10)
 * Success Response (Status: 200 OK):
@@ -1454,8 +1442,8 @@ curl -X POST http://localhost:5000/api/v1/invoices \
       "id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
       "invoice_number": "INV-2026-999",
       "amount": "9500.00",
-      "status": "pending",
-      "required_approval_role": "L1"
+      "status": "PENDING_TEAM_LEAD",
+      "required_approval_role": "TEAM_LEAD"
     }
   ],
   "total": 1,
@@ -1463,7 +1451,7 @@ curl -X POST http://localhost:5000/api/v1/invoices \
   "limit": 10,
   "totalPages": 1
 }
-* Business Logic: Match active invoices. Scope lists. L1/L2/L3 cannot query/see other levels' pending invoices.
+* Business Logic: Match active invoices. Scope lists. Approvers cannot query/see other levels' pending invoices.
   - Controller Function: getInvoices()
   - Service Function: invoiceService.listInvoices()
   - Repository Function: invoiceRepository.findAll()
@@ -1481,7 +1469,7 @@ curl -X GET http://localhost:5000/api/v1/invoices \
 * Complete Endpoint: /api/v1/invoices/:id
 * Description: Fetch detailed properties of a specific invoice.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * URL Parameters:
@@ -1493,12 +1481,12 @@ curl -X GET http://localhost:5000/api/v1/invoices \
     "id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
     "invoice_number": "INV-2026-999",
     "amount": "9500.00",
-    "status": "pending",
-    "required_approval_role": "L1",
+    "status": "PENDING_TEAM_LEAD",
+    "required_approval_role": "TEAM_LEAD",
     "vendor": { "id": "vendor-uuid", "name": "ACME Supplies Pvt Ltd" }
   }
 }
-* Business Logic: Get invoice. Restrict CM to own files. Restrict L1/L2/L3 to their designated level.
+* Business Logic: Get invoice. Restrict CM to own files. Restrict reviewers to their designated level.
   - Controller Function: getInvoiceById()
   - Service Function: invoiceService.getInvoiceById()
   - Repository Function: invoiceRepository.findById()
@@ -1514,17 +1502,17 @@ curl -X GET http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234e9
 * API Name: Approve Invoice
 * HTTP Method: PATCH
 * Complete Endpoint: /api/v1/invoices/:id/approve
-* Description: Transition an invoice to 'approved'.
+* Description: Approve invoice at current level (Team Lead, Manager, or Finance Head).
 * Bearer Token Required: YES
-* Role Required: L1, L2, L3 (Strictly matches the required role based on amount)
+* Role Required: TEAM_LEAD, MANAGER, FINANCE_HEAD (Strictly matches the required role based on amount)
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <L1_L2_L3_JWT>
+  Authorization: Bearer <APPROVER_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
 {
-  "remarks": "Three-way matching complete. Values matched."
+  "remarks": "Verified physical GRN values. Approve."
 }
 * Success Response (Status: 200 OK):
 {
@@ -1532,20 +1520,19 @@ curl -X GET http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234e9
   "message": "Invoice approved successfully.",
   "data": {
     "id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
-    "status": "approved",
-    "approved_by_id": "l1-approver-uuid",
+    "status": "APPROVED",
     "approved_at": "2026-06-30T10:15:00.000Z"
   }
 }
-* Business Logic: Validate role matches invoice required_approval_role. Transition status. Log log. Notify CM creator.
+* Business Logic: Validate role matches invoice current_approval_level. Transition status. Log to audit trail.
   - Controller Function: approveInvoice()
-  - Service Function: invoiceService.reviewInvoice()
-  - Repository Function: invoiceRepository.findById(), invoiceRepository.update(), approvalRepository.createLog()
-  - Database Operation: findUnique, update, create
+  - Service Function: invoiceService.approveInvoice()
+  - Repository Function: invoiceRepository.findById(), invoiceRepository.update()
+  - Database Operation: findUnique, update
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99/approve \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <L1_JWT>" \
+  -H "Authorization: Bearer <TEAM_LEAD_JWT>" \
   -d '{"remarks": "Approved"}'
 * Expected Status Codes: 200 (Success), 400 (Not pending), 403 (Role mismatch), 404 (Not found)
 
@@ -1555,17 +1542,17 @@ curl -X PATCH http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234
 * API Name: Reject Invoice
 * HTTP Method: PATCH
 * Complete Endpoint: /api/v1/invoices/:id/reject
-* Description: Transition an invoice to 'rejected'.
+* Description: Transition an invoice to 'REJECTED'.
 * Bearer Token Required: YES
-* Role Required: L1, L2, L3
+* Role Required: TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <L1_L2_L3_JWT>
+  Authorization: Bearer <APPROVER_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
 {
-  "remarks": "Wrong tax code calculation."
+  "rejectionReason": "Wrong tax code calculation."
 }
 * Success Response (Status: 200 OK):
 {
@@ -1573,22 +1560,101 @@ curl -X PATCH http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234
   "message": "Invoice rejected successfully.",
   "data": {
     "id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
-    "status": "rejected",
-    "rejected_by_id": "l1-approver-uuid",
+    "status": "REJECTED",
     "rejected_at": "2026-06-30T10:15:00.000Z"
   }
 }
-* Business Logic: Validate role constraint. Set status to rejected. Log audit log. Notify CM creator.
+* Business Logic: Validate role constraint. Set status to REJECTED. Log audit trail. Notify CM creator.
   - Controller Function: rejectInvoice()
-  - Service Function: invoiceService.reviewInvoice()
-  - Repository Function: invoiceRepository.findById(), invoiceRepository.update(), approvalRepository.createLog()
-  - Database Operation: findUnique, update, create
+  - Service Function: invoiceService.rejectInvoice()
+  - Repository Function: invoiceRepository.findById(), invoiceRepository.update()
+  - Database Operation: findUnique, update
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/invoices/2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99/reject \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <L1_JWT>" \
-  -d '{"remarks": "Wrong tax calculations"}'
+  -H "Authorization: Bearer <TEAM_LEAD_JWT>" \
+  -d '{"rejectionReason": "Wrong tax calculations"}'
 * Expected Status Codes: 200 (Success)
+
+---
+## DELETE INVOICE (TICKET SOFT DELETE)
+---
+* API Name: Soft Delete Invoice Ticket
+* HTTP Method: DELETE
+* Complete Endpoint: /api/v1/invoices/:id
+* Description: Soft delete an invoice ticket, recording delete reason and actor.
+* Bearer Token Required: YES
+* Role Required: SUPER_ADMIN, CASE_MANAGER (CM can only delete own invoices)
+* Required Headers:
+  Content-Type: application/json
+  Authorization: Bearer <JWT_ACCESS_TOKEN>
+* URL Parameters:
+  - id: Required, UUID
+* Complete Request Body:
+{
+  "deleteReason": "Incorrect PO attached by mistake"
+}
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Invoice deleted successfully."
+}
+* Business Logic: Verify ticket owner. Save `ticketDeletedAt`, `ticketDeletedBy`, and `ticketDeleteReason`. Update DB record and write audit log.
+  - Controller Function: deleteInvoice()
+  - Service Function: invoiceService.deleteInvoice()
+  - Repository Function: invoiceRepository.softDelete()
+  - Database Operation: update
+
+---
+## RESTORE INVOICE
+---
+* API Name: Restore Soft-Deleted Invoice
+* HTTP Method: POST
+* Complete Endpoint: /api/v1/invoices/:id/restore
+* Description: Restore a previously soft-deleted invoice ticket.
+* Bearer Token Required: YES
+* Role Required: SUPER_ADMIN, CASE_MANAGER (CM can only restore own invoices)
+* Required Headers:
+  Authorization: Bearer <JWT_ACCESS_TOKEN>
+* URL Parameters:
+  - id: Required, UUID
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Invoice restored successfully."
+}
+* Business Logic: Nullify deletion columns. Audit logged.
+  - Controller Function: restoreInvoice()
+  - Service Function: invoiceService.restoreInvoice()
+  - Repository Function: invoiceRepository.restore()
+  - Database Operation: update
+
+---
+## ADD REMARK
+---
+* API Name: Add Observation Remark
+* HTTP Method: POST
+* Complete Endpoint: /api/v1/invoices/:id/remark
+* Description: Append remark notes to the invoice audit trail.
+* Bearer Token Required: YES
+* Role Required: FINANCE_HEAD, SUPER_ADMIN
+* Required Headers:
+  Content-Type: application/json
+  Authorization: Bearer <JWT_ACCESS_TOKEN>
+* URL Parameters:
+  - id: Required, UUID
+* Complete Request Body:
+{
+  "remark": "Audited GST value against CBIC portal. Found correct."
+}
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Remark added successfully."
+}
+* Business Logic: Validate role. Append to Audit logs. Cannot edit previous matching logs.
+  - Controller Function: addRemark()
+  - Service Function: invoiceService.addRemark()
 
 -------------------------
 MODULE SUMMARY - INVOICES
@@ -1599,21 +1665,120 @@ Available APIs:
   - GET /api/v1/invoices/:id
   - PATCH /api/v1/invoices/:id/approve
   - PATCH /api/v1/invoices/:id/reject
+  - DELETE /api/v1/invoices/:id
+  - POST /api/v1/invoices/:id/restore
+  - POST /api/v1/invoices/:id/remark
 Missing CRUD APIs:
-  - PUT /api/v1/invoices/:id (Edit invoice is missing)
-  - DELETE /api/v1/invoices/:id (Delete invoice is missing)
+  - PUT /api/v1/invoices/:id (Edit invoice details is missing)
 Dependencies: Approved Vendor & Open PO required
-Required Database Tables: invoices, vendors, purchase_orders, approval_logs, notifications, users
-Required Roles: CASE_MANAGER, L1, L2, L3
+Required Database Tables: invoices, vendors, purchase_orders, audit_logs, notifications, users
+Required Roles: CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 Required Permissions: Review rights based on amount limits
-Testing Sequence: Create Invoice -> Get Invoice details -> Approve Invoice (L1/L2/L3)
+Testing Sequence: Create Invoice -> Get Invoice details -> Calculate Match -> Approve Invoice (TEAM_LEAD/MANAGER/FINANCE_HEAD) -> Soft Delete -> Restore
+
+======================================================
+MODULE : THREE-WAY MATCHING
+===========================
+Description: Compares Invoices vs Purchase Orders vs Goods Received Notes (GRN) fields.
+Purpose: Automated matching verification (16+ comparison points with tolerances).
+Required Role: CASE_MANAGER (trigger matching), SUPER_ADMIN (admin review)
+Required Authentication: YES (Bearer Access Token)
+Database Tables Used: three_way_matches, invoices, purchase_orders, users
+Prisma Models Used: ThreeWayMatch, Invoice, PurchaseOrder, User
+Controller: src/modules/three-way-matching/matching.controller.js
+Service: src/modules/three-way-matching/matching.service.js
+Repository: src/modules/three-way-matching/matching.repository.js
+Validation Files: src/modules/three-way-matching/matching.validation.js
+
+////////////////////////////////////////////////////
+THREE-WAY MATCHING MODULE - APIS
+////////////////////////////////////////////////////
+
+---
+## RUN THREE-WAY MATCHING
+---
+* API Name: Start Three-Way Matching
+* HTTP Method: POST
+* Complete Endpoint: /api/v1/three-way-matching/start
+* Description: Perform matching validation rules (PO vs GRN vs Invoice lines) for a pending invoice.
+* Bearer Token Required: YES
+* Allowed Roles: CASE_MANAGER, SUPER_ADMIN
+* Complete Request Body:
+{
+  "invoiceId": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99"
+}
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Matching calculation completed.",
+  "data": {
+    "id": "match-uuid",
+    "invoice_id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
+    "status": "MATCHED",
+    "match_accuracy": 100
+  }
+}
+
+---
+## GET MATCHING REPORT
+---
+* API Name: Fetch Three-Way Match Report
+* HTTP Method: GET
+* Complete Endpoint: /api/v1/three-way-matching/invoice/:invoiceId
+* Description: Retrieve computed match comparison data.
+* Bearer Token Required: YES
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "data": {
+    "invoice_id": "2ba3fa9d-128a-40a1-a4fb-2234e9e0fa99",
+    "status": "MATCHED",
+    "match_accuracy": 100,
+    "po_matches": true,
+    "grn_matches": true,
+    "fields": {
+      "amounts": { "invoice": 9500, "po": 9500, "grn": 9500, "match": true }
+    }
+  }
+}
+
+---
+## APPROVE ADMIN MATCH REVIEW
+---
+* API Name: Approve Match Anomaly
+* HTTP Method: PATCH
+* Complete Endpoint: /api/v1/invoices/:id/admin-review/approve
+* Description: Super Admin bypass override to approve unmatched invoice anomalies.
+* Bearer Token Required: YES
+* Allowed Roles: SUPER_ADMIN
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Admin review approved."
+}
+
+---
+## REJECT ADMIN MATCH REVIEW
+---
+* API Name: Reject Match Anomaly
+* HTTP Method: PATCH
+* Complete Endpoint: /api/v1/invoices/:id/admin-review/reject
+* Description: Super Admin override to reject unmatched invoice anomalies.
+* Bearer Token Required: YES
+* Allowed Roles: SUPER_ADMIN
+* Success Response (Status: 200 OK):
+{
+  "success": true,
+  "message": "Admin review rejected."
+}
 
 ======================================================
 MODULE : PAYMENTS
 =================
 Description: Manages payment requests, disbursements, approvals, and logs.
 Purpose: Request and process payouts for approved invoices.
-Required Role: CASE_MANAGER, FINANCE_MANAGER (create), FINANCE_MANAGER (review, approve/reject/block)
+Required Role: CASE_MANAGER, FINANCE_HEAD (create), FINANCE_HEAD (review, approve/reject/block)
 Required Authentication: YES (Bearer Access Token)
 Database Tables Used: payments, invoices, approval_logs, notifications, users
 Prisma Models Used: Payment, Invoice, ApprovalLog, Notification, User
@@ -1636,7 +1801,7 @@ PAYMENTS MODULE - APIS
 * Complete Endpoint: /api/v1/payments
 * Description: Register a new payment request in 'pending' status.
 * Bearer Token Required: YES
-* Allowed Roles: CASE_MANAGER, FINANCE_MANAGER
+* Allowed Roles: CASE_MANAGER, FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
   Authorization: Bearer <JWT_ACCESS_TOKEN>
@@ -1686,7 +1851,7 @@ curl -X POST http://localhost:5000/api/v1/payments \
 * Complete Endpoint: /api/v1/payments
 * Description: Fetch active payment requests list. Scoped for CM.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
@@ -1728,7 +1893,7 @@ curl -X GET http://localhost:5000/api/v1/payments \
 * Complete Endpoint: /api/v1/payments/:id
 * Description: Fetch specific payment request data.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * URL Parameters:
@@ -1761,10 +1926,10 @@ curl -X GET http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1ab
 * Complete Endpoint: /api/v1/payments/:id/approve
 * Description: Approve payment and register reference transaction numbers.
 * Bearer Token Required: YES
-* Allowed Roles: FINANCE_MANAGER
+* Allowed Roles: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
@@ -1795,7 +1960,7 @@ curl -X GET http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1ab
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1ab12de99/approve \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"referenceNo": "TXN100293847"}'
 * Expected Status Codes: 200 (Success), 400 (Not pending or invoice not approved), 404 (Not found)
 
@@ -1807,10 +1972,10 @@ curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1
 * Complete Endpoint: /api/v1/payments/:id/reject
 * Description: Transition payment status to 'rejected'.
 * Bearer Token Required: YES
-* Allowed Roles: FINANCE_MANAGER
+* Allowed Roles: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
@@ -1836,7 +2001,7 @@ curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1ab12de99/reject \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Wrong routing"}'
 * Expected Status Codes: 200 (Success)
 
@@ -1848,10 +2013,10 @@ curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1
 * Complete Endpoint: /api/v1/payments/:id/block
 * Description: Transition payment status to 'blocked' to suspend transaction execution.
 * Bearer Token Required: YES
-* Allowed Roles: FINANCE_MANAGER
+* Allowed Roles: FINANCE_HEAD
 * Required Headers:
   Content-Type: application/json
-  Authorization: Bearer <FINANCE_MANAGER_JWT>
+  Authorization: Bearer <FINANCE_HEAD_JWT>
 * URL Parameters:
   - id: Required, UUID
 * Complete Request Body:
@@ -1877,7 +2042,7 @@ curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1
 * cURL Request:
 curl -X PATCH http://localhost:5000/api/v1/payments/8fa211e0-02ba-42aa-b883-92f1ab12de99/block \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FINANCE_MANAGER_JWT>" \
+  -H "Authorization: Bearer <FINANCE_HEAD_JWT>" \
   -d '{"remarks": "Blocked"}'
 * Expected Status Codes: 200 (Success)
 
@@ -1896,7 +2061,7 @@ Missing CRUD APIs:
   - DELETE /api/v1/payments/:id (Delete payment is missing)
 Dependencies: Approved Invoice is required
 Required Database Tables: payments, invoices, approval_logs, notifications, users
-Required Roles: CASE_MANAGER, FINANCE_MANAGER
+Required Roles: CASE_MANAGER, FINANCE_HEAD
 Required Permissions: Read/review/write scopes on payments
 Testing Sequence: Create Payment -> Get Payment details -> Approve Payment
 
@@ -1905,7 +2070,7 @@ MODULE : APPROVALS
 ==================
 Description: Logs state updates across all entities (vendors, invoices, payments).
 Purpose: Auditing and reviewing historic state transition validations.
-Required Role: SUPER_ADMIN, FINANCE_MANAGER
+Required Role: SUPER_ADMIN, FINANCE_HEAD
 Required Authentication: YES (Bearer Access Token)
 Database Tables Used: approval_logs, users
 Prisma Models Used: ApprovalLog, User
@@ -1928,7 +2093,7 @@ APPROVALS MODULE - APIS
 * Complete Endpoint: /api/v1/approvals
 * Description: Extract paginated lists of validation/approval actions.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, FINANCE_MANAGER
+* Allowed Roles: SUPER_ADMIN, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
@@ -1952,7 +2117,7 @@ APPROVALS MODULE - APIS
       "to_status": "approved",
       "remarks": "Details match registry",
       "created_at": "2026-06-30T10:15:00.000Z",
-      "performed_by": { "id": "fm-uuid", "email": "finance.manager@vms.com" }
+      "performed_by": { "id": "fm-uuid", "email": "finance.head@vms.com" }
     }
   ],
   "total": 1,
@@ -1978,7 +2143,7 @@ curl -X GET "http://localhost:5000/api/v1/approvals?entityType=vendor" \
 * Complete Endpoint: /api/v1/approvals/:entityType/:entityId
 * Description: Get full validation log history for a specific entity.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, FINANCE_MANAGER
+* Allowed Roles: SUPER_ADMIN, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * URL Parameters:
@@ -1996,7 +2161,7 @@ curl -X GET "http://localhost:5000/api/v1/approvals?entityType=vendor" \
       "to_status": "approved",
       "remarks": "Verified paperwork",
       "created_at": "2026-06-30T10:15:00.000Z",
-      "performed_by": { "id": "fm-uuid", "email": "finance.manager@vms.com" }
+      "performed_by": { "id": "fm-uuid", "email": "finance.head@vms.com" }
     }
   ]
 }
@@ -2019,7 +2184,7 @@ Available APIs:
 Missing CRUD APIs: None (Logs are read-only)
 Dependencies: Entities must have logged actions
 Required Database Tables: approval_logs, users
-Required Roles: SUPER_ADMIN, FINANCE_MANAGER
+Required Roles: SUPER_ADMIN, FINANCE_HEAD
 Required Permissions: Read-only access to historic validation logs
 Testing Sequence: Run entity status update -> Retrieve history logs for entity
 
@@ -2086,7 +2251,7 @@ curl -X GET http://localhost:5000/api/v1/dashboard/overview \
 * Complete Endpoint: /api/v1/dashboard/me
 * Description: Retrieve metrics showing pending actions count for the logged-in role.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Success Response (Status: 200 OK):
@@ -2108,8 +2273,8 @@ curl -X GET http://localhost:5000/api/v1/dashboard/overview \
 }
 * Business Logic: Retrieve dashboard metrics. Count pending items requiring action by user role:
   - CASE_MANAGER: Counts of own drafts.
-  - FINANCE_MANAGER: Count of pending vendors, POs, payments.
-  - L1/L2/L3: Count of pending invoices at matching amount range.
+  - FINANCE_HEAD: Count of pending vendors, POs, payments, and observations.
+  - TEAM_LEAD/MANAGER/FINANCE_HEAD: Count of pending invoices at matching amount range.
   - Controller Function: getMyDashboard()
   - Service Function: dashboardService.getRoleDashboard()
   - Repository Function: dashboardRepository.getPendingCountsForRole(), etc.
@@ -2279,7 +2444,7 @@ NOTIFICATIONS MODULE - APIS
 * Complete Endpoint: /api/v1/notifications
 * Description: Fetch paginated lists of updates.
 * Bearer Token Required: YES
-* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, FINANCE_MANAGER, L1, L2, L3
+* Allowed Roles: SUPER_ADMIN, CASE_MANAGER, TEAM_LEAD, MANAGER, FINANCE_HEAD
 * Required Headers:
   Authorization: Bearer <JWT_ACCESS_TOKEN>
 * Query Parameters:
@@ -2293,7 +2458,7 @@ NOTIFICATIONS MODULE - APIS
   "notifications": [
     {
       "id": "d0a0b0c0-efaa-99bb-8201-1904bb987622",
-      "title": "✅ Vendor Approved",
+      "title": "Vendor Approved",
       "message": "Your vendor \"ACME Supplies Pvt Ltd\" has been approved.",
       "type": "vendor_approved",
       "entity_type": "vendor",
@@ -2404,10 +2569,9 @@ ROLE SUMMARY
 Available Roles:
   - SUPER_ADMIN
   - CASE_MANAGER
-  - FINANCE_MANAGER
-  - L1
-  - L2
-  - L3
+  - TEAM_LEAD
+  - MANAGER
+  - FINANCE_HEAD
 Missing CRUD APIs:
   - POST /api/v1/roles (Create new system role dynamically)
   - DELETE /api/v1/roles/:id (Delete system role)
@@ -2447,7 +2611,7 @@ Dependencies: None
 ================================================================================
 13. REALISTIC TEST DATA (SEED & SCENARIOS)
 ================================================================================
-
+ 
 Default Seed User (Auto-seeded on app startup):
 ----------------------------------------------
 * Role: SUPER_ADMIN
@@ -2461,61 +2625,34 @@ Generate/Use Following Test Users:
    * Password: CaseManager@123
    * Role: CASE_MANAGER
 
-2. Finance Manager
-   * Email: finance.manager@vms.com
-   * Password: FinanceManager@123
-   * Role: FINANCE_MANAGER
+2. Finance Head
+   * Email: finance.head@vms.com
+   * Password: FinanceHead@123
+   * Role: FINANCE_HEAD
 
-3. L1 Approver (Invoice Limit <= 10,000 INR)
-   * Email: l1.approver@vms.com
-   * Password: L1Approver@123
-   * Role: L1
+3. Team Lead (Invoice Limit <= 10,000 INR)
+   * Email: team.lead@vms.com
+   * Password: TeamLead@123
+   * Role: TEAM_LEAD
 
-4. L2 Approver (Invoice Limit <= 100,000 INR)
-   * Email: l2.approver@vms.com
-   * Password: L2Approver@123
-   * Role: L2
-
-5. L3 Approver (Invoice Limit > 100,000 INR)
-   * Email: l3.approver@vms.com
-   * Password: L3Approver@123
-   * Role: L3
-
-Sample Vendor Data:
--------------------
-* Name: Delta Logistics Pvt Ltd
-* Email: dispatch@deltalogistics.com
-* Phone: 8887776655
-* Address: Plot 12, Phase 3, Industrial Area
-* City: Bangalore
-* State: Karnataka
-* ZipCode: 560001
-* TaxId: GSTIN8887776655D
-* Category: Logistics Services
-* ContactPerson: Jane Smith
-* BankAccountNo: 3004455221199
-* IFSCCode: ICIC0000999
-* PaymentTerms: NET30
-
-Sample Purchase Order Data:
----------------------------
-* Amount: 45000.00
-* Currency: INR
-* Description: Q3 corporate transport contract booking
+4. Manager (Invoice Limit <= 100,000 INR)
+   * Email: manager@vms.com
+   * Password: Manager@123
+   * Role: MANAGER
 
 Sample Invoice Scenarios for Routing Test:
 -------------------------------------------
-1. Invoice 1 (Requires L1 approval):
+1. Invoice 1 (Requires TEAM_LEAD approval):
    * Amount: 8500.00 (<= 10k Limit)
-   * Approved by: L1 Approver
+   * Approved by: Team Lead
 
-2. Invoice 2 (Requires L2 approval):
+2. Invoice 2 (Requires TEAM_LEAD -> MANAGER approval):
    * Amount: 75000.00 (<= 100k Limit)
-   * Approved by: L2 Approver
+   * Approved by: Team Lead, then Manager
 
-3. Invoice 3 (Requires L3 approval):
+3. Invoice 3 (Requires TEAM_LEAD -> MANAGER -> FINANCE_HEAD approval):
    * Amount: 220000.00 (> 100k Limit)
-   * Approved by: L3 Approver
+   * Approved by: Team Lead, then Manager, then Finance Head
 
 ================================================================================
 14. RECOMMENDED TESTING ORDER
@@ -2526,9 +2663,9 @@ Ensure testing is conducted in the following order to resolve foreign key constr
 1. POST /api/v1/auth/login
    - Use default admin email/password. Retrieve `SUPER_ADMIN_JWT`.
 
-2. POST /api/v1/users (Run 5 times)
+2. POST /api/v1/users (Run 4 times)
    - Use `SUPER_ADMIN_JWT`.
-   - Create one Case Manager, one Finance Manager, L1, L2, and L3 Approver.
+   - Create one Case Manager, one Finance Head, one Team Lead, and one Manager.
 
 3. POST /api/v1/auth/login
    - Authenticate with the Case Manager credentials. Retrieve `CASE_MANAGER_JWT`.
@@ -2538,41 +2675,48 @@ Ensure testing is conducted in the following order to resolve foreign key constr
    - Create Delta Logistics Pvt Ltd. The vendor will be in 'pending' status.
 
 5. POST /api/v1/auth/login
-   - Authenticate with the Finance Manager credentials. Retrieve `FINANCE_MANAGER_JWT`.
+   - Authenticate with the Finance Head credentials. Retrieve `FINANCE_HEAD_JWT`.
 
 6. PATCH /api/v1/vendors/:id/approve
-   - Use `FINANCE_MANAGER_JWT` and vendor ID from step 4. Remarks: "PAN matches".
+   - Use `FINANCE_HEAD_JWT` and vendor ID from step 4. Remarks: "PAN matches".
    - Status updates to 'approved'.
 
 7. POST /api/v1/purchase-orders
-   - Use `CASE_MANAGER_JWT` (or `FINANCE_MANAGER_JWT`).
+   - Use `CASE_MANAGER_JWT` (or `FINANCE_HEAD_JWT`).
    - Create a PO of 45000.00 associated with the approved vendor. Retrieve `PO_ID`.
 
 8. PATCH /api/v1/purchase-orders/:id/status
-   - Use `FINANCE_MANAGER_JWT` and PO ID from step 7.
+   - Use `FINANCE_HEAD_JWT` and PO ID from step 7.
    - Update status to 'open'.
 
 9. POST /api/v1/invoices
    - Use `CASE_MANAGER_JWT`.
    - Create an invoice of amount 75000.00 linking the vendor ID and PO ID.
-   - Response contains `"required_approval_role": "L2"`. Retrieve `INVOICE_ID`.
+   - Response contains `"required_approval_role": "TEAM_LEAD"`. Retrieve `INVOICE_ID`.
 
-10. POST /api/v1/auth/login (L2 Login)
-    - Authenticate as `l2.approver@vms.com`. Retrieve `L2_JWT`.
+10. POST /api/v1/auth/login (Team Lead Login)
+    - Authenticate as `team.lead@vms.com`. Retrieve `TEAM_LEAD_JWT`.
 
 11. PATCH /api/v1/invoices/:id/approve
-    - Use `L2_JWT` and invoice ID.
-    - Status updates to 'approved'.
+    - Use `TEAM_LEAD_JWT` and invoice ID.
+    - Status updates to 'PENDING_MANAGER'.
 
-12. POST /api/v1/payments
+12. POST /api/v1/auth/login (Manager Login)
+    - Authenticate as `manager@vms.com`. Retrieve `MANAGER_JWT`.
+
+13. PATCH /api/v1/invoices/:id/approve
+    - Use `MANAGER_JWT` and invoice ID.
+    - Status updates to 'APPROVED' (since amount 75000.00 is <= 100,000 INR).
+
+14. POST /api/v1/payments
     - Use `CASE_MANAGER_JWT`.
     - Create a payment request for the approved invoice. Retrieve `PAYMENT_ID`.
 
-13. PATCH /api/v1/payments/:id/approve
-    - Use `FINANCE_MANAGER_JWT` and payment ID. Specify `referenceNo` transaction code.
+15. PATCH /api/v1/payments/:id/approve
+    - Use `FINANCE_HEAD_JWT` and payment ID. Specify `referenceNo` transaction code.
     - Status updates to 'approved'.
 
-14. GET /api/v1/dashboard/me
+16. GET /api/v1/dashboard/me
     - Fetch from all accounts to verify correct pending actions count and metrics summaries.
 
 ================================================================================
@@ -2597,9 +2741,10 @@ During codebase analysis, the following structural gaps were discovered:
    * Status: Missing.
    * Recommendation: Enable soft delete for POs that are in 'pending' status.
 
-5. DELETE /api/v1/invoices/:id and DELETE /api/v1/payments/:id
-   * Status: Missing. No way to clean up erroneous test records.
-   * Recommendation: Restrict delete rights to SUPER_ADMIN/FINANCE_MANAGER roles for draft/pending records.
+5. DELETE /api/v1/payments/:id
+   * Status: Missing. No way to clean up payments request records.
+   * Recommendation: Enable soft delete for payments that are in pending status.
+   * Note: DELETE /api/v1/invoices/:id is fully implemented under ticket soft-delete rules.
 
 ================================================================================
 16. SECURITY REVIEW
@@ -2611,7 +2756,7 @@ During codebase analysis, the following structural gaps were discovered:
 
 2. Authorization
    - Controlled via role-based middleware (`authorize`).
-   - Route path scoping limits data leakages (e.g. Case Managers can only access records created by them, L1/L2/L3 see only their assigned invoices).
+   - Route path scoping limits data leakages (e.g. Case Managers can only access records created by them, TEAM_LEAD/MANAGER/FINANCE_HEAD see only their assigned invoices).
 
 3. Rate Limiting
    - Managed globally in Express. (Rate limiter setup exists in `src/app.js` via standard express-rate-limit).
@@ -2636,31 +2781,27 @@ FINAL SUMMARY
 ================================================================================
 
 1. COMPLETE API COUNT
-   * Total Endpoints      : 47
-   * GET Endpoints        : 18
-   * POST Endpoints       : 13
+   * Total Endpoints      : 53
+   * GET Endpoints        : 20
+   * POST Endpoints       : 16
    * PUT Endpoints        : 3
-   * PATCH Endpoints      : 12
+   * PATCH Endpoints      : 13
    * DELETE Endpoints     : 1
 
 2. PROTECTION SCOPE
-   * Protected APIs       : 41
+   * Protected APIs       : 47
    * Public APIs          : 6 (Health, Login, Forgot Pass, Verify OTP, Reset Pass, Refresh Token)
 
 3. UNUSED CODEBASE FILES
-   * Unused Controllers:
-     - src/modules/three-way-matching/matching.controller.js (Module is empty placeholder)
+   * Unused Controllers: None
    * Unused Routes:
-     - src/modules/three-way-matching/matching.routes.js (Empty placeholder)
      - src/routes/index.js (Empty placeholder)
    * Unused Validators:
      - src/middleware/user.schema.js (Deprecated reference)
      - src/middleware/vendor.schema.js (Deprecated reference)
      - src/middleware/auth.schema.js (Empty placeholder)
-   * Unused Services:
-     - src/modules/three-way-matching/matching.service.js (Empty placeholder)
-   * Unused Repositories:
-     - src/modules/three-way-matching/matching.repository.js (Empty placeholder)
+   * Unused Services: None
+   * Unused Repositories: None
    * Unused Utilities:
      - src/utils/api-response.js (Empty placeholder)
      - src/utils/constants.js (Empty placeholder)

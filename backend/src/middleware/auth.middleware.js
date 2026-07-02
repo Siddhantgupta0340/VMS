@@ -48,7 +48,7 @@ export const protect = async (req, res, next) => {
         role: true,
         first_name: true,
         last_name: true,
-        is_active: true,
+        status: true,
         deleted_at: true,
       },
     });
@@ -57,8 +57,9 @@ export const protect = async (req, res, next) => {
       throw new ApiError(401, AUTH_MESSAGES.UNAUTHORIZED);
     }
 
-    if (!user.is_active) {
-      throw new ApiError(403, 'Your account has been deactivated. Please contact an administrator.');
+    if (user.status !== 'ACTIVE') {
+      const statusText = user.status ? user.status.toLowerCase() : 'inactive';
+      throw new ApiError(403, `Your account is ${statusText}. Please contact an administrator.`);
     }
 
     // Attach full user context to the request object.
@@ -68,7 +69,7 @@ export const protect = async (req, res, next) => {
       role: user.role,
       first_name: user.first_name,
       last_name: user.last_name,
-      is_active: user.is_active,
+      status: user.status || 'ACTIVE',
     };
 
     next();
