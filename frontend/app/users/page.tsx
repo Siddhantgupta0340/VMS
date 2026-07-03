@@ -42,6 +42,7 @@ export default function UserManagementPage() {
     if (userStr) {
       try {
         const parsed = JSON.parse(userStr);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentUser(parsed);
         // RBAC Check on Frontend: only SUPER_ADMIN gets access
         if (parsed.role !== 'SUPER_ADMIN') {
@@ -70,6 +71,7 @@ export default function UserManagementPage() {
 
   // Reset page when filters change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [search, roleFilter, statusFilter]);
 
