@@ -95,8 +95,9 @@ export default function UserManagementPage() {
       toast.success(`User status updated to ${targetStatus} successfully.`);
       setIsConfirmOpen(false);
       setSelectedUser(null);
-    } catch (error: any) {
-      const apiErrorMsg = error.response?.data?.message || 'Failed to update user status.';
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      const apiErrorMsg = apiError.response?.data?.message || 'Failed to update user status.';
       toast.error(apiErrorMsg);
     }
   };
