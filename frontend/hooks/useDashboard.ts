@@ -32,7 +32,6 @@ export interface DashboardStats {
         MANAGER?: number;
         FINANCE_HEAD?: number;
         PENDING_THREE_WAY_MATCH?: number;
-        PENDING_ADMIN_REVIEW?: number;
       };
       totalInvoiceAmount: number;
       totalPaidAmount: number;

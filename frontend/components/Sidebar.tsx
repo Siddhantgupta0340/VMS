@@ -48,28 +48,28 @@ export default function Sidebar({ user }: SidebarProps) {
       label: 'Create PO',
       href: '/purchase-orders/create',
       icon: <PlusCircle className="h-5 w-5" />,
-      roles: ['CASE_MANAGER', 'SUPER_ADMIN'],
+      roles: ['CASE_MANAGER'],
     },
     // Three-Way Matching Board
     {
       label: 'Three-Way Matching',
       href: '/three-way-matching',
       icon: <Scale className="h-5 w-5" />,
-      roles: ['CASE_MANAGER', 'SUPER_ADMIN', 'FINANCE_HEAD'],
+      roles: ['CASE_MANAGER', 'FINANCE_HEAD'],
     },
     // Finance Head Observation Dashboard
     {
       label: 'Observation Board',
       href: '/invoices/observation',
       icon: <Eye className="h-5 w-5" />,
-      roles: ['FINANCE_HEAD', 'SUPER_ADMIN'],
+      roles: ['FINANCE_HEAD'],
     },
     // Payments section
     {
       label: 'Payments System',
       href: '/payments/pending',
       icon: <CreditCard className="h-5 w-5" />,
-      roles: ['SUPER_ADMIN', 'FINANCE_HEAD', 'CASE_MANAGER'],
+      roles: ['FINANCE_HEAD', 'CASE_MANAGER'],
     },
     // User Management (Admin only)
     {

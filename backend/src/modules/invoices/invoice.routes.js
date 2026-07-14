@@ -8,8 +8,7 @@ import {
   invoiceApproveSchema,
   invoiceRejectSchema,
   invoiceCancelSchema,
-  adminReviewApproveSchema,
-  adminReviewRejectSchema,
+
   invoiceDeleteSchema,
   invoiceRestoreSchema,
   financeHeadRemarkSchema,
@@ -30,7 +29,7 @@ router.use(protect);
 
 // ─── Finance Head Observation Dashboard ──────────────────────────────────────
 router.get('/observation',
-  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.FINANCE_HEAD]),
   validate(financeHeadObservationSchema),
   invoiceController.getFinanceHeadObservation,
 );
@@ -50,35 +49,30 @@ router.get('/my/pending',
 // ─── Workflow-Stage Queues ────────────────────────────────────────────────────
 // Three-Way Matching queue (Case Manager)
 router.get('/pending/three-way-match',
-  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.CASE_MANAGER]),
   validate(searchInvoicesSchema),
   invoiceController.getPendingThreeWayMatch,
 );
 
-// Admin Review queue (Super Admin)
-router.get('/pending/admin-review',
-  authorize([ROLES.SUPER_ADMIN]),
-  validate(searchInvoicesSchema),
-  invoiceController.getPendingAdminReview,
-);
+// Admin Review queue removed.
 
 // Team Lead queue (formerly L1)
 router.get('/pending/team-lead',
-  authorize([ROLES.TEAM_LEAD, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.TEAM_LEAD]),
   validate(searchInvoicesSchema),
   invoiceController.getPendingTeamLead,
 );
 
 // Manager queue (formerly L2)
 router.get('/pending/manager',
-  authorize([ROLES.MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.MANAGER]),
   validate(searchInvoicesSchema),
   invoiceController.getPendingManager,
 );
 
 // Finance Head queue (formerly L3)
 router.get('/pending/finance-head',
-  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.FINANCE_HEAD]),
   validate(searchInvoicesSchema),
   invoiceController.getPendingFinanceHead,
 );
@@ -114,22 +108,12 @@ router.patch('/:id/reject',
   invoiceController.rejectInvoice,
 );
 router.patch('/:id/cancel',
-  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.CASE_MANAGER]),
   validate(invoiceCancelSchema),
   invoiceController.cancelInvoice,
 );
 
-// ─── Admin Review Actions ─────────────────────────────────────────────────────
-router.patch('/:id/admin-review/approve',
-  authorize([ROLES.SUPER_ADMIN]),
-  validate(adminReviewApproveSchema),
-  invoiceController.adminApproveInvoice,
-);
-router.patch('/:id/admin-review/reject',
-  authorize([ROLES.SUPER_ADMIN]),
-  validate(adminReviewRejectSchema),
-  invoiceController.adminRejectInvoice,
-);
+// Admin Review Actions removed.
 
 // ─── Soft Delete & Restore ────────────────────────────────────────────────────
 router.delete('/:id',
@@ -145,7 +129,7 @@ router.post('/:id/restore',
 
 // ─── Finance Head Observation Remarks ─────────────────────────────────────────
 router.post('/:id/remark',
-  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.FINANCE_HEAD]),
   validate(financeHeadRemarkSchema),
   invoiceController.addFinanceHeadRemark,
 );

@@ -85,7 +85,7 @@ class InvoiceService {
           required_approval_role: requiredApprovalRole,
           current_approval_level: null,
           three_way_match_status: THREE_WAY_MATCH_STATUS.PENDING,
-          admin_review_status:    ADMIN_REVIEW_STATUS.PENDING,
+          admin_review_status:    ADMIN_REVIEW_STATUS.APPROVED, // Default to approved as review is removed
           invoice_date:          payload.invoiceDate || new Date(),
           due_date:              payload.dueDate ? new Date(payload.dueDate) : null,
           description:           payload.description || null,
@@ -258,117 +258,7 @@ class InvoiceService {
   // ────────────────────────────────────────────────────────────────────────────
   // ADMIN REVIEW — Approve (after Three-Way Matching)
   // ────────────────────────────────────────────────────────────────────────────
-  async adminApproveInvoice(id, user, remarks, req = null) {
-    const invoice = await invoiceRepository.findById(id);
-    if (!invoice) throw new ApiError(404, 'Invoice not found.');
-    if (invoice.deleted_at) throw new ApiError(400, 'Cannot review a deleted invoice.');
-
-    if (invoice.status !== INVOICE_STATUS.PENDING_ADMIN_REVIEW) {
-      throw new ApiError(400, 'Invoice is not pending Admin Review.');
-    }
-
-    if (![ROLES.SUPER_ADMIN].includes(user.role)) {
-      throw new ApiError(403, 'Only Admins can perform Admin Review.');
-    }
-
-    // Three-Way Match must have been completed before Admin can review
-    if (invoice.three_way_match_status === THREE_WAY_MATCH_STATUS.PENDING) {
-      throw new ApiError(400, 'Three-Way Matching must be completed before Admin Review.');
-    }
-
-    const currentStatus = invoice.status;
-    const nextStatus    = INVOICE_STATUS.PENDING_TEAM_LEAD;
-    const now           = new Date();
-
-    return invoiceRepository.transaction(async (tx) => {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
-        data: {
-          status:                INVOICE_STATUS.PENDING_TEAM_LEAD,
-          current_approval_level: 'TEAM_LEAD',
-          admin_review_status:   ADMIN_REVIEW_STATUS.APPROVED,
-          admin_reviewed_by_id:  user.id,
-          admin_reviewed_at:     now,
-          admin_remarks:         remarks || '',
-          updated_by_id:         user.id,
-        },
-        include: { vendor: true, purchase_order: true },
-      });
-
-      await writeAuditLog(tx, {
-        entityId:   id,
-        action:     'admin_review_approved',
-        fromStatus: currentStatus,
-        toStatus:   nextStatus,
-        userId:     user.id,
-        remarks:    `Admin Review approved. Invoice forwarded to Team Lead. Remarks: ${remarks || 'None'}`,
-        req,
-      });
-
-      // Notify Team Lead users
-      notificationService.notifyInvoiceNextLevel(updatedInvoice, 'TEAM_LEAD').catch(() => {});
-
-      return updatedInvoice;
-    });
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // ADMIN REVIEW — Reject (send back)
-  // ────────────────────────────────────────────────────────────────────────────
-  async adminRejectInvoice(id, user, remarks, req = null) {
-    const invoice = await invoiceRepository.findById(id);
-    if (!invoice) throw new ApiError(404, 'Invoice not found.');
-    if (invoice.deleted_at) throw new ApiError(400, 'Cannot review a deleted invoice.');
-
-    if (invoice.status !== INVOICE_STATUS.PENDING_ADMIN_REVIEW) {
-      throw new ApiError(400, 'Invoice is not pending Admin Review.');
-    }
-
-    if (![ROLES.SUPER_ADMIN].includes(user.role)) {
-      throw new ApiError(403, 'Only Admins can perform Admin Review.');
-    }
-
-    if (!remarks?.trim()) {
-      throw new ApiError(400, 'Remarks are required when rejecting at Admin Review stage.');
-    }
-
-    const currentStatus = invoice.status;
-    const now           = new Date();
-
-    return invoiceRepository.transaction(async (tx) => {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
-        data: {
-          status:               INVOICE_STATUS.REJECTED,
-          current_approval_level: null,
-          admin_review_status:  ADMIN_REVIEW_STATUS.REJECTED,
-          admin_reviewed_by_id: user.id,
-          admin_reviewed_at:    now,
-          admin_remarks:        remarks,
-          rejected_by_id:       user.id,
-          rejected_at:          now,
-          rejection_reason:     remarks,
-          updated_by_id:        user.id,
-        },
-        include: { vendor: true, purchase_order: true },
-      });
-
-      await writeAuditLog(tx, {
-        entityId:   id,
-        action:     'admin_review_rejected',
-        fromStatus: currentStatus,
-        toStatus:   INVOICE_STATUS.REJECTED,
-        userId:     user.id,
-        remarks:    `Admin Review rejected. Mismatch report returned. Remarks: ${remarks}`,
-        req,
-      });
-
-      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Admin';
-      notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.REJECTED, actorName).catch(() => {});
-
-      return updatedInvoice;
-    });
-  }
+  // adminApproveInvoice and adminRejectInvoice removed as admin review stage is eliminated.
 
   // ────────────────────────────────────────────────────────────────────────────
   // REJECT INVOICE (Team Lead / Manager / Finance Head)
@@ -436,7 +326,7 @@ class InvoiceService {
     if (!invoice) throw new ApiError(404, 'Invoice not found.');
     if (invoice.deleted_at) throw new ApiError(400, 'Cannot cancel a deleted invoice.');
 
-    if (invoice.created_by_id !== user.id && user.role !== ROLES.SUPER_ADMIN) {
+    if (invoice.created_by_id !== user.id) {
       throw new ApiError(403, 'You do not have permission to cancel this invoice.');
     }
 
@@ -587,7 +477,7 @@ class InvoiceService {
   }
 
   async getPendingAdminReview(query) {
-    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_ADMIN_REVIEW }, { role: ROLES.SUPER_ADMIN });
+    throw new ApiError(404, 'Admin Review queue is no longer available.');
   }
 
   async getPendingTeamLead(query) {
@@ -656,7 +546,6 @@ class InvoiceService {
 
     const pendingStatuses = [
       INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
-      INVOICE_STATUS.PENDING_ADMIN_REVIEW,
       INVOICE_STATUS.PENDING_TEAM_LEAD,
       INVOICE_STATUS.PENDING_MANAGER,
       INVOICE_STATUS.PENDING_FINANCE_HEAD,

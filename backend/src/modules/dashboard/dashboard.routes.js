@@ -24,7 +24,7 @@ router.get('/overview',
  * Access: Finance Head + Super Admin
  */
 router.get('/finance-head/observation',
-  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.FINANCE_HEAD]),
   dashboardController.getFinanceHeadObservation,
 );
 

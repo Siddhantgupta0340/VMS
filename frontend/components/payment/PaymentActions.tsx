@@ -42,15 +42,15 @@ export default function PaymentActions({ payment, currentUser, onEdit }: Payment
   const isSuccess = status === 'SUCCESS';
   const isInitiated = status === 'INITIATED';
 
-  const isFinanceOrAdmin = currentUser.role === 'FINANCE_MANAGER' || currentUser.role === 'SUPER_ADMIN';
+  const isFinanceHead = currentUser.role === 'FINANCE_HEAD';
 
   // Authorization Checkers
-  const canApproveOrReject = isPending && isFinanceOrAdmin;
-  const canRetry = isFailed && isFinanceOrAdmin;
-  const canRefund = isSuccess && isFinanceOrAdmin;
-  const canCancel = (isPending || isInitiated) && (payment.created_by_id === currentUser.id || isFinanceOrAdmin);
-  const canEdit = isPending && (payment.created_by_id === currentUser.id || isFinanceOrAdmin);
-  const canDelete = (isPending || status === 'CANCELLED') && (payment.created_by_id === currentUser.id || isFinanceOrAdmin);
+  const canApproveOrReject = isPending && isFinanceHead;
+  const canRetry = isFailed && isFinanceHead;
+  const canRefund = isSuccess && isFinanceHead;
+  const canCancel = (isPending || isInitiated) && (payment.created_by_id === currentUser.id);
+  const canEdit = isPending && (payment.created_by_id === currentUser.id);
+  const canDelete = (isPending || status === 'CANCELLED') && (payment.created_by_id === currentUser.id);
 
   if (!canApproveOrReject && !canRetry && !canRefund && !canCancel && !canEdit && !canDelete) {
     return null;

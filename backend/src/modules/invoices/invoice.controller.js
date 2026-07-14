@@ -38,18 +38,7 @@ class InvoiceController {
     res.status(200).json({ success: true, message: 'Invoice cancelled.', data: invoice });
   });
 
-  // ─── Admin Review ──────────────────────────────────────────────────────────
-  adminApproveInvoice = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const invoice = await invoiceService.adminApproveInvoice(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, message: 'Admin Review approved. Invoice forwarded to Team Lead.', data: invoice });
-  });
-
-  adminRejectInvoice = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const invoice = await invoiceService.adminRejectInvoice(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, message: 'Admin Review rejected. Invoice returned.', data: invoice });
-  });
+  // Admin Review methods removed.
 
   // ─── Soft Delete & Restore ─────────────────────────────────────────────────
   softDeleteInvoice = asyncHandler(async (req, res) => {

@@ -7,8 +7,6 @@ import {
   useInvoices,
   useInvoiceMatching,
   useStartMatching,
-  useAdminApproveInvoice,
-  useAdminRejectInvoice,
 } from '@/hooks/useInvoices';
 import { useGRNsByPurchaseOrder } from '@/hooks/useInvoices';
 import {
@@ -49,8 +47,7 @@ export default function ThreeWayMatchingBoard() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
   const [selectedGRNId, setSelectedGRNId] = useState<string>('');
   const [showOnlyMismatches, setShowOnlyMismatches] = useState<boolean>(false);
-  const [isAdminApproveOpen, setIsAdminApproveOpen] = useState(false);
-  const [isAdminRejectOpen, setIsAdminRejectOpen] = useState(false);
+
 
   useEffect(() => {
     const userStr = localStorage.getItem('vms_user');
@@ -77,7 +74,6 @@ export default function ThreeWayMatchingBoard() {
   const matchingInvoices = invoices.filter(
     (inv) =>
       inv.status === 'PENDING_THREE_WAY_MATCH' ||
-      inv.status === 'PENDING_ADMIN_REVIEW' ||
       inv.three_way_match_status !== null
   );
 
@@ -94,9 +90,6 @@ export default function ThreeWayMatchingBoard() {
   const activeReport = matchingReports[0]; // Get the latest matching report
 
   const startMatchingMutation = useStartMatching();
-  const adminApproveMutation = useAdminApproveInvoice();
-  const adminRejectMutation = useAdminRejectInvoice();
-
   const handleStartMatching = () => {
     if (!selectedInvoiceId) {
       toast.error('Please select an invoice first.');
@@ -118,41 +111,7 @@ export default function ThreeWayMatchingBoard() {
     );
   };
 
-  const handleAdminApprove = (remarks: string) => {
-    if (!selectedInvoiceId) return;
-    adminApproveMutation.mutate(
-      { id: selectedInvoiceId, remarks },
-      {
-        onSuccess: () => {
-          toast.success('Matching report approved. Invoice advanced to Team Lead.');
-          setIsAdminApproveOpen(false);
-          router.push('/invoices/pending');
-        },
-        onError: (err: unknown) => {
-          const error = err as ApiErrorResponse;
-          toast.error(error.response?.data?.message || 'Failed to approve report.');
-        },
-      }
-    );
-  };
 
-  const handleAdminReject = (remarks: string) => {
-    if (!selectedInvoiceId) return;
-    adminRejectMutation.mutate(
-      { id: selectedInvoiceId, remarks },
-      {
-        onSuccess: () => {
-          toast.success('Matching report rejected. Returned to Case Manager.');
-          setIsAdminRejectOpen(false);
-          router.push('/invoices/pending');
-        },
-        onError: (err: unknown) => {
-          const error = err as ApiErrorResponse;
-          toast.error(error.response?.data?.message || 'Failed to reject report.');
-        },
-      }
-    );
-  };
 
   // Export comparison table to Excel
   const exportToExcel = () => {
@@ -412,36 +371,11 @@ export default function ThreeWayMatchingBoard() {
                           {activeReport.approval_recommendation}
                         </span>
                       </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-550">Admin Match status</span>
-                        <span className="font-bold text-orange-600 dark:text-orange-400">
-                          {activeReport.admin_review_status || 'PENDING'}
-                        </span>
-                      </div>
+
                     </div>
                   </div>
 
-                  {/* Actions for Admin Review */}
-                  {isSuperAdmin && activeReport.admin_review_status === 'PENDING' && (
-                    <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-800 space-y-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsAdminApproveOpen(true)}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Approve Match
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsAdminRejectOpen(true)}
-                        className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Reject & Terminate
-                      </button>
-                    </div>
-                  )}
+
                 </div>
 
                 {/* PDF/Excel Downloads */}
@@ -557,26 +491,7 @@ export default function ThreeWayMatchingBoard() {
         </div>
       </div>
 
-      <RemarksDialog
-        isOpen={isAdminApproveOpen}
-        onClose={() => setIsAdminApproveOpen(false)}
-        onSubmit={handleAdminApprove}
-        title="Approve Match Report"
-        placeholder="Enter optional remarks for authorizing this three-way match..."
-        submitButtonText="Approve Report"
-        submitButtonColor="bg-emerald-600 hover:bg-emerald-700"
-      />
 
-      <RemarksDialog
-        isOpen={isAdminRejectOpen}
-        onClose={() => setIsAdminRejectOpen(false)}
-        onSubmit={handleAdminReject}
-        title="Reject Match Report"
-        placeholder="Provide the mandatory rejection remarks (e.g. Price difference mismatch)..."
-        submitButtonText="Reject Report"
-        submitButtonColor="bg-rose-600 hover:bg-rose-700"
-        isRequired={true}
-      />
     </div>
   );
 }

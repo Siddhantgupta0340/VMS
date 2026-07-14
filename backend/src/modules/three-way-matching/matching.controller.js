@@ -32,17 +32,7 @@ class MatchingController {
     res.status(200).json({ success: true, ...result });
   });
 
-  adminApproveMatch = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const result = await matchingService.adminApproveMatching(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, ...result });
-  });
-
-  adminRejectMatch = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const result = await matchingService.adminRejectMatching(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, ...result });
-  });
+  // Admin review methods removed.
 
   // ─── GRN ──────────────────────────────────────────────────────────────────
 

@@ -29,7 +29,7 @@ router.use(protect);
  * Access: Case Manager
  */
 router.post('/grn',
-  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.CASE_MANAGER]),
   validate(createGRNSchema),
   matchingController.createGRN,
 );
@@ -60,7 +60,7 @@ router.get('/grn/:id',
  * Update a GRN
  */
 router.put('/grn/:id',
-  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.CASE_MANAGER]),
   validate(updateGRNSchema),
   matchingController.updateGRN,
 );
@@ -73,7 +73,7 @@ router.put('/grn/:id',
  * Access: Case Manager
  */
 router.post('/start',
-  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  authorize([ROLES.CASE_MANAGER]),
   validate(startMatchingSchema),
   matchingController.startMatching,
 );
@@ -110,26 +110,6 @@ router.get('/:id',
   matchingController.getMatchReport,
 );
 
-/**
- * PATCH  /api/v1/three-way-matching/:id/approve
- * Admin approves a match report → Invoice moves to PENDING_TEAM_LEAD
- * Access: Super Admin only
- */
-router.patch('/:id/approve',
-  authorize([ROLES.SUPER_ADMIN]),
-  validate(adminReviewSchema),
-  matchingController.adminApproveMatch,
-);
-
-/**
- * PATCH  /api/v1/three-way-matching/:id/reject
- * Admin rejects a match report → Invoice returned with mismatch report
- * Access: Super Admin only
- */
-router.patch('/:id/reject',
-  authorize([ROLES.SUPER_ADMIN]),
-  validate(adminRejectSchema),
-  matchingController.adminRejectMatch,
-);
+// Admin approve/reject match routes removed as admin review stage is eliminated.
 
 export default router;

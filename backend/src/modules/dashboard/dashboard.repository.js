@@ -37,7 +37,6 @@ class DashboardRepository {
     const [
       total,
       pendingThreeWayMatch,
-      pendingAdminReview,
       pendingTeamLead,
       pendingManager,
       pendingFinanceHead,
@@ -53,7 +52,6 @@ class DashboardRepository {
     ] = await Promise.all([
       prisma.invoice.count({ where: { deleted_at: null } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_THREE_WAY_MATCH' } }),
-      prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW'    } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_TEAM_LEAD'       } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_MANAGER'         } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_FINANCE_HEAD'    } }),
@@ -72,7 +70,6 @@ class DashboardRepository {
       total,
       byWorkflowStage: {
         pendingThreeWayMatch,
-        pendingAdminReview,
         pendingTeamLead,
         pendingManager,
         pendingFinanceHead,
@@ -81,7 +78,7 @@ class DashboardRepository {
         cancelled,
       },
       // Legacy compat
-      pending: pendingTeamLead + pendingManager + pendingFinanceHead + pendingThreeWayMatch + pendingAdminReview,
+      pending: pendingTeamLead + pendingManager + pendingFinanceHead + pendingThreeWayMatch,
       approved,
       rejected,
       totalInvoiceAmount:    Number(totalInvoiceAmount._sum.invoice_total   || 0),
@@ -114,14 +111,13 @@ class DashboardRepository {
    * Get Three-Way Matching statistics.
    */
   async getThreeWayMatchStats() {
-    const [total, matched, unmatched, pending, adminPending] = await Promise.all([
+    const [total, matched, unmatched, pending] = await Promise.all([
       prisma.threeWayMatch.count(),
       prisma.threeWayMatch.count({ where: { status: 'MATCHED'   } }),
       prisma.threeWayMatch.count({ where: { status: 'UNMATCHED' } }),
       prisma.threeWayMatch.count({ where: { status: 'PENDING'   } }),
-      prisma.threeWayMatch.count({ where: { admin_review_status: 'PENDING' } }),
     ]);
-    return { total, matched, unmatched, pending, adminPending };
+    return { total, matched, unmatched, pending };
   }
 
   /**
@@ -208,12 +204,10 @@ class DashboardRepository {
 
     // Super Admin gets all pending items
     if (role === 'SUPER_ADMIN') {
-      const [pendingAdminReview, pendingVendors, pendingPayments] = await Promise.all([
-        prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW' } }),
+      const [pendingVendors, pendingPayments] = await Promise.all([
         prisma.vendor.count({ where: { status: 'pending', deleted_at: null } }),
         prisma.payment.count({ where: { status: 'pending' } }),
       ]);
-      counts.pendingAdminReviewInvoices = pendingAdminReview;
       counts.pendingVendorApprovals     = pendingVendors;
       counts.pendingPaymentApprovals    = pendingPayments;
     }
@@ -238,7 +232,6 @@ class DashboardRepository {
       // Pending by each stage
       Promise.all([
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_THREE_WAY_MATCH' } }),
-        prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW'    } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_TEAM_LEAD'       } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_MANAGER'         } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_FINANCE_HEAD'    } }),
@@ -266,10 +259,9 @@ class DashboardRepository {
       totalInvoices,
       byStage: {
         pendingThreeWayMatch: pendingByStage[0],
-        pendingAdminReview:   pendingByStage[1],
-        pendingTeamLead:      pendingByStage[2],
-        pendingManager:       pendingByStage[3],
-        pendingFinanceHead:   pendingByStage[4],
+        pendingTeamLead:      pendingByStage[1],
+        pendingManager:       pendingByStage[2],
+        pendingFinanceHead:   pendingByStage[3],
         approved,
         rejected,
       },

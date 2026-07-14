@@ -18,7 +18,6 @@ export const NOTIFICATION_TYPES = {
 
   // Workflow steps (new names)
   INVOICE_PENDING_THREE_WAY_MATCH: 'invoice_pending_three_way_match',
-  INVOICE_PENDING_ADMIN_REVIEW:    'invoice_pending_admin_review',
   INVOICE_PENDING_TEAM_LEAD:       'invoice_pending_team_lead',
   INVOICE_PENDING_MANAGER:         'invoice_pending_manager',
   INVOICE_PENDING_FINANCE_HEAD:    'invoice_pending_finance_head',
@@ -33,9 +32,7 @@ export const NOTIFICATION_TYPES = {
   THREE_WAY_MATCH_MATCHED:   'three_way_match_matched',
   THREE_WAY_MATCH_UNMATCHED: 'three_way_match_unmatched',
 
-  // Admin Review
-  ADMIN_REVIEW_APPROVED: 'admin_review_approved',
-  ADMIN_REVIEW_REJECTED: 'admin_review_rejected',
+
 
   // Ticket Management
   TICKET_DELETED:    'ticket_deleted',
@@ -60,7 +57,6 @@ const ROLE_LEVEL_MAP = {
   MANAGER:      ROLES.MANAGER,
   FINANCE_HEAD: ROLES.FINANCE_HEAD,
   THREE_WAY_MATCH: null,  // Notify Case Manager
-  ADMIN_REVIEW:    null,  // Notify Admin (SUPER_ADMIN)
 };
 
 class NotificationService {
@@ -161,7 +157,6 @@ class NotificationService {
 
     const typeMap = {
       PENDING_THREE_WAY_MATCH: NOTIFICATION_TYPES.INVOICE_PENDING_THREE_WAY_MATCH,
-      PENDING_ADMIN_REVIEW:    NOTIFICATION_TYPES.INVOICE_PENDING_ADMIN_REVIEW,
       PENDING_TEAM_LEAD:       NOTIFICATION_TYPES.INVOICE_PENDING_TEAM_LEAD,
       PENDING_MANAGER:         NOTIFICATION_TYPES.INVOICE_PENDING_MANAGER,
       PENDING_FINANCE_HEAD:    NOTIFICATION_TYPES.INVOICE_PENDING_FINANCE_HEAD,
@@ -172,7 +167,6 @@ class NotificationService {
 
     const titleMap = {
       PENDING_THREE_WAY_MATCH: ' Three-Way Matching Required',
-      PENDING_ADMIN_REVIEW:    ' Pending Admin Review',
       PENDING_TEAM_LEAD:       ' Pending Team Lead Approval',
       PENDING_MANAGER:         ' Pending Manager Approval',
       PENDING_FINANCE_HEAD:    ' Pending Finance Head Approval',
@@ -183,7 +177,6 @@ class NotificationService {
 
     const messageMap = {
       PENDING_THREE_WAY_MATCH: `Invoice ${invoice.invoice_number} is ready for Three-Way Matching.`,
-      PENDING_ADMIN_REVIEW:    `Invoice ${invoice.invoice_number} is pending Admin Review after matching.`,
       PENDING_TEAM_LEAD:       `Invoice ${invoice.invoice_number} has been forwarded to Team Lead for approval.`,
       PENDING_MANAGER:         `Invoice ${invoice.invoice_number} has been forwarded to Manager for approval.`,
       PENDING_FINANCE_HEAD:    `Invoice ${invoice.invoice_number} has been forwarded to Finance Head for approval.`,
@@ -260,23 +253,23 @@ class NotificationService {
 
   async notifyMatchingCompleted(invoice, matchStatus, matchPercentage) {
     try {
-      // Notify all Admins (SUPER_ADMIN)
-      const admins = await prisma.user.findMany({
-        where:  { role: ROLES.SUPER_ADMIN, status: 'ACTIVE', deleted_at: null },
+      // Notify all Team Leads (Next level in workflow)
+      const teamLeads = await prisma.user.findMany({
+        where:  { role: ROLES.TEAM_LEAD, status: 'ACTIVE', deleted_at: null },
         select: { id: true },
       });
 
-      if (!admins || admins.length === 0) return;
+      if (!teamLeads || teamLeads.length === 0) return;
 
       const isMatched = matchStatus === 'MATCHED';
-      const notifications = admins.map((admin) => ({
-        user_id:     admin.id,
+      const notifications = teamLeads.map((tl) => ({
+        user_id:     tl.id,
         type:        isMatched ? NOTIFICATION_TYPES.THREE_WAY_MATCH_MATCHED : NOTIFICATION_TYPES.THREE_WAY_MATCH_UNMATCHED,
         title:       isMatched
           ? ` Three-Way Match: MATCHED (${matchPercentage}%)`
           : ` Three-Way Match: UNMATCHED (${matchPercentage}%)`,
         message:     isMatched
-          ? `Invoice ${invoice.invoice_number} has passed Three-Way Matching (${matchPercentage}% match). Awaiting your review.`
+          ? `Invoice ${invoice.invoice_number} has passed Three-Way Matching (${matchPercentage}% match). Awaiting your Team Lead approval.`
           : `Invoice ${invoice.invoice_number} has FAILED Three-Way Matching (${matchPercentage}% match). Please review the mismatch report.`,
         entity_type: 'invoice',
         entity_id:   invoice.id,

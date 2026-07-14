@@ -231,7 +231,7 @@ class MatchingService {
   // START MATCHING — Case Manager triggers
   // ────────────────────────────────────────────────────────────────────────────
   async startMatching(invoiceId, grnId, user, req = null) {
-    if (user.role !== ROLES.CASE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+    if (user.role !== ROLES.CASE_MANAGER) {
       throw new ApiError(403, 'Only Case Managers can initiate Three-Way Matching.');
     }
 
@@ -296,7 +296,7 @@ class MatchingService {
           invoice_snapshot:        invoiceData,
           completed_by_id:         user.id,
           completed_at:            now,
-          admin_review_status:     ADMIN_REVIEW_STATUS.PENDING,
+          admin_review_status:     ADMIN_REVIEW_STATUS.APPROVED, // Auto-approve since admin review is removed
         },
       });
 
@@ -311,9 +311,10 @@ class MatchingService {
           matching_remarks:            comparison.overall_status === THREE_WAY_MATCH_STATUS.MATCHED
             ? `Matched ${comparison.matched_fields_count}/${comparison.total_fields_count} fields.`
             : `${comparison.unmatched_fields.length} field(s) failed. Match: ${comparison.match_percentage}%`,
-          // Move to Admin Review
-          status:                      INVOICE_STATUS.PENDING_ADMIN_REVIEW,
-          admin_review_status:         ADMIN_REVIEW_STATUS.PENDING,
+          // Move to Team Lead
+          status:                      INVOICE_STATUS.PENDING_TEAM_LEAD,
+          current_approval_level:      'TEAM_LEAD',
+          admin_review_status:         ADMIN_REVIEW_STATUS.APPROVED,
         },
       });
 
@@ -324,16 +325,16 @@ class MatchingService {
           entity_id:       invoiceId,
           action:          'three_way_match_completed',
           from_status:     INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
-          to_status:       INVOICE_STATUS.PENDING_ADMIN_REVIEW,
+          to_status:       INVOICE_STATUS.PENDING_TEAM_LEAD,
           performed_by_id: user.id,
-          remarks:         `Three-Way Matching: ${comparison.overall_status}. Match: ${comparison.match_percentage}%. Unmatched fields: ${comparison.unmatched_fields.map(f => f.label).join(', ') || 'None'}`,
+          remarks:         `Three-Way Matching: ${comparison.overall_status}. Match: ${comparison.match_percentage}%. Forwarded to Team Lead.`,
           ip_address:      req?.ip || null,
           user_agent:      req?.headers?.['user-agent'] || null,
         },
       });
 
-      // Notify Admin
-      notificationService.notifyMatchingCompleted(invoice, comparison.overall_status, comparison.match_percentage).catch(() => {});
+      // Notify Team Lead
+      notificationService.notifyInvoiceNextLevel(invoice, 'TEAM_LEAD').catch(() => {});
 
       return {
         match,
@@ -525,7 +526,7 @@ class MatchingService {
   // CREATE GRN (for when goods are received)
   // ────────────────────────────────────────────────────────────────────────────
   async createGRN(payload, user) {
-    if (![ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN].includes(user.role)) {
+    if (user.role !== ROLES.CASE_MANAGER) {
       throw new ApiError(403, 'Only Case Managers can create GRNs.');
     }
 
@@ -565,7 +566,7 @@ class MatchingService {
     const grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
     if (!grn) throw new ApiError(404, 'GRN not found.');
 
-    if (user.role !== ROLES.SUPER_ADMIN && grn.created_by_id !== user.id) {
+    if (grn.created_by_id !== user.id) {
       throw new ApiError(403, 'You can only update GRNs you created.');
     }
 

@@ -201,8 +201,8 @@ class PaymentService {
       throw new ApiError(400, 'Only pending or cancelled payments can be deleted.');
     }
 
-    if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
-      throw new ApiError(403, 'Unauthorized access.');
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can delete payment requests.');
     }
 
     return paymentRepository.delete(id);
@@ -268,8 +268,8 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payment requests can be approved.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
-      throw new ApiError(403, 'Only Finance Managers or Admins can approve payments.');
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can approve payments.');
     }
 
     const updatedPayment = await paymentRepository.transaction(async (tx) => {
@@ -322,8 +322,8 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payments can be rejected.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
-      throw new ApiError(403, 'Only Finance Managers can reject payments.');
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can reject payments.');
     }
 
     return paymentRepository.transaction(async (tx) => {
@@ -409,7 +409,7 @@ class PaymentService {
       throw new ApiError(400, 'Only successful payments can be refunded.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+    if (user.role !== ROLES.FINANCE_HEAD) {
       throw new ApiError(403, 'Unauthorized refund access.');
     }
 

@@ -187,7 +187,6 @@ export default function FinanceHeadObservationDashboard() {
                   >
                     <option value="">All Statuses</option>
                     <option value="PENDING_THREE_WAY_MATCH">Three-Way Matching</option>
-                    <option value="PENDING_ADMIN_REVIEW">Admin Review</option>
                     <option value="PENDING_TEAM_LEAD">Team Lead</option>
                     <option value="PENDING_MANAGER">Manager</option>
                     <option value="PENDING_FINANCE_HEAD">Finance Head</option>
