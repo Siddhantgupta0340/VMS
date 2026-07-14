@@ -4,28 +4,17 @@ import { ROLES } from "../../config/permissions";
 
 import {
   getInvoices,
-  getInvoiceById,
   approveInvoice,
   rejectInvoice,
 } from "../../services/invoiceService";
 
-import { Plus, Download, Eye, Edit2, Trash2 } from "lucide-react";
+import { Plus, Download, Eye } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import ActionMenu from "../../components/common/ActionMenu";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
-import { Link } from "react-router-dom";
-
-const Detail = ({ label, value }) => (
-  <div className="rounded-xl border border-slate-200 p-4">
-    <p className="text-sm text-slate-500">{label}</p>
-
-    <p className="mt-1 font-semibold text-slate-900">
-      {value || "-"}
-    </p>
-  </div>
-);
+import { Link, useNavigate } from "react-router-dom";
 
 const InvoiceList = () => {
   const { user } = useAuth();
@@ -124,12 +113,18 @@ const InvoiceList = () => {
     }
   };
 
+  const navigate = useNavigate();
+
   const columns = [
     {
       key: "invoiceNumber",
       label: "Invoice #",
       sortable: true,
-      render: (value) => <span className="font-semibold text-blue-600">{value}</span>,
+      render: (value, row) => (
+        <Link to={`/invoices/${row.id}`} className="font-semibold text-blue-600 hover:underline">
+          {value}
+        </Link>
+      ),
     },
     {
       key: "poNumber",
@@ -146,18 +141,14 @@ const InvoiceList = () => {
       label: "Amount",
       sortable: true,
       render: (value) => (
-  <span className="font-semibold">
-    ₹ {Number(value).toLocaleString()}
-  </span>
-),
+        <span className="font-semibold">
+          ₹ {Number(value).toLocaleString()}
+        </span>
+      ),
     },
     {
       key: "invoiceDate",
-
-       render: (value) =>
-       value
-       ? new Date(value).toLocaleDateString()
-       : "-",
+      render: (value) => (value ? new Date(value).toLocaleDateString() : "-"),
       label: "Invoice Date",
       sortable: true,
     },
@@ -174,30 +165,29 @@ const InvoiceList = () => {
       render: (value) => <StatusBadge status={value} />,
     },
     {
-  key: "actions",
-  label: "Actions",
-  render: (_, row) => (
-    <div className="flex gap-2">
-      {canActOnInvoice(row, user?.role) && (
-        <>
-          <button
-            onClick={() => handleApprove(row.id)}
-            className="rounded-lg bg-green-600 px-3 py-1 text-white hover:bg-green-700"
-          >
-            Approve
-          </button>
-
-          <button
-            onClick={() => handleReject(row.id)}
-            className="rounded-lg bg-red-600 px-3 py-1 text-white hover:bg-red-700"
-          >
-            Reject
-          </button>
-        </>
-      )}
-    </div>
-  ),
-},
+      key: "actions",
+      label: "Actions",
+      render: (_, row) => (
+        <div className="flex gap-2">
+          {canActOnInvoice(row, user?.role) && (
+            <>
+              <button
+                onClick={() => handleApprove(row.id)}
+                className="rounded-lg bg-green-600 px-3 py-1 text-white hover:bg-green-700 text-xs"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => handleReject(row.id)}
+                className="rounded-lg bg-red-600 px-3 py-1 text-white hover:bg-red-700 text-xs"
+              >
+                Reject
+              </button>
+            </>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const filters = [
@@ -205,61 +195,44 @@ const InvoiceList = () => {
       key: "status",
       label: "Approval Status",
       options: [
-
-{ label:"Approved", value:"APPROVED" },
-
-{ label:"Three Way Match", value:"PENDING_THREE_WAY_MATCH" },
-
-{ label:"Admin Review", value:"PENDING_ADMIN_REVIEW" },
-
-{ label:"Team Lead", value:"PENDING_TEAM_LEAD" },
-
-{ label:"Manager", value:"PENDING_MANAGER" },
-
-{ label:"Finance Head", value:"PENDING_FINANCE_HEAD" },
-
-{ label:"Rejected", value:"REJECTED" },
-
-],
+        { label: "Approved", value: "APPROVED" },
+        { label: "Three Way Match", value: "PENDING_THREE_WAY_MATCH" },
+        { label: "Admin Review", value: "PENDING_ADMIN_REVIEW" },
+        { label: "Team Lead", value: "PENDING_TEAM_LEAD" },
+        { label: "Manager", value: "PENDING_MANAGER" },
+        { label: "Finance Head", value: "PENDING_FINANCE_HEAD" },
+        { label: "Rejected", value: "REJECTED" },
+      ],
     },
     {
-  key: "paymentStatus",
-  label: "Payment Status",
-  options: [
-    { label: "Unpaid", value: "UNPAID" },
-    { label: "Partially Paid", value: "PARTIALLY_PAID" },
-    { label: "Paid", value: "PAID" },
-    { label: "Overdue", value: "OVERDUE" },
-  ],
-},
+      key: "paymentStatus",
+      label: "Payment Status",
+      options: [
+        { label: "Unpaid", value: "UNPAID" },
+        { label: "Partially Paid", value: "PARTIALLY_PAID" },
+        { label: "Paid", value: "PAID" },
+        { label: "Overdue", value: "OVERDUE" },
+      ],
+    },
   ];
 
   const rowActions = (row) => [
-  <ActionMenu
-    key={row.id}
-    actions={[
-      {
-        icon: Eye,
-        label: "View Details",
-        onClick: async () => {
-          try {
-            const invoice = await getInvoiceById(row.id);
-            setSelectedInvoice(invoice);
-            setShowInvoiceModal(true);
-          } catch (err) {
-            console.error(err);
-            alert("Unable to load invoice");
-          }
+    <ActionMenu
+      key={row.id}
+      actions={[
+        {
+          icon: Eye,
+          label: "View Details",
+          onClick: () => navigate(`/invoices/${row.id}`),
         },
-      },
-      {
-        icon: Download,
-        label: "Download PDF",
-        onClick: () => console.log("Download", row.id),
-      },
-    ]}
-  />,
-];
+        {
+          icon: Download,
+          label: "Download PDF",
+          onClick: () => console.log("Download", row.id),
+        },
+      ]}
+    />,
+  ];
 
   if (loading) {
   return (

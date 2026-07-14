@@ -1,6 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { createUser } from "../../services/userService";
+import { toast } from "sonner";
 
 const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
 
@@ -10,11 +12,8 @@ const UserCreate = () => {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
+    password: "",
     role: "",
-    department: "",
-    designation: "",
-    permissions: [],
   });
 
   const handleChange = (e) => {
@@ -24,38 +23,28 @@ const UserCreate = () => {
     }));
   };
 
-  const handlePermissionChange = (permission) => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter((p) => p !== permission)
-        : [...prev.permissions, permission],
-    }));
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Create User:", formData);
-    navigate("/users");
+    if (!formData.role) {
+      toast.error("Please select a valid role");
+      return;
+    }
+    try {
+      await createUser(formData);
+      toast.success("User registered successfully!");
+      navigate("/users");
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to create user account.");
+    }
   };
 
   const roles = [
-    "Finance Manager",
-    "Procurement Officer",
-    "Approver",
-    "Viewer",
-    "Admin",
-  ];
-
-  const permissions = [
-    { key: "view_all", label: "View All Invoices & POs" },
-    { key: "create_po", label: "Create Purchase Orders" },
-    { key: "create_invoice", label: "Create Invoices" },
-    { key: "approve_po", label: "Approve Purchase Orders" },
-    { key: "approve_invoice", label: "Approve Invoices" },
-    { key: "manage_payments", label: "Manage Payments" },
-    { key: "manage_vendors", label: "Manage Vendors" },
-    { key: "manage_users", label: "Manage Users" },
+    { label: "Super Admin", value: "SUPER_ADMIN" },
+    { label: "Case Manager", value: "CASE_MANAGER" },
+    { label: "Team Lead", value: "TEAM_LEAD" },
+    { label: "Manager", value: "MANAGER" },
+    { label: "Finance Head", value: "FINANCE_HEAD" },
   ];
 
   return (
@@ -69,7 +58,7 @@ const UserCreate = () => {
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Add New User</h1>
-          <p className="mt-1 text-slate-500">Create a new user account and assign permissions</p>
+          <p className="mt-1 text-slate-500">Create a new system user profile and credentials</p>
         </div>
       </div>
 
@@ -126,27 +115,28 @@ const UserCreate = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Phone Number
+                  Temporary Password *
                 </label>
                 <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
+                  type="password"
+                  name="password"
+                  value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter phone number"
+                  placeholder="Minimum 8 characters with upper, lower, numbers"
                   className={input}
+                  required
                 />
               </div>
             </div>
           </div>
 
-          {/* Role & Department */}
+          {/* Role mapping */}
           <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900">Role & Department</h2>
+            <h2 className="mb-6 text-lg font-semibold text-slate-900">System Role Scoping</h2>
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Role *
+                  Role Permission Guard *
                 </label>
                 <select
                   name="role"
@@ -155,66 +145,14 @@ const UserCreate = () => {
                   className={input}
                   required
                 >
-                  <option value="">Select a role</option>
+                  <option value="">Select system role</option>
                   {roles.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
+                    <option key={r.value} value={r.value}>
+                      {r.label}
                     </option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Department *
-                </label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className={input}
-                  required
-                >
-                  <option value="">Select department</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Procurement">Procurement</option>
-                  <option value="Management">Management</option>
-                  <option value="Operations">Operations</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={formData.designation}
-                  onChange={handleChange}
-                  placeholder="e.g., Senior Manager"
-                  className={input}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Permissions */}
-          <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900">Permissions</h2>
-            <div className="space-y-3">
-              {permissions.map((perm) => (
-                <label
-                  key={perm.key}
-                  className="flex items-center rounded-lg border border-slate-200 p-4 cursor-pointer hover:bg-slate-50 transition"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.includes(perm.key)}
-                    onChange={() => handlePermissionChange(perm.key)}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                  />
-                  <span className="ml-3 font-medium text-slate-900">{perm.label}</span>
-                </label>
-              ))}
             </div>
           </div>
 
@@ -241,3 +179,4 @@ const UserCreate = () => {
 };
 
 export default UserCreate;
+export { UserCreate };

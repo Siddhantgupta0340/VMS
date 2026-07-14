@@ -16,6 +16,7 @@ import PurchaseOrderCreate from "../pages/PurchaseOrders/PurchaseOrderCreate";
 // Invoices
 import InvoiceList from "../pages/Invoices/InvoiceList";
 import InvoiceCreate from "../pages/Invoices/InvoiceCreate";
+import InvoiceDetails from "../pages/Invoices/InvoiceDetails";
 
 // Approvals
 import ApprovalsList from "../pages/Approvals/ApprovalsList";
@@ -23,6 +24,16 @@ import ApprovalsList from "../pages/Approvals/ApprovalsList";
 // Payments
 import PaymentsList from "../pages/Payments/PaymentsList";
 import PaymentCreate from "../pages/Payments/PaymentCreate";
+
+// Three-Way Matching
+import MatchingList from "../pages/ThreeWayMatching/MatchingList";
+import MatchingDetail from "../pages/ThreeWayMatching/MatchingDetail";
+
+// Tickets
+import TicketList from "../pages/Tickets/TicketList";
+
+// Notifications
+import NotificationsList from "../pages/Notifications/NotificationsList";
 
 // Users
 import UsersList from "../pages/Users/UsersList";
@@ -50,12 +61,12 @@ const AppRoutes = () => {
 
       {/* Dashboard Layout Routes */}
       <Route
-  element={
-    <ProtectedRoute>
-      <DashboardLayout />
-    </ProtectedRoute>
-  }
->
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Vendors */}
@@ -69,6 +80,17 @@ const AppRoutes = () => {
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />
         <Route path="/invoices/new" element={<InvoiceCreate />} />
+        <Route path="/invoices/:id" element={<InvoiceDetails />} />
+
+        {/* Three-Way Matching */}
+        <Route path="/three-way-matching" element={<MatchingList />} />
+        <Route path="/three-way-matching/:id" element={<MatchingDetail />} />
+
+        {/* Tickets */}
+        <Route path="/tickets" element={<TicketList />} />
+
+        {/* Notifications */}
+        <Route path="/notifications" element={<NotificationsList />} />
 
         {/* Approvals */}
         <Route path="/approvals" element={<ApprovalsList />} />

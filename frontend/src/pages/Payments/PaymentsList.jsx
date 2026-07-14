@@ -1,52 +1,84 @@
-import { useState } from "react";
-import { Plus, Download, DollarSign, Wallet, TrendingUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Download, DollarSign, Wallet, TrendingUp, CheckCircle, XCircle, ShieldAlert } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import ActionMenu from "../../components/common/ActionMenu";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
 import { Link } from "react-router-dom";
+import { getPayments, approvePayment, rejectPayment, cancelPayment } from "../../services/paymentService";
+import { useAuth } from "../../context/AuthContext";
+import { ROLES } from "../../config/permissions";
+import { toast } from "sonner";
 
 const PaymentsList = () => {
-  const [payments] = useState([
-    {
-      id: "PAY-2024-001",
-      invoiceNumber: "INV-2024-001",
-      vendor: "Acme Corporation",
-      amount: "₹45,000",
-      paymentDate: "2024-01-25",
-      dueDate: "2024-02-15",
-      method: "Bank Transfer",
-      status: "Paid",
-      reference: "REF-001245",
-    },
-    {
-      id: "PAY-2024-002",
-      invoiceNumber: "INV-2024-003",
-      vendor: "Tech Solutions",
-      amount: "₹75,200",
-      paymentDate: "2024-01-24",
-      dueDate: "2024-02-17",
-      method: "Cheque",
-      status: "Partially Paid",
-      reference: "CHQ-5847",
-    },
-    {
-      id: "PAY-2024-003",
-      invoiceNumber: "INV-2024-002",
-      vendor: "Global Supplies",
-      amount: "₹128,500",
-      paymentDate: "—",
-      dueDate: "2024-02-16",
-      method: "—",
-      status: "Pending",
-      reference: "—",
-    },
-  ]);
+  const { user } = useAuth();
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilters, setActiveFilters] = useState({});
+  const [showActionModal, setShowActionModal] = useState(null); // "approve" | "reject" | "cancel"
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [remarks, setRemarks] = useState("");
+  const [txnRef, setTxnRef] = useState("");
+
+  useEffect(() => {
+    loadPayments();
+  }, [activeFilters]);
+
+  const loadPayments = async () => {
+    try {
+      setLoading(true);
+      const data = await getPayments();
+      let filtered = [...data];
+
+      if (activeFilters.method) {
+        filtered = filtered.filter((p) => p.paymentMethod === activeFilters.method);
+      }
+      if (activeFilters.status) {
+        filtered = filtered.filter((p) => p.status === activeFilters.status);
+      }
+
+      setPayments(filtered);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load payments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentAction = async () => {
+    try {
+      if (showActionModal === "approve") {
+        await approvePayment(selectedPayment.id, remarks, txnRef);
+        toast.success("Payment request approved successfully!");
+      } else if (showActionModal === "reject") {
+        if (!remarks.trim()) {
+          toast.error("Remarks are required to reject payment");
+          return;
+        }
+        await rejectPayment(selectedPayment.id, remarks);
+        toast.success("Payment request rejected");
+      } else if (showActionModal === "cancel") {
+        await cancelPayment(selectedPayment.id, remarks);
+        toast.success("Payment request cancelled");
+      }
+      setShowActionModal(null);
+      setSelectedPayment(null);
+      setRemarks("");
+      setTxnRef("");
+      loadPayments();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Payment operation failed");
+    }
+  };
+
+  const isFinanceHead = user?.role === ROLES.FINANCE_HEAD;
 
   const columns = [
     {
-      key: "id",
+      key: "paymentNumber",
       label: "Payment ID",
       sortable: true,
       render: (value) => <span className="font-semibold text-blue-600">{value}</span>,
@@ -65,15 +97,14 @@ const PaymentsList = () => {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (value) => <span className="font-semibold">{value}</span>,
+      render: (value, row) => (
+        <span className="font-semibold">
+          ₹ {Number(value).toLocaleString()} {row.currency}
+        </span>
+      ),
     },
     {
-      key: "paymentDate",
-      label: "Payment Date",
-      sortable: true,
-    },
-    {
-      key: "method",
+      key: "paymentMethod",
       label: "Method",
       sortable: true,
     },
@@ -82,6 +113,50 @@ const PaymentsList = () => {
       label: "Status",
       sortable: true,
       render: (value) => <StatusBadge status={value} />,
+    },
+    {
+      key: "actions",
+      label: "Reconciliation Logs",
+      render: (_, row) => {
+        const isPending = row.status === "PENDING" || row.status === "pending";
+        return (
+          <div className="flex gap-2">
+            {isPending && isFinanceHead && (
+              <>
+                <button
+                  onClick={() => {
+                    setSelectedPayment(row);
+                    setShowActionModal("approve");
+                  }}
+                  className="rounded-lg bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedPayment(row);
+                    setShowActionModal("reject");
+                  }}
+                  className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+            {isPending && user?.role === ROLES.CASE_MANAGER && (
+              <button
+                onClick={() => {
+                  setSelectedPayment(row);
+                  setShowActionModal("cancel");
+                }}
+                className="rounded-lg bg-slate-900 border border-slate-800 px-3 py-1 text-xs text-amber-500 hover:bg-slate-900/80"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -92,17 +167,19 @@ const PaymentsList = () => {
       options: [
         { label: "Bank Transfer", value: "Bank Transfer" },
         { label: "Cheque", value: "Cheque" },
-        { label: "Credit Card", value: "Credit Card" },
-        { label: "Cash", value: "Cash" },
+        { label: "NEFT", value: "NEFT" },
+        { label: "RTGS", value: "RTGS" },
+        { label: "UPI", value: "UPI" },
       ],
     },
     {
       key: "status",
       label: "Status",
       options: [
-        { label: "Paid", value: "Paid" },
-        { label: "Partially Paid", value: "Partially Paid" },
-        { label: "Pending", value: "Pending" },
+        { label: "Approved / Paid", value: "approved" },
+        { label: "Pending", value: "pending" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Blocked", value: "blocked" },
       ],
     },
   ];
@@ -116,14 +193,26 @@ const PaymentsList = () => {
           label: "Download Receipt",
           onClick: () => console.log("Download", row.id),
         },
-        {
-          icon: DollarSign,
-          label: "View Details",
-          onClick: () => console.log("View", row.id),
-        },
       ]}
     />,
   ];
+
+  // Aggregates
+  const totalPaid = payments
+    .filter((p) => p.status?.toLowerCase() === "approved")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const totalPending = payments
+    .filter((p) => p.status?.toLowerCase() === "pending")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        Loading Payments Ledger...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -131,73 +220,69 @@ const PaymentsList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Payments</h1>
-          <p className="mt-2 text-slate-500">Track and manage all vendor payments</p>
+          <p className="mt-2 text-slate-500">Track and manage all vendor disbursements and payout requests</p>
         </div>
 
-        <Link
-          to="/payments/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-white font-medium transition hover:bg-blue-700"
-        >
-          <Plus size={18} />
-          New Payment
-        </Link>
+        {user?.role === ROLES.CASE_MANAGER && (
+          <Link
+            to="/payments/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-white font-medium transition hover:bg-blue-700"
+          >
+            <Plus size={18} />
+            New Payment Request
+          </Link>
+        )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-600">Total Paid</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">₹324.5L</p>
-              <p className="mt-1 text-xs text-green-600">↑ 8.5% vs month</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Disbursed (Paid)</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                ₹ {totalPaid.toLocaleString()}
+              </p>
             </div>
-            <DollarSign className="h-8 w-8 text-blue-100" />
+            <DollarSign className="h-8 w-8 text-blue-200" />
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-600">Pending Payments</p>
-              <p className="mt-2 text-2xl font-bold text-orange-600">₹128.5L</p>
-              <p className="mt-1 text-xs text-slate-600">18 invoices</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Awaiting Payout (Pending)</p>
+              <p className="mt-2 text-2xl font-bold text-amber-600">
+                ₹ {totalPending.toLocaleString()}
+              </p>
             </div>
-            <Wallet className="h-8 w-8 text-orange-100" />
+            <Wallet className="h-8 w-8 text-amber-200" />
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-600">Overdue Amount</p>
-              <p className="mt-2 text-2xl font-bold text-red-600">₹24.8L</p>
-              <p className="mt-1 text-xs text-red-600">6 days overdue avg</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disbursement Count</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {payments.length}
+              </p>
             </div>
-            <TrendingUp className="h-8 w-8 text-red-100" />
+            <TrendingUp className="h-8 w-8 text-green-200" />
           </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium text-slate-600">Payment Success Rate</p>
-          <p className="mt-2 text-2xl font-bold text-green-600">98.5%</p>
-          <p className="mt-1 text-xs text-green-600">→ Excellent</p>
         </div>
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
-        <FilterBar filters={filters} onFilterChange={(f) => console.log(f)} />
-        <button className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-          <Download size={16} />
-          Export
-        </button>
+        <FilterBar filters={filters} onFilterChange={setActiveFilters} />
       </div>
 
       {/* Data Table */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         {payments.length > 0 ? (
           <DataTable
             columns={columns}
             data={payments}
-            searchableFields={["id", "invoiceNumber", "vendor"]}
+            searchableFields={["paymentNumber", "invoiceNumber", "vendor"]}
             rowActions={rowActions}
             itemsPerPage={10}
           />
@@ -205,19 +290,87 @@ const PaymentsList = () => {
           <EmptyState
             icon={Plus}
             title="No Payments"
-            description="Create your first payment to get started"
+            description="Create your first payment request to get started"
             action={
-              <Link
-                to="/payments/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700"
-              >
-                <Plus size={16} />
-                Create Payment
-              </Link>
+              user?.role === ROLES.CASE_MANAGER && (
+                <Link
+                  to="/payments/new"
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  New Payment Request
+                </Link>
+              )
             }
           />
         )}
       </div>
+
+      {/* Action Prompt Dialog */}
+      {showActionModal && selectedPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-[500px] rounded-2xl bg-white p-6 shadow-2xl space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 capitalize flex items-center gap-2">
+                {showActionModal === "approve" ? <CheckCircle className="text-green-600" /> : <XCircle className="text-red-600" />}
+                {showActionModal} Payment Request
+              </h3>
+              <p className="text-sm text-slate-500 mt-2">
+                Confirm execution of payout audit actions for Ref #{selectedPayment.paymentNumber}.
+              </p>
+            </div>
+            
+            {showActionModal === "approve" && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">
+                  Transaction reference Number / UTR
+                </label>
+                <input
+                  type="text"
+                  value={txnRef}
+                  onChange={(e) => setTxnRef(e.target.value)}
+                  placeholder="UTR-2026-9988-11"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 text-sm mb-4"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">
+                Audit Trail Remarks {showActionModal === "reject" ? "*" : ""}
+              </label>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Include confirmation or rejection comments..."
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 text-sm h-24"
+                required={showActionModal === "reject"}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowActionModal(null);
+                  setSelectedPayment(null);
+                  setRemarks("");
+                  setTxnRef("");
+                }}
+                className="px-4 py-2 border rounded-xl hover:bg-slate-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePaymentAction}
+                className={`px-4 py-2 text-white rounded-xl text-sm font-semibold capitalize ${
+                  showActionModal === "reject" ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                Confirm {showActionModal}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,33 +1,95 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getInvoices } from "../../services/invoiceService";
+import { createPayment } from "../../services/paymentService";
+import { toast } from "sonner";
 
 const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
 
 const PaymentCreate = () => {
   const navigate = useNavigate();
+  const [approvedInvoices, setApprovedInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    invoiceNumber: "",
+    invoiceId: "",
     paymentMethod: "",
     amount: "",
-    reference: "",
-    paymentDate: new Date().toISOString().split("T")[0],
-    bankDetails: "",
+    referenceNo: "",
     notes: "",
   });
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+  useEffect(() => {
+    loadInvoices();
+  }, []);
+
+  const loadInvoices = async () => {
+    try {
+      setLoading(true);
+      const invoices = await getInvoices();
+      // Only approved invoices can be paid
+      const approved = invoices.filter(
+        (i) => i.status === "APPROVED" && (i.paymentStatus === "UNPAID" || i.paymentStatus === "PARTIALLY_PAID")
+      );
+      setApprovedInvoices(approved);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load approved invoices list");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Create Payment:", formData);
-    navigate("/payments");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Automatically pre-fill invoice amount if invoice is selected
+    if (name === "invoiceId") {
+      const selected = approvedInvoices.find((i) => i.id === value);
+      setFormData((prev) => ({
+        ...prev,
+        invoiceId: value,
+        amount: selected ? String(prev.amount || selected.amount) : "",
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.invoiceId) {
+      toast.error("Invoice Number is required");
+      return;
+    }
+    try {
+      const payload = {
+        invoiceId: formData.invoiceId,
+        amount: Number(formData.amount),
+        currency: "INR",
+        paymentMethod: formData.paymentMethod,
+        referenceNo: formData.referenceNo,
+        notes: formData.notes,
+      };
+      await createPayment(payload);
+      toast.success("Payment request registered successfully!");
+      navigate("/payments");
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to create payment request");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        Loading Approved Invoices...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -40,7 +102,7 @@ const PaymentCreate = () => {
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Create Payment</h1>
-          <p className="mt-1 text-slate-500">Record a new vendor payment</p>
+          <p className="mt-1 text-slate-500">Record a new vendor payment payout request</p>
         </div>
       </div>
 
@@ -50,20 +112,25 @@ const PaymentCreate = () => {
           {/* Payment Details */}
           <div>
             <h2 className="mb-6 text-lg font-semibold text-slate-900">Payment Details</h2>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Invoice Number *
                 </label>
-                <input
-                  type="text"
-                  name="invoiceNumber"
-                  value={formData.invoiceNumber}
+                <select
+                  name="invoiceId"
+                  value={formData.invoiceId}
                   onChange={handleChange}
-                  placeholder="INV-2024-001"
                   className={input}
                   required
-                />
+                >
+                  <option value="">Select Approved Invoice</option>
+                  {approvedInvoices.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.invoiceNumber} — {inv.vendor} (Max: ₹ {inv.amount.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -83,57 +150,31 @@ const PaymentCreate = () => {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Payment Method *
                 </label>
-                <select name="paymentMethod" onChange={handleChange} className={input} required>
+                <select
+                  name="paymentMethod"
+                  value={formData.paymentMethod}
+                  onChange={handleChange}
+                  className={input}
+                  required
+                >
                   <option value="">Select Payment Method</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cheque">Cheque</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Cash">Cash</option>
+                  <option value="NEFT">NEFT</option>
+                  <option value="RTGS">RTGS</option>
+                  <option value="UPI">UPI</option>
+                  <option value="CHEQUE">CHEQUE</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Payment Date
-                </label>
-                <input
-                  type="date"
-                  name="paymentDate"
-                  value={formData.paymentDate}
-                  onChange={handleChange}
-                  className={input}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Reference Details */}
-          <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900">Reference Details</h2>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Reference/Transaction ID
+                  Reference / Transaction ID
                 </label>
                 <input
                   type="text"
-                  name="reference"
-                  value={formData.reference}
+                  name="referenceNo"
+                  value={formData.referenceNo}
                   onChange={handleChange}
-                  placeholder="e.g., REF-001245 or Cheque number"
+                  placeholder="e.g., UTR code or Cheque reference"
                   className={input}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Bank/Payment Details
-                </label>
-                <textarea
-                  name="bankDetails"
-                  value={formData.bankDetails}
-                  onChange={handleChange}
-                  placeholder="Add bank account details, cheque information, or payment gateway reference"
-                  rows="3"
-                  className={`${input} resize-none`}
                 />
               </div>
             </div>
@@ -177,3 +218,4 @@ const PaymentCreate = () => {
 };
 
 export default PaymentCreate;
+export { PaymentCreate };

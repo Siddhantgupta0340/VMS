@@ -8,6 +8,9 @@ import {
   BarChart3,
   Users,
   Settings,
+  GitCompare,
+  LifeBuoy,
+  Bell,
 } from "lucide-react";
 
 import { ROLES } from "../config/permissions";
@@ -82,6 +85,19 @@ export const navigation = [
       // },
 
       {
+        title: "3-Way Match",
+        icon: GitCompare,
+        path: "/three-way-matching",
+        roles: [
+          ROLES.SUPER_ADMIN,
+          ROLES.CASE_MANAGER,
+          ROLES.TEAM_LEAD,
+          ROLES.MANAGER,
+          ROLES.FINANCE_HEAD,
+        ],
+      },
+
+      {
         title: "Payments",
         icon: Wallet,
         path: "/payments",
@@ -102,6 +118,29 @@ export const navigation = [
         path: "/reports",
         roles: [
           ROLES.SUPER_ADMIN,
+          ROLES.FINANCE_HEAD,
+        ],
+      },
+
+      {
+        title: "Tickets",
+        icon: LifeBuoy,
+        path: "/tickets",
+        roles: [
+          ROLES.SUPER_ADMIN,
+          ROLES.FINANCE_HEAD,
+        ],
+      },
+
+      {
+        title: "Notifications",
+        icon: Bell,
+        path: "/notifications",
+        roles: [
+          ROLES.SUPER_ADMIN,
+          ROLES.CASE_MANAGER,
+          ROLES.TEAM_LEAD,
+          ROLES.MANAGER,
           ROLES.FINANCE_HEAD,
         ],
       },

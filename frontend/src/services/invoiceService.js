@@ -123,3 +123,23 @@ export const rejectInvoice = async (id, reason = "Rejected by approver") => {
 
   return mapInvoice(res.data.data);
 };
+
+export const cancelInvoice = async (id, reason = "") => {
+  const res = await api.patch(`/v1/invoices/${id}/cancel`, { remarks: reason });
+  return res.data;
+};
+
+export const softDeleteInvoice = async (id, reason = "Deleted from system dashboard") => {
+  const res = await api.delete(`/v1/invoices/${id}`, { data: { deleteReason: reason } });
+  return res.data;
+};
+
+export const restoreInvoice = async (id) => {
+  const res = await api.post(`/v1/invoices/${id}/restore`, {});
+  return res.data;
+};
+
+export const addRemark = async (id, comment) => {
+  const res = await api.post(`/v1/invoices/${id}/remark`, { remark: comment });
+  return res.data;
+};
