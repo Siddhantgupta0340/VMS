@@ -3,16 +3,16 @@ import {
   Building2,
   ShoppingCart,
   Receipt,
-  Wallet,
-  BadgeCheck,
-  BarChart3,
-  Users,
-  Settings,
   GitCompare,
-  LifeBuoy,
+  ClipboardCheck,
+  Wallet,
+  Users,
   Bell,
+  FileBarChart2,
+  History,
 } from "lucide-react";
 
+import { PERMISSIONS } from "../config/permissions";
 import { ROLES } from "../config/permissions";
 
 export const navigation = [
@@ -23,13 +23,7 @@ export const navigation = [
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/dashboard",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.TEAM_LEAD,
-          ROLES.MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_DASHBOARD,
       },
     ],
   },
@@ -41,126 +35,99 @@ export const navigation = [
         title: "Vendors",
         icon: Building2,
         path: "/vendors",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        pathByRole: {
+          [ROLES.FINANCE_HEAD]: "/finance-head/vendors",
+        },
+        activePaths: ["/vendors", "/finance-head/vendors"],
+        permission: PERMISSIONS.VIEW_VENDORS,
+        excludedRoles: [ROLES.MANAGER],
       },
 
       {
         title: "Purchase Orders",
         icon: ShoppingCart,
         path: "/purchase-orders",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_PURCHASE_ORDERS,
+      },
+
+      {
+        title: "Receipt Documents",
+        icon: ClipboardCheck,
+        path: "/receipt-documents",
+        permission: PERMISSIONS.VIEW_THREE_WAY_MATCHING,
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
       },
 
       {
         title: "Invoices",
         icon: Receipt,
         path: "/invoices",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.TEAM_LEAD,
-          ROLES.MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_INVOICES,
+        excludedRoles: [ROLES.FINANCE_HEAD, ROLES.MANAGER],
       },
 
-      // {
-      //   title: "Approvals",
-      //   icon: BadgeCheck,
-      //   path: "/approvals",
-      //   roles: [
-      //     ROLES.SUPER_ADMIN,
-      //     ROLES.TEAM_LEAD,
-      //     ROLES.MANAGER,
-      //     ROLES.FINANCE_HEAD,
-      //   ],
-      // },
-
       {
-        title: "3-Way Match",
+        title: "Three-Way Matching",
         icon: GitCompare,
         path: "/three-way-matching",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.TEAM_LEAD,
-          ROLES.MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_THREE_WAY_MATCHING,
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
       },
 
       {
         title: "Payments",
+        titleByRole: {
+          [ROLES.TEAM_LEAD]: "Payment Approvals",
+          [ROLES.MANAGER]: "Payment Approvals",
+          [ROLES.FINANCE_HEAD]: "Payment Approvals",
+        },
         icon: Wallet,
         path: "/payments",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_PAYMENTS,
       },
     ],
   },
 
   {
-    section: "ADMINISTRATION",
+    // section: "SUPER ADMIN",
     items: [
       {
         title: "Reports",
-        icon: BarChart3,
-        path: "/reports",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.FINANCE_HEAD,
-        ],
+        icon: FileBarChart2,
+        path: "/super-admin/reports",
+        permission: PERMISSIONS.VIEW_VENDOR_REPORTS,
       },
-
       {
-        title: "Tickets",
-        icon: LifeBuoy,
-        path: "/tickets",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.FINANCE_HEAD,
-        ],
+        title: "Audit Logs",
+        icon: History,
+        path: "/audit-logs",
+        permission: PERMISSIONS.VIEW_AUDIT_LOGS,
       },
+    ],
+  },
+
+  {
+    // section: "ADMINISTRATION",
+    items: [
+      // {
+      //   title: "Reports",
+      //   icon: BarChart3,
+      //   path: "/reports",
+      //   permission: PERMISSIONS.VIEW_REPORTS,
+      // },
 
       {
         title: "Notifications",
         icon: Bell,
         path: "/notifications",
-        roles: [
-          ROLES.SUPER_ADMIN,
-          ROLES.CASE_MANAGER,
-          ROLES.TEAM_LEAD,
-          ROLES.MANAGER,
-          ROLES.FINANCE_HEAD,
-        ],
+        permission: PERMISSIONS.VIEW_NOTIFICATIONS,
       },
 
       {
         title: "Users",
         icon: Users,
         path: "/users",
-        roles: [
-          ROLES.SUPER_ADMIN,
-        ],
-      },
-
-      {
-        title: "Settings",
-        icon: Settings,
-        path: "/settings",
-        roles: [
-          ROLES.SUPER_ADMIN,
-        ],
+        permission: PERMISSIONS.MANAGE_USERS,
       },
     ],
   },

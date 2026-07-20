@@ -1,23 +1,48 @@
-import { approvals } from "../mock/approvals";
+import api from "../api/axios";
 
-// Future Ready Service
+const mapApprovalLog = (log) => ({
+  id: log.id,
+  invoiceNo: log.entity_type === "invoice" ? log.entity_id : `${log.entity_type || "entity"}:${log.entity_id || "-"}`,
+  vendor: log.performed_by?.email || "-",
+  amount: 0,
+  priority: "Normal",
+  status: log.to_status || log.action || "-",
+  assignedTo: log.performed_by?.role || "-",
+  entityType: log.entity_type,
+  entityId: log.entity_id,
+  action: log.action,
+  fromStatus: log.from_status,
+  toStatus: log.to_status,
+  performedById: log.performed_by_id,
+  remarks: log.remarks,
+  createdAt: log.created_at,
+  performedBy: log.performed_by
+    ? `${log.performed_by.first_name || ""} ${log.performed_by.last_name || ""}`.trim() || log.performed_by.email
+    : "-",
+});
 
-export const getApprovals = async () => {
-  return approvals;
+export const getApprovals = async (params = {}) => {
+  const res = await api.get("/v1/approvals", { params });
+  const rows = res.data?.logs || res.data?.data || [];
+  return rows.map(mapApprovalLog);
 };
 
-export const getApprovalById = async (id) => {
-  return approvals.find((item) => item.id === id);
+export const getApprovalById = async (entityType, entityId) => {
+  const res = await api.get(`/v1/approvals/${entityType}/${entityId}`);
+  return (res.data?.data || []).map(mapApprovalLog);
 };
 
-export const approveInvoice = async (id) => {
-  console.log("Approve", id);
+export const approveInvoice = async (id, remarks = "") => {
+  const res = await api.patch(`/v1/invoices/${id}/approve`, { remarks });
+  return res.data?.data;
 };
 
-export const rejectInvoice = async (id) => {
-  console.log("Reject", id);
+export const rejectInvoice = async (id, rejectionReason = "") => {
+  const res = await api.patch(`/v1/invoices/${id}/reject`, { rejectionReason });
+  return res.data?.data;
 };
 
-export const holdInvoice = async (id) => {
-  console.log("Hold", id);
+export const holdInvoice = async (id, remarks = "") => {
+  const res = await api.post(`/v1/invoices/${id}/remark`, { remark: remarks || "Held for review" });
+  return res.data?.data;
 };

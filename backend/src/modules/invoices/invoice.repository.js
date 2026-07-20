@@ -2,7 +2,20 @@ import prisma from '../../config/prisma.js';
 
 const invoiceInclude = {
   vendor: true,
-  purchase_order: true,
+  purchase_order: {
+    include: {
+      grns: {
+        where: { deleted_at: null },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      },
+      delivery_challans: {
+        where: { deleted_at: null },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      },
+    },
+  },
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
@@ -20,6 +33,10 @@ const invoiceInclude = {
   },
   rejected_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
+  },
+  attachments: {
+    where: { deleted_at: null },
+    orderBy: { uploaded_at: 'asc' },
   },
   payments: true,
 };

@@ -7,6 +7,15 @@ const vendorInclude = {
   approved_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
+  documents: {
+    where: { deleted_at: null, status: 'ACTIVE' },
+    orderBy: { uploaded_at: 'desc' },
+    include: {
+      uploaded_by: {
+        select: { id: true, email: true, first_name: true, last_name: true, role: true },
+      },
+    },
+  },
 };
 
 class VendorRepository {
@@ -14,13 +23,13 @@ class VendorRepository {
     return prisma.vendor.create({ data, include: vendorInclude });
   }
 
-  async findAll({ where, skip, take }) {
+  async findAll({ where, skip, take, orderBy = { created_at: 'desc' } }) {
     const [vendors, total] = await Promise.all([
       prisma.vendor.findMany({
         where,
         skip,
         take,
-        orderBy: { created_at: 'desc' },
+        orderBy,
         include: vendorInclude,
       }),
       prisma.vendor.count({ where }),
@@ -50,6 +59,10 @@ class VendorRepository {
       data: { deleted_at: new Date(), is_active: false },
       include: vendorInclude,
     });
+  }
+
+  async transaction(callback) {
+    return prisma.$transaction(callback);
   }
 }
 

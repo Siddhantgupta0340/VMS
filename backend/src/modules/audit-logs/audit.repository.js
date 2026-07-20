@@ -16,7 +16,7 @@ class AuditRepository {
         orderBy,
         include: {
           performed_by: {
-            select: { id: true, email: true, first_name: true, last_name: true, role: true },
+            select: { id: true, employee_id: true, email: true, first_name: true, last_name: true, role: true },
           },
         },
       }),
@@ -36,6 +36,18 @@ class AuditRepository {
       include: {
         performed_by: {
           select: { id: true, email: true, first_name: true, last_name: true, role: true },
+        },
+      },
+    });
+  }
+
+  async findFirst({ where = {}, source = 'audit' }) {
+    const model = source === 'legacy' ? prisma.approvalLog : prisma.auditLog;
+    return model.findFirst({
+      where,
+      include: {
+        performed_by: {
+          select: { id: true, employee_id: true, email: true, first_name: true, last_name: true, role: true },
         },
       },
     });

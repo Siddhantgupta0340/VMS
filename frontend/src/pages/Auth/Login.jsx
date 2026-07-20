@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Eye,
   EyeOff,
@@ -11,11 +11,22 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useLocation } from "react-router-dom";
+import { toast } from "sonner";
+import { getDashboardPathForRole } from "../../config/roleDashboard";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated, bootstrapping } = useAuth();
   const location = useLocation();
+  const queryRedirect = new URLSearchParams(location.search).get("redirect");
+  const queryFrom = new URLSearchParams(location.search).get("from");
+  const preservedRoute = location.state?.from?.pathname || queryRedirect || queryFrom;
+
+  useEffect(() => {
+    if (!bootstrapping && isAuthenticated && user) {
+      navigate(preservedRoute || getDashboardPathForRole(user.role), { replace: true });
+    }
+  }, [bootstrapping, isAuthenticated, navigate, preservedRoute, user]);
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -24,6 +35,8 @@ const Login = () => {
     password: "",
     rememberMe: false,
   });
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -36,13 +49,27 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
-    const result = await login(formData);
+    setError("");
+    setIsSubmitting(true);
 
-    if (result.success) {
-      navigate(location.state?.from?.pathname || "/dashboard", { replace: true });
-    } else {
-      alert(result.message);
+    try {
+      const result = await login(formData);
+
+      if (result.success) {
+        if (result.requiresPasswordChange) {
+          toast.info("Please change your temporary password to continue.");
+          navigate("/change-temporary-password", { replace: true });
+          return;
+        }
+        navigate(preservedRoute || getDashboardPathForRole(result.user?.role), { replace: true });
+      } else {
+        setError(result.message);
+        toast.error(result.message);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -157,6 +184,10 @@ const Login = () => {
                 </p>
               </div>
 
+              {error && (
+                <p className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
@@ -234,9 +265,10 @@ const Login = () => {
 
                 <button
                   type="submit"
-                  className="group flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg shadow-blue-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-600/30 active:translate-y-0"
+                  disabled={isSubmitting}
+                  className="group flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg shadow-blue-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-600/30 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <span>Sign In</span>
+                  <span>{isSubmitting ? "Signing in..." : "Sign In"}</span>
                   <div className="flex items-center justify-center">
                     <ArrowRight
                       size={18}
@@ -245,33 +277,6 @@ const Login = () => {
                   </div>
                 </button>
               </form>
-
-              <div className="my-7 flex items-center gap-4">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">
-                  Demo access
-                </span>
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-blue-600" />
-                  <span className="text-sm font-semibold text-slate-700">
-                    Demo credentials
-                  </span>
-                </div>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Email</span>
-                    <span className="font-medium text-slate-700">demo@company.com</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Password</span>
-                    <span className="font-medium text-slate-700">demo123</span>
-                  </div>
-                </div>
-              </div>
 
               <div className="mt-8 border-t border-slate-200 pt-6 text-center">
                 <p className="text-sm text-slate-500">

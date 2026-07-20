@@ -1,5 +1,5 @@
 import asyncHandler from '../../middleware/asyncHandler.middleware.js';
-import paymentService, { PAYMENT_STATUS } from './payment.service.js';
+import paymentService from './payment.service.js';
 
 class PaymentController {
   createPayment = asyncHandler(async (req, res) => {
@@ -29,12 +29,17 @@ class PaymentController {
 
   approvePayment = asyncHandler(async (req, res) => {
     const payment = await paymentService.approvePayment(req.params.id, req.user, req.body?.remarks);
-    res.status(200).json({ success: true, message: 'Payment approved and processing initiated.', data: payment });
+    res.status(200).json({ success: true, message: 'Payment approved successfully.', data: payment });
   });
 
   rejectPayment = asyncHandler(async (req, res) => {
     const payment = await paymentService.rejectPayment(req.params.id, req.user, req.body?.remarks);
     res.status(200).json({ success: true, message: 'Payment request rejected.', data: payment });
+  });
+
+  returnPayment = asyncHandler(async (req, res) => {
+    const payment = await paymentService.returnPaymentForCorrection(req.params.id, req.user, req.body?.remarks);
+    res.status(200).json({ success: true, message: 'Payment request returned for correction.', data: payment });
   });
 
   cancelPayment = asyncHandler(async (req, res) => {
@@ -58,13 +63,18 @@ class PaymentController {
   });
 
   getPendingPayments = asyncHandler(async (req, res) => {
-    const result = await paymentService.getPendingPayments(req.query);
+    const result = await paymentService.getPendingPayments(req.query, req.user);
     res.status(200).json({ success: true, ...result });
   });
 
   getCompletedPayments = asyncHandler(async (req, res) => {
-    const result = await paymentService.getCompletedPayments(req.query);
+    const result = await paymentService.getCompletedPayments(req.query, req.user);
     res.status(200).json({ success: true, ...result });
+  });
+
+  getPaymentStats = asyncHandler(async (req, res) => {
+    const stats = await paymentService.getPaymentStats(req.user);
+    res.status(200).json({ success: true, data: stats });
   });
 }
 

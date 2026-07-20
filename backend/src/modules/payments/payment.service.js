@@ -6,6 +6,7 @@ import notificationService from '../notifications/notification.service.js';
 import { providerRegistry } from './providers/payment-provider.factory.js';
 import { ROLES } from '../../zodSchema/index.js';
 import { INVOICE_STATUS } from '../invoices/invoice.service.js';
+import prisma from '../../config/prisma.js';
 
 export const PAYMENT_STATUS = {
   PENDING: 'PENDING',
@@ -14,19 +15,170 @@ export const PAYMENT_STATUS = {
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
+  RETURNED: 'RETURNED',
   REFUNDED: 'REFUNDED',
   PARTIALLY_PAID: 'PARTIALLY_PAID',
   COMPLETED: 'COMPLETED',
 };
 
-// Define valid status transitions
+// ─── Dynamic Approval Limit Configurations ────────────────────────────────────
+// Read limits dynamically from environment variables or system configuration defaults
+export const TEAM_LEAD_PAYMENT_APPROVAL_MAX = Number(
+  process.env.TEAM_LEAD_PAYMENT_APPROVAL_MAX || process.env.PAYMENT_TEAM_LEAD_APPROVAL_MAX || 10000,
+);
+
+export const FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD = Number(
+  process.env.FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD || 100000,
+);
+
+/**
+ * Determine the required approval role based on amount and currency.
+ *
+ * Rules:
+ * - Currency non-INR -> FINANCE_HEAD
+ * - Amount <= 10,000 INR -> TEAM_LEAD
+ * - Amount < 100,000 INR -> MANAGER
+ * - Amount >= 100,000 INR -> FINANCE_HEAD
+ */
+export const getRequiredPaymentApprovalRole = (amount, currency = 'INR') => {
+  if (String(currency || 'INR').toUpperCase() !== 'INR') {
+    return ROLES.FINANCE_HEAD;
+  }
+
+  const paymentAmount = Number(amount || 0);
+  if (paymentAmount <= TEAM_LEAD_PAYMENT_APPROVAL_MAX) return ROLES.TEAM_LEAD;
+  if (paymentAmount < FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD) return ROLES.MANAGER;
+  return ROLES.FINANCE_HEAD;
+};
+
+export const requiresFinanceHeadApproval = (amount, currency = 'INR') =>
+  getRequiredPaymentApprovalRole(amount, currency) === ROLES.FINANCE_HEAD;
+
+export const getPaymentApprovalBand = (amount, currency = 'INR') => {
+  const role = getRequiredPaymentApprovalRole(amount, currency);
+  if (role === ROLES.TEAM_LEAD) return `INR 0-${TEAM_LEAD_PAYMENT_APPROVAL_MAX.toLocaleString('en-IN')}`;
+  if (role === ROLES.MANAGER)
+    return `INR ${(TEAM_LEAD_PAYMENT_APPROVAL_MAX + 1).toLocaleString('en-IN')}-${(FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD - 1).toLocaleString('en-IN')}`;
+  return String(currency || 'INR').toUpperCase() === 'INR'
+    ? `INR ${FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD.toLocaleString('en-IN')}+`
+    : 'Non-INR Finance Head review';
+};
+
+/**
+ * Build Prisma where clause to filter payments assigned to a given approver role.
+ */
+export const paymentWhereForApprovalRole = (role) => {
+  if (role === ROLES.TEAM_LEAD) {
+    return {
+      currency: 'INR',
+      amount: { lte: TEAM_LEAD_PAYMENT_APPROVAL_MAX },
+    };
+  }
+  if (role === ROLES.MANAGER) {
+    return {
+      currency: 'INR',
+      amount: {
+        gt: TEAM_LEAD_PAYMENT_APPROVAL_MAX,
+        lt: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD,
+      },
+    };
+  }
+  if (role === ROLES.FINANCE_HEAD) {
+    return {
+      OR: [
+        { currency: { not: 'INR' } },
+        { amount: { gte: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD } },
+      ],
+    };
+  }
+  return undefined;
+};
+
+/**
+ * Decorate payment with structured presentation data required by Task 2.
+ */
+const decoratePayment = (payment) => {
+  if (!payment) return null;
+  const amount = Number(payment.amount || 0);
+  const currency = payment.currency || 'INR';
+  const requiredRole = getRequiredPaymentApprovalRole(amount, currency);
+  const priority =
+    requiredRole === ROLES.FINANCE_HEAD || amount >= FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD ? 'High' : 'Normal';
+
+  const creatorName = payment.created_by
+    ? `${payment.created_by.first_name || ''} ${payment.created_by.last_name || ''}`.trim() || payment.created_by.email
+    : 'System';
+  const approverName = payment.approved_by
+    ? `${payment.approved_by.first_name || ''} ${payment.approved_by.last_name || ''}`.trim() || payment.approved_by.email
+    : null;
+  const processedByName = payment.processed_by
+    ? `${payment.processed_by.first_name || ''} ${payment.processed_by.last_name || ''}`.trim() || payment.processed_by.email
+    : null;
+
+  return {
+    ...payment,
+    paymentNumber: payment.payment_number,
+    invoiceNumber: payment.invoice?.invoice_number || payment.invoice_number || null,
+    purchaseOrderNumber: payment.purchase_order?.po_number || payment.po_number || null,
+    vendorName: payment.vendor?.name || payment.vendor_name || null,
+    vendorCode: payment.vendor?.vendor_code || payment.vendor_code || null,
+    requestedAmount: amount,
+    currency,
+    requestedBy: creatorName,
+    requestedById: payment.created_by_id,
+    requestDate: payment.created_at,
+    currentStatus: payment.status,
+    priority,
+    requiredApprovalRole: requiredRole,
+    approvalBand: getPaymentApprovalBand(amount, currency),
+    approvedBy: approverName,
+    approvedById: payment.approved_by_id,
+    approvedAt: payment.approved_at,
+    processedBy: processedByName,
+    processedById: payment.processed_by_id,
+  };
+};
+
+/**
+ * Mandatory remarks assertion for Task 3.
+ */
+const assertRemarks = (remarks, action) => {
+  if (!String(remarks || '').trim()) {
+    throw new ApiError(400, `Remarks are required to ${action} this payment request.`);
+  }
+};
+
+/**
+ * Strictly assert that the user role matches the required approval role for the payment amount.
+ */
+const assertPaymentAssignedToRole = (payment, user) => {
+  if (user.role === ROLES.SUPER_ADMIN) {
+    return getRequiredPaymentApprovalRole(payment.amount, payment.currency);
+  }
+  const requiredRole = getRequiredPaymentApprovalRole(payment.amount, payment.currency);
+  if (requiredRole !== user.role) {
+    throw new ApiError(
+      403,
+      `Payment request assigned to another approver level. Required approver: ${requiredRole}, Your role: ${user.role}.`,
+    );
+  }
+  return requiredRole;
+};
+
+// Define valid payment status transitions
 export const isValidPaymentStatusTransition = (from, to) => {
   const transitions = {
-    [PAYMENT_STATUS.PENDING]: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.FAILED],
+    [PAYMENT_STATUS.PENDING]: [
+      PAYMENT_STATUS.INITIATED,
+      PAYMENT_STATUS.CANCELLED,
+      PAYMENT_STATUS.FAILED,
+      PAYMENT_STATUS.RETURNED,
+    ],
     [PAYMENT_STATUS.INITIATED]: [PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.FAILED],
     [PAYMENT_STATUS.PROCESSING]: [PAYMENT_STATUS.SUCCESS, PAYMENT_STATUS.FAILED, PAYMENT_STATUS.CANCELLED],
     [PAYMENT_STATUS.SUCCESS]: [PAYMENT_STATUS.REFUNDED],
     [PAYMENT_STATUS.FAILED]: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.CANCELLED],
+    [PAYMENT_STATUS.RETURNED]: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED],
     [PAYMENT_STATUS.CANCELLED]: [],
     [PAYMENT_STATUS.REFUNDED]: [],
   };
@@ -35,6 +187,27 @@ export const isValidPaymentStatusTransition = (from, to) => {
 };
 
 const buildPaymentNumber = () => `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+const VENDOR_BANK_FIELDS_REQUIRED_FOR_PAYMENT = [
+  ['bank_name', 'Bank Name'],
+  ['account_holder', 'Account Holder'],
+  ['bank_account_no', 'Account Number'],
+  ['ifsc_code', 'IFSC Code'],
+  ['bank_branch', 'Bank Branch'],
+];
+
+const assertVendorBankReadyForPayment = (vendor) => {
+  const missing = VENDOR_BANK_FIELDS_REQUIRED_FOR_PAYMENT
+    .filter(([key]) => !String(vendor?.[key] || '').trim())
+    .map(([, label]) => label);
+
+  if (missing.length) {
+    throw new ApiError(
+      400,
+      `Vendor bank details are incomplete. Complete these fields in Vendor Master before creating or approving a Payment: ${missing.join(', ')}.`,
+    );
+  }
+};
 
 class PaymentService {
   /**
@@ -46,7 +219,6 @@ class PaymentService {
       throw new ApiError(404, 'Invoice not found.');
     }
 
-    // Business Rule: Only approved invoices can be paid
     if (invoice.status.toUpperCase() !== INVOICE_STATUS.APPROVED) {
       throw new ApiError(400, 'Payment can only be requested for an APPROVED invoice.');
     }
@@ -55,7 +227,9 @@ class PaymentService {
       throw new ApiError(403, 'You can only create payments for invoices created by you.');
     }
 
-    // Calculate outstanding/allocated balance to check for overpayments
+    assertVendorBankReadyForPayment(invoice.vendor);
+
+    // Calculate unallocated balance to check for overpayments
     const existingPayments = await paymentRepository.findAll({
       where: {
         invoice_id: payload.invoiceId,
@@ -73,12 +247,16 @@ class PaymentService {
     }
 
     if (paymentAmount > remainingAllocated + 0.01) {
-      throw new ApiError(400, `Overpayment blocked. Remaining unallocated invoice balance: INR ${remainingAllocated.toFixed(2)}`);
+      throw new ApiError(
+        400,
+        `Overpayment blocked. Remaining unallocated invoice balance: INR ${remainingAllocated.toFixed(2)}`,
+      );
     }
 
     const paymentNumber = buildPaymentNumber();
+    const currency = payload.currency || invoice.currency || 'INR';
 
-    return paymentRepository.transaction(async (tx) => {
+    const createdPayment = await paymentRepository.transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
           payment_number: paymentNumber,
@@ -86,7 +264,7 @@ class PaymentService {
           vendor_id: invoice.vendor_id,
           purchase_order_id: invoice.purchase_order_id,
           amount: paymentAmount,
-          currency: payload.currency || invoice.currency || 'INR',
+          currency,
           status: PAYMENT_STATUS.PENDING,
           payment_method: payload.paymentMethod || 'NEFT',
           payment_type: payload.paymentType || 'FULL',
@@ -98,39 +276,46 @@ class PaymentService {
         },
       });
 
-      // Update the invoice payment_status to PAYMENT_PENDING if it was UNPAID
       if (invoice.payment_status === 'UNPAID') {
         await tx.invoice.update({
           where: { id: invoice.id },
-          data: { payment_status: 'PAYMENT_PENDING' }
+          data: { payment_status: 'PAYMENT_PENDING' },
         });
       }
 
-      // Log payment creation
-      await tx.approvalLog.create({
-        data: {
-          entity_type: 'payment',
-          entity_id: payment.id,
-          action: 'created',
-          from_status: null,
-          to_status: PAYMENT_STATUS.PENDING,
-          performed_by_id: user.id,
-          remarks: `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
-        },
-      });
-
-      // Notify Finance Team
-      notificationService.createNotification(
-        user.id,
-        'payment_created',
-        ' Payment Requested',
-        `Payment request ${payment.payment_number} created for amount ${payment.currency} ${payment.amount}.`,
-        'payment',
-        payment.id
-      ).catch(() => {});
+      // Log payment creation in both AuditLog and ApprovalLog
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: payment.id,
+            action: 'created',
+            from_status: null,
+            to_status: PAYMENT_STATUS.PENDING,
+            performed_by_id: user.id,
+            remarks: payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: payment.id,
+            action: 'created',
+            from_status: null,
+            to_status: PAYMENT_STATUS.PENDING,
+            performed_by_id: user.id,
+            remarks: payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+          },
+        }),
+      ]);
 
       return payment;
     });
+
+    const decoratedPayment = decoratePayment(createdPayment);
+    // Send notifications to PostgreSQL
+    notificationService.notifyPaymentApprovalRequested(decoratedPayment).catch(() => {});
+    return decoratedPayment;
   }
 
   /**
@@ -142,8 +327,8 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
-    if (payment.status !== PAYMENT_STATUS.PENDING) {
-      throw new ApiError(400, 'Only pending payment requests can be modified.');
+    if (payment.status !== PAYMENT_STATUS.PENDING && payment.status !== PAYMENT_STATUS.RETURNED) {
+      throw new ApiError(400, 'Only pending or returned payment requests can be modified.');
     }
 
     if (user.role === ROLES.CASE_MANAGER && payment.created_by_id !== user.id) {
@@ -160,9 +345,10 @@ class PaymentService {
       due_date: payload.dueDate ? new Date(payload.dueDate) : payment.due_date,
       payment_date: payload.paymentDate ? new Date(payload.paymentDate) : payment.payment_date,
       updated_by_id: user.id,
+      // If payment was RETURNED, resubmitting moves status back to PENDING
+      ...(payment.status === PAYMENT_STATUS.RETURNED && { status: PAYMENT_STATUS.PENDING }),
     };
 
-    // Re-verify overpayment if amount changed
     if (payload.amount && Number(payload.amount) !== Number(payment.amount)) {
       const invoice = await invoiceRepository.findById(payment.invoice_id);
       const existingPayments = await paymentRepository.findAll({
@@ -179,12 +365,29 @@ class PaymentService {
       const newAmount = Number(payload.amount);
 
       if (newAmount > remainingAllocated + 0.01) {
-        throw new ApiError(400, `Updated amount exceeds remaining invoice balance. Max allowed: INR ${remainingAllocated.toFixed(2)}`);
+        throw new ApiError(
+          400,
+          `Updated amount exceeds remaining invoice balance. Max allowed: INR ${remainingAllocated.toFixed(2)}`,
+        );
       }
       updateData.amount = newAmount;
     }
 
-    return paymentRepository.update(id, updateData);
+    const updatedPayment = await paymentRepository.update(id, updateData);
+
+    await prisma.auditLog.create({
+      data: {
+        entity_type: 'payment',
+        entity_id: id,
+        action: 'updated',
+        from_status: payment.status,
+        to_status: updatedPayment.status,
+        performed_by_id: user.id,
+        remarks: payload.remarks || 'Payment request details updated',
+      },
+    });
+
+    return decoratePayment(updatedPayment);
   }
 
   /**
@@ -196,9 +399,9 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
-    const allowedDeleteStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED];
+    const allowedDeleteStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.RETURNED];
     if (!allowedDeleteStatuses.includes(payment.status)) {
-      throw new ApiError(400, 'Only pending or cancelled payments can be deleted.');
+      throw new ApiError(400, 'Only pending, returned, or cancelled payments can be deleted.');
     }
 
     if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
@@ -209,11 +412,20 @@ class PaymentService {
   }
 
   /**
-   * Get payments with optional queries.
+   * List payments with role-based filtering (Task 2 & Task 6).
    */
   async listPayments(query, user) {
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
+    const search = (query.search || '').trim();
+
+    // Construct role-specific where filter
+    let roleClause = {};
+    if (user.role === ROLES.CASE_MANAGER) {
+      roleClause = { created_by_id: user.id };
+    } else if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
+      roleClause = paymentWhereForApprovalRole(user.role) || {};
+    }
 
     const where = {
       ...(query.status && { status: query.status }),
@@ -223,7 +435,16 @@ class PaymentService {
       ...(query.paymentMethod && { payment_method: query.paymentMethod }),
       ...(query.paymentType && { payment_type: query.paymentType }),
       ...(query.paymentProvider && { payment_provider: query.paymentProvider }),
-      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+      ...roleClause,
+      ...(search && {
+        OR: [
+          { payment_number: { contains: search, mode: 'insensitive' } },
+          { vendor: { name: { contains: search, mode: 'insensitive' } } },
+          { vendor: { vendor_code: { contains: search, mode: 'insensitive' } } },
+          { invoice: { invoice_number: { contains: search, mode: 'insensitive' } } },
+          { purchase_order: { po_number: { contains: search, mode: 'insensitive' } } },
+        ],
+      }),
     };
 
     const result = await paymentRepository.findAll({
@@ -233,12 +454,26 @@ class PaymentService {
     });
 
     return {
-      payments: result.payments,
+      payments: result.payments.map(decoratePayment),
       total: result.total,
       page,
       limit,
       totalPages: Math.ceil(result.total / limit),
     };
+  }
+
+  /**
+   * Get pending payments for current user role's approval queue (Task 2).
+   */
+  async getPendingPayments(query, user) {
+    return this.listPayments({ ...query, status: PAYMENT_STATUS.PENDING }, user);
+  }
+
+  /**
+   * Get completed payments queue.
+   */
+  async getCompletedPayments(query, user) {
+    return this.listPayments({ ...query, status: PAYMENT_STATUS.SUCCESS }, user);
   }
 
   async getPaymentById(id, user) {
@@ -251,14 +486,16 @@ class PaymentService {
       throw new ApiError(403, 'You do not have permission to view this payment details.');
     }
 
-    return payment;
+    return decoratePayment(payment);
   }
 
   /**
-   * Finance Manager reviews and approves the payment request.
-   * This transitions status to INITIATED and fires background gateway execution.
+   * TASK 3 — Approve Payment Request.
+   * Mandates remarks and enforces amount-based RBAC assignment.
    */
   async approvePayment(id, user, remarks) {
+    assertRemarks(remarks, 'approve');
+
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -268,9 +505,12 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payment requests can be approved.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
-      throw new ApiError(403, 'Only Finance Managers or Admins can approve payments.');
+    if (![ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
+      throw new ApiError(403, 'Approval permission denied.');
     }
+
+    assertPaymentAssignedToRole(payment, user);
+    assertVendorBankReadyForPayment(payment.vendor);
 
     const updatedPayment = await paymentRepository.transaction(async (tx) => {
       const updated = await tx.payment.update({
@@ -278,41 +518,58 @@ class PaymentService {
         data: {
           status: PAYMENT_STATUS.INITIATED,
           approved_by_id: user.id,
+          approved_at: new Date(),
           processed_by_id: user.id,
-          remarks: remarks || payment.remarks,
+          remarks: remarks.trim(),
+          updated_by_id: user.id,
         },
       });
 
-      // Log approval
-      await tx.approvalLog.create({
-        data: {
-          entity_type: 'payment',
-          entity_id: id,
-          action: 'approved',
-          from_status: PAYMENT_STATUS.PENDING,
-          to_status: PAYMENT_STATUS.INITIATED,
-          performed_by_id: user.id,
-          remarks: remarks || 'Payment approved and initiated.',
-        },
-      });
+      // Write to both AuditLog and ApprovalLog
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'approved',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.INITIATED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'approved',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.INITIATED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+      ]);
 
-      // Notify next step
       const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
-      notificationService.notifyPaymentStatusChange(updated, PAYMENT_STATUS.INITIATED, actorName).catch(() => {});
+      notificationService.notifyPaymentStatusChange(updated, PAYMENT_STATUS.INITIATED, actorName, remarks).catch(() => {});
 
-      return updated;
+      return decoratePayment(updated);
     });
 
-    // Fire background async processor for provider gateway execution AFTER transaction commits
+    // Asynchronously process gateway transaction after database commit
     this.processGatewayPayment(id).catch(console.error);
 
     return updatedPayment;
   }
 
   /**
-   * Reject a payment request.
+   * TASK 3 — Reject Payment Request.
+   * Mandates remarks and enforces amount-based RBAC assignment.
    */
   async rejectPayment(id, user, remarks) {
+    assertRemarks(remarks, 'reject');
+
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -322,40 +579,121 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payments can be rejected.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
-      throw new ApiError(403, 'Only Finance Managers can reject payments.');
+    if (![ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
+      throw new ApiError(403, 'Approval permission denied.');
     }
+
+    assertPaymentAssignedToRole(payment, user);
 
     return paymentRepository.transaction(async (tx) => {
       const updatedPayment = await tx.payment.update({
         where: { id },
         data: {
           status: PAYMENT_STATUS.FAILED,
-          remarks: remarks || 'Rejected by finance.',
+          remarks: remarks.trim(),
+          approved_by_id: user.id,
+          updated_by_id: user.id,
         },
       });
 
-      await tx.approvalLog.create({
-        data: {
-          entity_type: 'payment',
-          entity_id: id,
-          action: 'rejected',
-          from_status: PAYMENT_STATUS.PENDING,
-          to_status: PAYMENT_STATUS.FAILED,
-          performed_by_id: user.id,
-          remarks: remarks || 'Rejected by finance.',
-        },
-      });
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'rejected',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.FAILED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'rejected',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.FAILED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+      ]);
 
       const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
-      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.FAILED, actorName).catch(() => {});
+      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.FAILED, actorName, remarks).catch(() => {});
 
-      return updatedPayment;
+      return decoratePayment(updatedPayment);
     });
   }
 
   /**
-   * Cancel a payment (only if pending or initiated).
+   * TASK 3 — Return Payment Request for Correction.
+   * Mandates remarks and enforces amount-based RBAC assignment.
+   */
+  async returnPaymentForCorrection(id, user, remarks) {
+    assertRemarks(remarks, 'return for correction');
+
+    const payment = await paymentRepository.findById(id);
+    if (!payment) {
+      throw new ApiError(404, 'Payment request not found.');
+    }
+
+    if (payment.status !== PAYMENT_STATUS.PENDING) {
+      throw new ApiError(400, 'Only pending payment requests can be returned for correction.');
+    }
+
+    if (![ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
+      throw new ApiError(403, 'Approval permission denied.');
+    }
+
+    assertPaymentAssignedToRole(payment, user);
+
+    return paymentRepository.transaction(async (tx) => {
+      const updatedPayment = await tx.payment.update({
+        where: { id },
+        data: {
+          status: PAYMENT_STATUS.RETURNED,
+          remarks: remarks.trim(),
+          updated_by_id: user.id,
+        },
+      });
+
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'returned_for_correction',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.RETURNED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'returned_for_correction',
+            from_status: PAYMENT_STATUS.PENDING,
+            to_status: PAYMENT_STATUS.RETURNED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+      ]);
+
+      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.RETURNED, actorName, remarks).catch(() => {});
+
+      return decoratePayment(updatedPayment);
+    });
+  }
+
+  /**
+   * Cancel a payment request.
    */
   async cancelPayment(id, user, remarks) {
     const payment = await paymentRepository.findById(id);
@@ -363,9 +701,13 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
-    const allowedCancel = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED];
+    const allowedCancel = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.RETURNED];
     if (!allowedCancel.includes(payment.status)) {
       throw new ApiError(400, 'Cannot cancel payment after processing has started.');
+    }
+
+    if (user.role === ROLES.CASE_MANAGER && payment.created_by_id !== user.id) {
+      throw new ApiError(403, 'You can only cancel payment requests created by you.');
     }
 
     return paymentRepository.transaction(async (tx) => {
@@ -374,25 +716,39 @@ class PaymentService {
         data: {
           status: PAYMENT_STATUS.CANCELLED,
           remarks: remarks || 'Cancelled by user.',
+          updated_by_id: user.id,
         },
       });
 
-      await tx.approvalLog.create({
-        data: {
-          entity_type: 'payment',
-          entity_id: id,
-          action: 'cancelled',
-          from_status: payment.status,
-          to_status: PAYMENT_STATUS.CANCELLED,
-          performed_by_id: user.id,
-          remarks: remarks || 'Cancelled by user.',
-        },
-      });
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'cancelled',
+            from_status: payment.status,
+            to_status: PAYMENT_STATUS.CANCELLED,
+            performed_by_id: user.id,
+            remarks: remarks || 'Cancelled by user.',
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'cancelled',
+            from_status: payment.status,
+            to_status: PAYMENT_STATUS.CANCELLED,
+            performed_by_id: user.id,
+            remarks: remarks || 'Cancelled by user.',
+          },
+        }),
+      ]);
 
       const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
-      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.CANCELLED, actorName).catch(() => {});
+      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.CANCELLED, actorName, remarks).catch(() => {});
 
-      return updatedPayment;
+      return decoratePayment(updatedPayment);
     });
   }
 
@@ -400,6 +756,7 @@ class PaymentService {
    * Refund a successful payment.
    */
   async refundPayment(id, user, remarks) {
+    assertRemarks(remarks, 'refund');
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -409,7 +766,7 @@ class PaymentService {
       throw new ApiError(400, 'Only successful payments can be refunded.');
     }
 
-    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+    if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Unauthorized refund access.');
     }
 
@@ -418,23 +775,36 @@ class PaymentService {
         where: { id },
         data: {
           status: PAYMENT_STATUS.REFUNDED,
-          remarks: remarks || 'Refund processed.',
+          remarks: remarks.trim(),
+          updated_by_id: user.id,
         },
       });
 
-      await tx.approvalLog.create({
-        data: {
-          entity_type: 'payment',
-          entity_id: id,
-          action: 'refunded',
-          from_status: PAYMENT_STATUS.SUCCESS,
-          to_status: PAYMENT_STATUS.REFUNDED,
-          performed_by_id: user.id,
-          remarks: remarks || 'Refund processed.',
-        },
-      });
+      await Promise.all([
+        tx.auditLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'refunded',
+            from_status: PAYMENT_STATUS.SUCCESS,
+            to_status: PAYMENT_STATUS.REFUNDED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+        tx.approvalLog.create({
+          data: {
+            entity_type: 'payment',
+            entity_id: id,
+            action: 'refunded',
+            from_status: PAYMENT_STATUS.SUCCESS,
+            to_status: PAYMENT_STATUS.REFUNDED,
+            performed_by_id: user.id,
+            remarks: remarks.trim(),
+          },
+        }),
+      ]);
 
-      // Adjust invoice remaining and paid amounts
       const invoice = await tx.invoice.findUnique({ where: { id: payment.invoice_id } });
       const refundAmount = Number(payment.amount);
       const newPaid = Math.max(0, Number(invoice.paid_amount) - refundAmount);
@@ -458,12 +828,12 @@ class PaymentService {
         payment.created_by_id,
         'payment_refunded',
         '🔄 Payment Refunded',
-        `Payment ${payment.payment_number} of ${payment.currency} ${payment.amount} has been refunded by ${actorName}.`,
+        `Payment ${payment.payment_number} of ${payment.currency} ${payment.amount} has been refunded by ${actorName}. Remarks: ${remarks}`,
         'payment',
-        payment.id
+        payment.id,
       ).catch(() => {});
 
-      return updatedPayment;
+      return decoratePayment(updatedPayment);
     });
   }
 
@@ -489,10 +859,11 @@ class PaymentService {
           response_message: 'Retrying payment...',
           provider_transaction_id: null,
           gateway_reference: null,
+          updated_by_id: user.id,
         },
       });
 
-      await tx.approvalLog.create({
+      await tx.auditLog.create({
         data: {
           entity_type: 'payment',
           entity_id: id,
@@ -507,45 +878,28 @@ class PaymentService {
       return updated;
     });
 
-    // Fire background async processor for provider gateway execution AFTER transaction commits
     this.processGatewayPayment(id).catch(console.error);
-
-    return updatedPayment;
+    return decoratePayment(updatedPayment);
   }
 
   /**
-   * Process payment through the configured provider gateway (Razorpay, Stripe, UPI, IMPS, Cash, etc.)
+   * Background payment provider execution logic.
    */
   async processGatewayPayment(paymentId, paymentObj = null) {
-    const payment = paymentObj || await paymentRepository.findById(paymentId);
-    if (!payment) {
-      console.log(`[processGatewayPayment] Payment ${paymentId} not found.`);
-      return;
-    }
-    if (payment.status !== PAYMENT_STATUS.INITIATED) {
-      console.log(`[processGatewayPayment] Payment ${paymentId} status is not INITIATED (status: ${payment.status}). Returning.`);
-      return;
-    }
-
-    console.log(`[processGatewayPayment] Starting gateway transaction processing for Payment: ${payment.payment_number}`);
+    const payment = paymentObj || (await paymentRepository.findById(paymentId));
+    if (!payment) return;
+    if (payment.status !== PAYMENT_STATUS.INITIATED) return;
 
     try {
-      // 1. Mark as PROCESSING in DB
       await paymentRepository.update(paymentId, { status: PAYMENT_STATUS.PROCESSING });
 
-      // 2. Fetch the corresponding Provider from registry
       const provider = providerRegistry.get(payment.payment_provider);
-
-      // 3. Process execution
       const gatewayResponse = await provider.process(
         Number(payment.amount),
         payment.currency,
-        payment.payment_number
+        payment.payment_number,
       );
 
-      console.log(`[processGatewayPayment] Gateway responded with status: ${gatewayResponse.status} for Payment: ${payment.payment_number}`);
-
-      // 4. Update the DB with responses
       await paymentRepository.transaction(async (tx) => {
         const statusMap = {
           SUCCESS: PAYMENT_STATUS.SUCCESS,
@@ -567,8 +921,7 @@ class PaymentService {
           },
         });
 
-        // Log the results
-        await tx.approvalLog.create({
+        await tx.auditLog.create({
           data: {
             entity_type: 'payment',
             entity_id: paymentId,
@@ -579,7 +932,6 @@ class PaymentService {
           },
         });
 
-        // 5. Update invoice financial tracking fields
         const invoice = await tx.invoice.findUnique({ where: { id: payment.invoice_id } });
         const successfulPayments = await tx.payment.findMany({
           where: { invoice_id: payment.invoice_id, status: PAYMENT_STATUS.SUCCESS },
@@ -596,7 +948,7 @@ class PaymentService {
         } else if (finalStatus === PAYMENT_STATUS.FAILED && Number(invoice.paid_amount) === 0) {
           paymentStatus = 'PAYMENT_FAILED';
         } else {
-          paymentStatus = invoice.payment_status; // preserve previous
+          paymentStatus = invoice.payment_status;
         }
 
         await tx.invoice.update({
@@ -610,62 +962,146 @@ class PaymentService {
           },
         });
 
-        // Log the status transitions
-        if (finalStatus === PAYMENT_STATUS.SUCCESS) {
-          await tx.approvalLog.create({
-            data: {
-              entity_type: 'invoice',
-              entity_id: payment.invoice_id,
-              action: paymentStatus === 'PAID' ? 'paid' : 'partial_payment',
-              from_status: invoice.payment_status,
-              to_status: paymentStatus,
-              remarks: paymentStatus === 'PAID'
-                ? `Invoice fully paid. Total paid amount: INR ${totalPaid.toFixed(2)}`
-                : `Invoice partially paid. Total paid: INR ${totalPaid.toFixed(2)}, Remaining: INR ${remainingAmount.toFixed(2)}`,
-            },
-          });
-        }
-
-        // Send notifications
-        notificationService.createNotification(
-          payment.created_by_id,
-          finalStatus === PAYMENT_STATUS.SUCCESS ? 'payment_completed' : 'payment_failed',
-          finalStatus === PAYMENT_STATUS.SUCCESS ? ' Payment Success' : ' Payment Failed',
-          `Payment request ${payment.payment_number} for amount ${payment.currency} ${payment.amount} has ${finalStatus.toLowerCase()}.`,
-          'payment',
-          paymentId
-        ).catch(() => {});
+        notificationService
+          .createNotification(
+            payment.created_by_id,
+            finalStatus === PAYMENT_STATUS.SUCCESS ? 'payment_completed' : 'payment_failed',
+            finalStatus === PAYMENT_STATUS.SUCCESS ? ' Payment Success' : ' Payment Failed',
+            `Payment request ${payment.payment_number} for amount ${payment.currency} ${payment.amount} has ${finalStatus.toLowerCase()}.`,
+            'payment',
+            paymentId,
+          )
+          .catch(() => {});
       });
-
     } catch (error) {
       console.error(`[PaymentService] Gateway process crash for payment ID ${paymentId}:`, error.message);
-      // Revert/mark as FAILED if crash
-      await paymentRepository.update(paymentId, {
-        status: PAYMENT_STATUS.FAILED,
-        response_message: `Gateway execution failed: ${error.message}`,
-      }).catch(console.error);
+      await paymentRepository
+        .update(paymentId, {
+          status: PAYMENT_STATUS.FAILED,
+          response_message: `Gateway execution failed: ${error.message}`,
+        })
+        .catch(console.error);
     }
   }
 
   /**
-   * Get payment details/logs history
+   * TASK 3 — Get Approval & Audit History for a Payment.
+   * Merges audit_logs and approval_logs and returns complete timeline.
    */
   async getPaymentHistory(paymentId) {
-    return approvalRepository.findByEntity('payment', paymentId);
+    const [auditLogs, approvalLogs] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: { entity_type: 'payment', entity_id: paymentId },
+        orderBy: { created_at: 'asc' },
+        include: {
+          performed_by: {
+            select: { id: true, email: true, first_name: true, last_name: true, role: true },
+          },
+        },
+      }),
+      approvalRepository.findByEntity('payment', paymentId),
+    ]);
+
+    const combined = [...auditLogs, ...approvalLogs].sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at),
+    );
+
+    // Deduplicate entries by timestamp + action
+    const seen = new Set();
+    const history = [];
+
+    for (const item of combined) {
+      const key = `${item.action}-${new Date(item.created_at).getTime()}-${item.performed_by_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const performer = item.performed_by || item.performedBy;
+        const performerName = performer
+          ? `${performer.first_name || ''} ${performer.last_name || ''}`.trim() || performer.email
+          : 'System';
+
+        history.push({
+          id: item.id,
+          action: item.action,
+          fromStatus: item.from_status || item.fromStatus || null,
+          toStatus: item.to_status || item.toStatus || null,
+          performedBy: performerName,
+          performedById: item.performed_by_id || item.performedById || null,
+          role: performer?.role || null,
+          remarks: item.remarks || null,
+          ipAddress: item.ip_address || null,
+          userAgent: item.user_agent || null,
+          createdAt: item.created_at,
+        });
+      }
+    }
+
+    return history;
   }
 
   /**
-   * Pending list queue
+   * TASK 5 — Live Dashboard Statistics from PostgreSQL.
+   * Returns live counts and sums for pending, approved, rejected, today's, and monthly requests.
    */
-  async getPendingPayments(query) {
-    return this.listPayments({ ...query, status: PAYMENT_STATUS.PENDING });
-  }
+  async getPaymentStats(user) {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  /**
-   * Completed list queue
-   */
-  async getCompletedPayments(query) {
-    return this.listPayments({ ...query, status: PAYMENT_STATUS.SUCCESS });
+    let roleWhere = {};
+    if (user.role === ROLES.CASE_MANAGER) {
+      roleWhere = { created_by_id: user.id };
+    } else if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
+      roleWhere = paymentWhereForApprovalRole(user.role) || {};
+    }
+
+    const pendingWhere = {
+      ...roleWhere,
+      status: PAYMENT_STATUS.PENDING,
+    };
+
+    const approvedWhere = {
+      ...roleWhere,
+      status: { in: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.SUCCESS] },
+    };
+
+    const rejectedWhere = {
+      ...roleWhere,
+      status: { in: [PAYMENT_STATUS.FAILED, PAYMENT_STATUS.RETURNED, PAYMENT_STATUS.CANCELLED] },
+    };
+
+    const todayWhere = {
+      ...roleWhere,
+      created_at: { gte: startOfToday },
+    };
+
+    const monthlyWhere = {
+      ...roleWhere,
+      created_at: { gte: startOfMonth },
+    };
+
+    const [pending, approved, rejected, todayRequests, monthlyRequests, pendingSum, totalSum] = await Promise.all([
+      prisma.payment.count({ where: pendingWhere }),
+      prisma.payment.count({ where: approvedWhere }),
+      prisma.payment.count({ where: rejectedWhere }),
+      prisma.payment.count({ where: todayWhere }),
+      prisma.payment.count({ where: monthlyWhere }),
+      prisma.payment.aggregate({ where: pendingWhere, _sum: { amount: true } }),
+      prisma.payment.aggregate({ where: roleWhere, _sum: { amount: true } }),
+    ]);
+
+    return {
+      pending,
+      approved,
+      rejected,
+      todayRequests,
+      monthlyRequests,
+      pendingAmount: Number(pendingSum._sum.amount || 0),
+      totalAmount: Number(totalSum._sum.amount || 0),
+      approvalLimits: {
+        teamLeadMax: TEAM_LEAD_PAYMENT_APPROVAL_MAX,
+        financeHeadMin: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD,
+      },
+    };
   }
 }
 

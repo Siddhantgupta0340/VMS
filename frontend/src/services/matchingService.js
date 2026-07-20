@@ -1,50 +1,74 @@
 import api from "../api/axios";
 
-const mapMatch = (match) => ({
-  id: match.id,
-  invoiceId: match.invoice_id,
-  invoiceNumber: match.invoice?.invoice_number || match.invoice_snapshot?.invoice_number || "N/A",
-  poNumber: match.purchase_order?.po_number || match.po_snapshot?.po_number || "N/A",
-  poId: match.purchase_order_id,
-  grnId: match.grn_id,
-  grnNumber: match.grn?.grn_number || match.grn_snapshot?.grn_number || "N/A",
-  status: match.status,
-  matchPercentage: Number(match.match_percentage || 0),
-  matchedFieldsCount: match.matched_fields_count || 0,
-  totalFieldsCount: match.total_fields_count || 0,
-  unmatchedFields: Array.isArray(match.unmatched_fields)
-    ? match.unmatched_fields
-    : typeof match.unmatched_fields === "string"
-    ? JSON.parse(match.unmatched_fields)
-    : [],
-  matchedFields: Array.isArray(match.matched_fields)
-    ? match.matched_fields
-    : typeof match.matched_fields === "string"
-    ? JSON.parse(match.matched_fields)
-    : [],
-  warnings: Array.isArray(match.warnings)
-    ? match.warnings
-    : typeof match.warnings === "string"
-    ? JSON.parse(match.warnings)
-    : [],
-  approvalRecommendation: match.approval_recommendation,
-  poSnapshot: match.po_snapshot,
-  grnSnapshot: match.grn_snapshot,
-  invoiceSnapshot: match.invoice_snapshot,
-  completedBy: match.completed_by
-    ? `${match.completed_by.first_name || ""} ${match.completed_by.last_name || ""}`.trim()
-    : "-",
-  completedAt: match.completed_at,
-  remarks: match.remarks,
-  adminReviewStatus: match.admin_review_status,
-  adminReviewedBy: match.admin_reviewed_by
-    ? `${match.admin_reviewed_by.first_name || ""} ${match.admin_reviewed_by.last_name || ""}`.trim()
-    : "-",
-  adminReviewedAt: match.admin_reviewed_at,
-  adminRemarks: match.admin_remarks,
-  createdAt: match.created_at,
-  updatedAt: match.updated_at,
+const parseJsonArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const mapMismatch = (field) => ({
+  ...field,
+  status: field.status || "MISMATCH",
+  poValue: field.poValue ?? field.po_value,
+  grnValue: field.grnValue ?? field.grn_value,
+  deliveryChallanValue: field.deliveryChallanValue ?? field.delivery_challan_value,
+  invoiceValue: field.invoiceValue ?? field.invoice_value,
 });
+
+const normalizeStatus = (status) => (status === "UNMATCHED" ? "MISMATCH" : status);
+
+const mapMatch = (match) => {
+  const status = normalizeStatus(match.status);
+  const poSnapshot = match.po_snapshot || null;
+  const invoiceSnapshot = match.invoice_snapshot || null;
+  const summary = invoiceSnapshot?.summary || match.summary || null;
+  const vendor = match.invoice?.vendor?.name || poSnapshot?.vendorName || invoiceSnapshot?.vendorName || "-";
+  return {
+    id: match.id,
+    invoiceId: match.invoice_id,
+    invoiceNumber: match.invoice?.invoice_number || invoiceSnapshot?.invoiceNumber || invoiceSnapshot?.invoice_number || "N/A",
+    poNumber: match.purchase_order?.po_number || poSnapshot?.poNumber || poSnapshot?.po_number || "N/A",
+    poId: match.purchase_order_id,
+    grnId: match.grn_id,
+    grnNumber: match.grn?.grn_number || match.grn_snapshot?.grnNumber || match.grn_snapshot?.grn_number || "N/A",
+    deliveryChallanId: match.delivery_challan_id,
+    deliveryChallanNumber: match.delivery_challan?.delivery_challan_number || match.delivery_challan_snapshot?.deliveryChallanNumber || "N/A",
+    vendor,
+    vendorCode: match.invoice?.vendor?.vendor_code || poSnapshot?.vendorCode || invoiceSnapshot?.vendorCode || "",
+    amount: Number(match.invoice?.invoice_total || match.invoice?.amount || summary?.invoiceAmount || invoiceSnapshot?.grandTotal || poSnapshot?.grandTotal || 0),
+    status,
+    matchPercentage: Number(match.match_percentage || 0),
+    matchedFieldsCount: match.matched_fields_count || 0,
+    totalFieldsCount: match.total_fields_count || 0,
+    unmatchedFields: parseJsonArray(match.unmatched_fields).map(mapMismatch),
+    matchedFields: parseJsonArray(match.matched_fields),
+    warnings: parseJsonArray(match.warnings),
+    approvalRecommendation: match.approval_recommendation,
+    poSnapshot,
+    grnSnapshot: match.grn_snapshot,
+    deliveryChallanSnapshot: match.delivery_challan_snapshot,
+    invoiceSnapshot,
+    summary,
+    completedBy: match.completed_by
+      ? `${match.completed_by.first_name || ""} ${match.completed_by.last_name || ""}`.trim()
+      : "-",
+    completedAt: match.completed_at,
+    remarks: match.remarks,
+    adminReviewStatus: match.admin_review_status,
+    adminReviewedBy: match.admin_reviewed_by
+      ? `${match.admin_reviewed_by.first_name || ""} ${match.admin_reviewed_by.last_name || ""}`.trim()
+      : "-",
+    adminReviewedAt: match.admin_reviewed_at,
+    adminRemarks: match.admin_remarks,
+    createdAt: match.created_at,
+    updatedAt: match.updated_at,
+  };
+};
 
 export const getMatches = async (params = {}) => {
   const res = await api.get("/v1/three-way-matching", { params });
@@ -63,9 +87,12 @@ export const getMatchReportByInvoice = async (invoiceId) => {
   return list.map(mapMatch);
 };
 
-export const startMatching = async (invoiceId, grnId = undefined) => {
-  const res = await api.post("/v1/three-way-matching/start", { invoiceId, grnId });
-  return res.data.data;
+export const startMatching = async (invoiceId, grnId = undefined, deliveryChallanId = undefined) => {
+  const res = await api.post("/v1/three-way-matching/start", { invoiceId, grnId, deliveryChallanId });
+  return {
+    match: mapMatch(res.data.data.match),
+    comparison: res.data.data.comparison,
+  };
 };
 
 export const adminApproveMatch = async (id, remarks = "") => {
@@ -75,6 +102,11 @@ export const adminApproveMatch = async (id, remarks = "") => {
 
 export const adminRejectMatch = async (id, remarks = "") => {
   const res = await api.patch(`/v1/three-way-matching/${id}/reject`, { remarks });
+  return res.data;
+};
+
+export const returnMatchForCorrection = async (id, remarks = "") => {
+  const res = await api.patch(`/v1/three-way-matching/${id}/return`, { remarks });
   return res.data;
 };
 
@@ -95,5 +127,35 @@ export const getGRNById = async (id) => {
 
 export const updateGRN = async (id, payload) => {
   const res = await api.put(`/v1/three-way-matching/grn/${id}`, payload);
+  return res.data.data;
+};
+
+export const deleteGRN = async (id) => {
+  const res = await api.delete(`/v1/three-way-matching/grn/${id}`);
+  return res.data.data;
+};
+
+export const createDeliveryChallan = async (payload) => {
+  const res = await api.post("/v1/three-way-matching/delivery-challan", payload);
+  return res.data.data;
+};
+
+export const getDeliveryChallansByPO = async (poId) => {
+  const res = await api.get(`/v1/three-way-matching/delivery-challan/by-po/${poId}`);
+  return res.data.data || [];
+};
+
+export const getDeliveryChallanById = async (id) => {
+  const res = await api.get(`/v1/three-way-matching/delivery-challan/${id}`);
+  return res.data.data;
+};
+
+export const updateDeliveryChallan = async (id, payload) => {
+  const res = await api.put(`/v1/three-way-matching/delivery-challan/${id}`, payload);
+  return res.data.data;
+};
+
+export const deleteDeliveryChallan = async (id) => {
+  const res = await api.delete(`/v1/three-way-matching/delivery-challan/${id}`);
   return res.data.data;
 };

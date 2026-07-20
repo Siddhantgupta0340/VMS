@@ -30,10 +30,38 @@ export const resetPasswordSchema = z.object({
     newPassword: passwordSchema,
   }),
 });
+export const activationTokenSchema = z.object({
+  query: z.object({
+    token: z.string().min(32, 'Activation token is required'),
+  }),
+});
+export const setPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(32, 'Activation token is required'),
+    newPassword: passwordSchema,
+  }),
+});
+export const activateAccountSchema = setPasswordSchema;
+export const resendActivationSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email address').trim().lowercase(),
+  }),
+});
 export const logoutSchema = z.object({ body: z.object({ refreshToken: z.string().optional() }) }); 
 export const changePasswordSchema = z.object({
   body: z.object({
     oldPassword: z.string().min(1),
     newPassword: passwordSchema,
+  }),
+});
+
+export const completeTemporaryPasswordSchema = z.object({
+  body: z.object({
+    passwordChangeToken: z.string().min(20, 'Password change token is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, 'Confirm password is required'),
+  }).refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
   }),
 });

@@ -25,8 +25,8 @@ const ApprovalsList = () => {
   const filteredApprovals = useMemo(() => {
     return approvalData.filter((approval) => {
       // Role Based Filtering
-      if (user.role !== ROLES.ADMIN) {
-        if (approval.assignedTo !== user.role) {
+      if (user.role !== ROLES.SUPER_ADMIN) {
+        if (approval.assignedTo !== "-" && approval.assignedTo !== user.role) {
           return false;
         }
       }
@@ -40,8 +40,8 @@ const ApprovalsList = () => {
       const keyword = search.toLowerCase();
 
       return (
-        approval.invoiceNo.toLowerCase().includes(keyword) ||
-        approval.vendor.toLowerCase().includes(keyword)
+        String(approval.invoiceNo || "").toLowerCase().includes(keyword) ||
+        String(approval.vendor || "").toLowerCase().includes(keyword)
       );
     });
   }, [approvalData, search, status, user]);

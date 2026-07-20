@@ -9,6 +9,11 @@ class InvoiceController {
   });
 
   // ─── List & Get ────────────────────────────────────────────────────────────
+  getApprovedPurchaseOrdersForInvoice = asyncHandler(async (req, res) => {
+    const purchaseOrders = await invoiceService.getApprovedPurchaseOrdersForInvoice(req.query, req.user);
+    res.status(200).json({ success: true, purchaseOrders });
+  });
+
   getInvoices = asyncHandler(async (req, res) => {
     const result = await invoiceService.listInvoices(req.query, req.user);
     res.status(200).json({ success: true, ...result });
@@ -116,6 +121,15 @@ class InvoiceController {
     const { remark } = req.body || {};
     const result = await invoiceService.addFinanceHeadRemark(req.params.id, req.user, remark, req);
     res.status(200).json({ success: true, ...result });
+  });
+
+  downloadInvoicePdf = asyncHandler(async (req, res) => {
+    const invoice = await invoiceService.downloadInvoicePdf(req.params.id, req.user, req);
+    res.status(200).json({
+      success: true,
+      message: 'Invoice download authorized.',
+      data: invoice,
+    });
   });
 }
 

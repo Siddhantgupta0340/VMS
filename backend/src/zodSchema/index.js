@@ -16,6 +16,7 @@ export {
   assignRoleSchema,
   searchUsersSchema,
   updateUserStatusSchema,
+  resendCredentialsSchema,
   resetPasswordSchema as adminResetPasswordSchema,
 } from './user.schema.js';
 

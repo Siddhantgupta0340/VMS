@@ -1,58 +1,228 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, ShieldAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createUser } from "../../services/userService";
-import { toast } from "sonner";
+import {
+  getRolesLookup,
+  getBranchesLookup,
+  getDesignationsLookup,
+  getRegionsLookup,
+} from "../../services/lookupService";
+import { getErrorMessage, notify } from "../../utils/feedback";
 
-const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
+const inputClass = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 disabled:bg-slate-50 disabled:cursor-not-allowed";
+const labelClass = "block text-sm font-medium text-slate-700 mb-2";
+const passwordRules = [
+  { label: "At least 8 characters", test: (value) => value.length >= 8 },
+  { label: "One uppercase letter", test: (value) => /[A-Z]/.test(value) },
+  { label: "One lowercase letter", test: (value) => /[a-z]/.test(value) },
+  { label: "One number", test: (value) => /[0-9]/.test(value) },
+  { label: "One special character", test: (value) => /[^A-Za-z0-9]/.test(value) },
+];
 
 const UserCreate = () => {
   const navigate = useNavigate();
+  
+  // ── Form Values State ──────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    password: "",
+    phone: "",
+    alternatePhone: "",
+    designation: "",
+    branch: "",
+    region: "",
     role: "",
+    password: "",
+    confirmPassword: "",
+    superAdminConfirmed: false,
   });
 
-  const handleChange = (e) => {
+  // ── Validation and Loading States ──────────────────────────────────────────
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [regions, setRegions] = useState([]);
+  const [loadingLookups, setLoadingLookups] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // ── Password Rules Check ───────────────────────────────────────────────────
+  // ── Load Lookups from APIs ─────────────────────────────────────────────────
+  useEffect(() => {
+    const loadLookups = async () => {
+      try {
+        setLoadingLookups(true);
+        const [rData, bData, desData, regionData] = await Promise.all([
+          getRolesLookup(),
+          getBranchesLookup(),
+          getDesignationsLookup(),
+          getRegionsLookup(),
+        ]);
+        setRoles(rData);
+        setBranches(bData);
+        setDesignations(desData);
+        setRegions(regionData);
+      } catch (err) {
+        console.error(err);
+        notify.error(getErrorMessage(err, "Failed to load lookup configurations. Some selectors may be empty."));
+      } finally {
+        setLoadingLookups(false);
+      }
+    };
+    loadLookups();
+  }, []);
+
+  // ── Clear context fields on role change ─────────────────────────────────────
+  const handleRoleChange = (selectedRole) => {
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      role: selectedRole,
+      superAdminConfirmed: false,
+    }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      role: null,
+      superAdminConfirmed: null,
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.role) {
-      toast.error("Please select a valid role");
-      return;
-    }
-    try {
-      await createUser(formData);
-      toast.success("User registered successfully!");
-      navigate("/users");
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.message || "Failed to create user account.");
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+    // Clear field-specific error as user types
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: null }));
     }
   };
 
-  const roles = [
-    { label: "Super Admin", value: "SUPER_ADMIN" },
-    { label: "Case Manager", value: "CASE_MANAGER" },
-    { label: "Team Lead", value: "TEAM_LEAD" },
-    { label: "Manager", value: "MANAGER" },
-    { label: "Finance Head", value: "FINANCE_HEAD" },
-  ];
+  // ── Client-side Validation ─────────────────────────────────────────────────
+  const validateForm = () => {
+    const errors = {};
+
+    if (!formData.firstName.trim()) {
+      errors.firstName = "First name is required";
+    }
+    if (!formData.lastName.trim()) {
+      errors.lastName = "Last name is required";
+    }
+    if (!formData.email.trim()) {
+      errors.email = "Email address is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Invalid email format";
+    }
+    const phonePattern = /^\+?[1-9]\d{7,14}$/;
+    const normalizePhoneInput = (value) => {
+      const raw = value.trim();
+      const hasPlus = raw.startsWith("+");
+      const digits = raw.replace(/\D/g, "");
+      return hasPlus ? `+${digits}` : digits;
+    };
+    const phone = normalizePhoneInput(formData.phone);
+    const alternatePhone = normalizePhoneInput(formData.alternatePhone);
+    if (formData.phone.trim() && !phonePattern.test(phone)) {
+      errors.phone = "Phone must be 8 to 15 digits and may start with +";
+    }
+    if (formData.alternatePhone.trim() && !phonePattern.test(alternatePhone)) {
+      errors.alternatePhone = "Alternate phone must be 8 to 15 digits and may start with +";
+    }
+    if (phone && alternatePhone && phone === alternatePhone) {
+      errors.alternatePhone = "Alternate phone must be different from phone";
+    }
+
+    if (!formData.role) {
+      errors.role = "Please select a system role";
+    }
+
+    const failedPasswordRule = passwordRules.find((rule) => !rule.test(formData.password));
+    if (failedPasswordRule) {
+      errors.password = "Password does not meet all requirements";
+    }
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    // Super Admin confirmation guard
+    if (formData.role === "SUPER_ADMIN" && !formData.superAdminConfirmed) {
+      errors.superAdminConfirmed = "You must confirm explicit administrative scoping";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ── Form Submit handler ────────────────────────────────────────────────────
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      notify.error("Please correct the validation issues before submitting.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    // Build only database-supported fields payload (exclude irrelevant context fields)
+    const payload = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phone: formData.phone.trim(),
+      alternatePhone: formData.alternatePhone.trim(),
+      designation: formData.designation.trim(),
+      branch: formData.branch.trim(),
+      region: formData.region.trim(),
+      role: formData.role,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    };
+
+    try {
+      await createUser(payload);
+      notify.success("User registered successfully.");
+      
+      // Never preserve credentials in memory after success
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        alternatePhone: "",
+        designation: "",
+        branch: "",
+        region: "",
+        role: "",
+        password: "",
+        confirmPassword: "",
+        superAdminConfirmed: false,
+      });
+
+      navigate("/users");
+    } catch (err) {
+      console.error(err);
+      if (err?.response?.data?.code === "VALIDATION_ERROR" && err?.response?.data?.errors) {
+        // Map backend grouped validation errors
+        setFieldErrors(err.response.data.errors);
+        notify.error("Validation failed. Please check field errors.");
+      } else {
+        notify.error(getErrorMessage(err, "Failed to create user account."));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Navigation Header */}
       <div className="flex items-center gap-3">
         <Link to="/users">
-          <button className="rounded-lg p-2 hover:bg-slate-100 transition">
+          <button className="rounded-lg p-2 hover:bg-slate-100 transition" aria-label="Back to User directory">
             <ArrowLeft size={20} className="text-slate-600" />
           </button>
         </Link>
@@ -62,112 +232,322 @@ const UserCreate = () => {
         </div>
       </div>
 
-      {/* Form */}
-      <div className="rounded-xl border border-slate-200 bg-white p-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Personal Information */}
+      {/* Main Form container */}
+      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+          
+          {/* Profile Details */}
           <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900">
+            <h2 className="mb-6 text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">
               Personal Information
             </h2>
-            <div className="grid grid-cols-2 gap-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  First Name *
-                </label>
+                <label htmlFor="firstName" className={labelClass}>First Name *</label>
                 <input
+                  id="firstName"
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="Enter first name"
-                  className={input}
+                  className={`${inputClass} ${fieldErrors.firstName ? 'border-red-500' : ''}`}
+                  disabled={submitting}
                   required
                 />
+                {fieldErrors.firstName && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.firstName}</p>
+                )}
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Last Name *
-                </label>
+                <label htmlFor="lastName" className={labelClass}>Last Name *</label>
                 <input
+                  id="lastName"
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Enter last name"
-                  className={input}
+                  className={`${inputClass} ${fieldErrors.lastName ? 'border-red-500' : ''}`}
+                  disabled={submitting}
                   required
                 />
+                {fieldErrors.lastName && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.lastName}</p>
+                )}
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email Address *
-                </label>
+                <label htmlFor="email" className={labelClass}>Email Address *</label>
                 <input
+                  id="email"
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="user@company.com"
-                  className={input}
+                  className={`${inputClass} ${fieldErrors.email ? 'border-red-500' : ''}`}
+                  disabled={submitting}
                   required
                 />
+                {fieldErrors.email && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.email}</p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Temporary Password *
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Minimum 8 characters with upper, lower, numbers"
-                  className={input}
-                  required
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Role mapping */}
-          <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900">System Role Scoping</h2>
-            <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Role Permission Guard *
-                </label>
+                <label htmlFor="phone" className={labelClass}>Phone</label>
+                <input
+                  id="phone"
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+91 98765 43210"
+                  className={`${inputClass} ${fieldErrors.phone ? 'border-red-500' : ''}`}
+                  disabled={submitting}
+                />
+                {fieldErrors.phone && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.phone}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="alternatePhone" className={labelClass}>Alternate Phone</label>
+                <input
+                  id="alternatePhone"
+                  type="tel"
+                  name="alternatePhone"
+                  value={formData.alternatePhone}
+                  onChange={handleChange}
+                  placeholder="+91 98765 43211"
+                  className={`${inputClass} ${fieldErrors.alternatePhone ? 'border-red-500' : ''}`}
+                  disabled={submitting}
+                />
+                {fieldErrors.alternatePhone && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.alternatePhone}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="designation" className={labelClass}>Designation</label>
+                <input
+                  id="designation"
+                  type="text"
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  list="designation-options"
+                  placeholder="Enter designation"
+                  className={inputClass}
+                  disabled={submitting}
+                />
+                <datalist id="designation-options">
+                  {designations.map((item) => (
+                    <option key={item.value} value={item.value} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label htmlFor="branch" className={labelClass}>Branch</label>
+                <input
+                  id="branch"
+                  type="text"
+                  name="branch"
+                  value={formData.branch}
+                  onChange={handleChange}
+                  list="branch-options"
+                  placeholder="Enter branch"
+                  className={inputClass}
+                  disabled={submitting}
+                />
+                <datalist id="branch-options">
+                  {branches.map((item) => (
+                    <option key={item.value} value={item.value} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label htmlFor="region" className={labelClass}>Region</label>
+                <input
+                  id="region"
+                  type="text"
+                  name="region"
+                  value={formData.region}
+                  onChange={handleChange}
+                  list="region-options"
+                  placeholder="Enter region"
+                  className={inputClass}
+                  disabled={submitting}
+                />
+                <datalist id="region-options">
+                  {regions.map((item) => (
+                    <option key={item.value} value={item.value} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Role Permission Guard (Loaded dynamically) */}
+              <div>
+                <label htmlFor="role" className={labelClass}>Role Permission Guard *</label>
                 <select
+                  id="role"
                   name="role"
                   value={formData.role}
-                  onChange={handleChange}
-                  className={input}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  className={`${inputClass} ${fieldErrors.role ? 'border-red-500' : ''}`}
+                  disabled={submitting || loadingLookups}
                   required
                 >
                   <option value="">Select system role</option>
                   {roles.map((r) => (
                     <option key={r.value} value={r.value}>
-                      {r.label}
+                      {r.name}
                     </option>
                   ))}
                 </select>
+                {loadingLookups && <p className="mt-1 text-xs text-slate-400">Loading roles list...</p>}
+                {fieldErrors.role && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.role}</p>
+                )}
               </div>
             </div>
           </div>
+
+          <div>
+            <h2 className="mb-6 border-b border-slate-100 pb-2 text-lg font-semibold text-slate-900">
+              Login Credentials
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label htmlFor="password" className={labelClass}>Temporary Password *</label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create temporary password"
+                    className={`${inputClass} pr-12 ${fieldErrors.password ? 'border-red-500' : ''}`}
+                    disabled={submitting}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    aria-label="Toggle password visibility"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.password}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className={labelClass}>Confirm Temporary Password *</label>
+                <input
+                  id="confirmPassword"
+                  type={showPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm temporary password"
+                  className={`${inputClass} ${fieldErrors.confirmPassword ? 'border-red-500' : ''}`}
+                  disabled={submitting}
+                  autoComplete="new-password"
+                  required
+                />
+                {fieldErrors.confirmPassword && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.confirmPassword}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <p className="font-semibold">Password requirements</p>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {passwordRules.map((rule) => {
+                  const valid = rule.test(formData.password);
+                  return (
+                    <li key={rule.label} className={valid ? "text-green-700" : "text-blue-800"}>
+                      {valid ? "✓" : "•"} {rule.label}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-3">
+                The employee will receive this temporary password by email and must change it after first login.
+              </p>
+            </div>
+          </div>
+
+          {/* Dynamic Role-Based Capabilities */}
+          {formData.role === "SUPER_ADMIN" && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-6 space-y-6">
+              
+              {/* SUPER_ADMIN high-privilege warnings & confirmation */}
+              <div className="space-y-4">
+                  <div className="flex gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-800">
+                    <ShieldAlert className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">⚠️ High Privilege Warning</p>
+                      <p className="mt-1 leading-relaxed text-red-700">
+                        Assigning the <strong>Super Admin</strong> role grants full management capabilities across the entire platform, including user provisioning, payment systems, audits, and platform configuration.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="superAdminConfirmed"
+                      checked={formData.superAdminConfirmed}
+                      onChange={handleChange}
+                      className="mt-1 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      disabled={submitting}
+                    />
+                    <span className="text-sm font-medium text-slate-700">
+                      I explicitly confirm that this user requires full Super Administrative access and system privileges.
+                    </span>
+                  </label>
+                  {fieldErrors.superAdminConfirmed && (
+                    <p className="text-xs font-semibold text-red-600 mt-1">{fieldErrors.superAdminConfirmed}</p>
+                  )}
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-6 border-t border-slate-200">
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-blue-600 py-3 text-center font-medium text-white transition hover:bg-blue-700"
+              disabled={submitting}
+              className="flex-1 inline-flex justify-center items-center gap-2 rounded-xl bg-blue-600 py-3.5 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
-              Create User
+              {submitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Creating User...
+                </>
+              ) : (
+                "Create User Account"
+              )}
             </button>
             <button
               type="button"
               onClick={() => navigate("/users")}
-              className="flex-1 rounded-lg border border-slate-300 py-3 text-center font-medium text-slate-700 transition hover:bg-slate-50"
+              disabled={submitting}
+              className="flex-1 rounded-xl border border-slate-300 py-3.5 text-center font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -180,3 +560,4 @@ const UserCreate = () => {
 
 export default UserCreate;
 export { UserCreate };
+

@@ -4,6 +4,7 @@ import vendorRepository from '../vendors/vendor.repository.js';
 import purchaseOrderRepository from '../purchase-orders/po.repository.js';
 import approvalRepository from '../approvals/approval.repository.js';
 import notificationService from '../notifications/notification.service.js';
+import matchingService from '../three-way-matching/matching.service.js';
 import { ROLES } from '../../zodSchema/index.js';
 import {
   INVOICE_STATUS,
@@ -49,28 +50,50 @@ class InvoiceService {
   // Default entry point: Case Manager creates → role-based approval queue
   // ────────────────────────────────────────────────────────────────────────────
   async createInvoice(payload, user, req = null) {
-    // 1. Validate vendor
-    const vendor = await vendorRepository.findById(payload.vendorId);
-    if (!vendor) throw new ApiError(404, VENDOR_MESSAGES.NOT_FOUND);
-    if (vendor.status !== VENDOR_STATUS.APPROVED) {
-      throw new ApiError(400, 'Invoice can only be created for an approved vendor.');
-    }
-    if (user.role === ROLES.CASE_MANAGER && vendor.created_by_id !== user.id) {
-      throw new ApiError(403, 'You can only create invoices for vendors created by you.');
-    }
-
-    // 2. Validate purchase order
+    // 1. Validate purchase order
     const purchaseOrder = await purchaseOrderRepository.findById(payload.purchaseOrderId);
     if (!purchaseOrder) throw new ApiError(404, 'Purchase order not found.');
-    if (purchaseOrder.vendor_id !== payload.vendorId) {
-      throw new ApiError(400, 'Purchase order does not belong to the selected vendor.');
-    }
     if (purchaseOrder.status === 'cancelled') {
       throw new ApiError(400, 'Invoice cannot be created for a cancelled purchase order.');
     }
 
-    // 3. Determine highest approval role required
-    const requiredApprovalRole = getRequiredInvoiceApprovalRole(payload.amount);
+    const vendorId = payload.vendorId || purchaseOrder.vendor_id;
+    const amount = payload.amount !== undefined && payload.amount !== null && !isNaN(Number(payload.amount))
+      ? Number(payload.amount)
+      : Number(purchaseOrder.amount || 0);
+
+    // 2. Validate vendor
+    const vendor = await vendorRepository.findById(vendorId);
+    if (!vendor) throw new ApiError(404, VENDOR_MESSAGES.NOT_FOUND);
+    if (vendor.status !== VENDOR_STATUS.APPROVED) {
+      throw new ApiError(400, 'Invoice can only be created for an approved vendor.');
+    }
+
+    // Check duplicate active invoice for this PO
+    const existingInvoice = await prisma.invoice.findFirst({
+      where: { purchase_order_id: payload.purchaseOrderId, deleted_at: null },
+    });
+    if (existingInvoice) {
+      throw new ApiError(400, `An invoice (${existingInvoice.invoice_number}) already exists for this Purchase Order.`);
+    }
+
+    // 3. Business Workflow Prerequisites Check (Task 9)
+    const deliveryChallan = await prisma.deliveryChallan.findFirst({
+      where: { purchase_order_id: payload.purchaseOrderId, deleted_at: null },
+    });
+    if (!deliveryChallan) {
+      throw new ApiError(400, 'Delivery Challan has not been created for this Purchase Order.');
+    }
+
+    const grn = await prisma.goodsReceiptNote.findFirst({
+      where: { purchase_order_id: payload.purchaseOrderId, deleted_at: null },
+    });
+    if (!grn) {
+      throw new ApiError(400, 'Goods Receipt Note (GRN) is missing for this Purchase Order.');
+    }
+
+    // 4. Determine highest approval role required
+    const requiredApprovalRole = getRequiredInvoiceApprovalRole(amount);
 
     const initialStatus =
       requiredApprovalRole === ROLES.TEAM_LEAD
@@ -86,28 +109,36 @@ class InvoiceService {
           ? 'MANAGER'
           : 'FINANCE_HEAD';
 
+    const timestamp = Date.now().toString().slice(-6);
+    const invoiceNum = payload.invoiceNumber || `INV-${new Date().getFullYear()}-${timestamp}`;
+
     return invoiceRepository.transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
-          invoice_number:        payload.invoiceNumber || `INV-${Date.now()}`,
-          vendor_id:             payload.vendorId,
+          invoice_number:        invoiceNum,
+          vendor_id:             vendorId,
           purchase_order_id:     payload.purchaseOrderId,
           created_by_id:         user.id,
           updated_by_id:         user.id,
-          amount:                payload.amount,
-          currency:              payload.currency || 'INR',
+          amount:                amount,
+          currency:              payload.currency || purchaseOrder.currency || 'INR',
           status:                initialStatus,
           required_approval_role: requiredApprovalRole,
           current_approval_level: currentApprovalLevel,
-          three_way_match_status: THREE_WAY_MATCH_STATUS.SKIPPED,
+          three_way_match_status: THREE_WAY_MATCH_STATUS.PENDING,
           admin_review_status:    ADMIN_REVIEW_STATUS.APPROVED,
-          invoice_date:          payload.invoiceDate || new Date(),
-          due_date:              payload.dueDate ? new Date(payload.dueDate) : null,
-          description:           payload.description || null,
-          invoice_total:         payload.amount,
+          invoice_date:          payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(),
+          due_date:              payload.dueDate ? new Date(payload.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          description:           payload.remarks || payload.description || null,
+          invoice_total:         amount,
           paid_amount:           0.00,
-          remaining_amount:      payload.amount,
+          remaining_amount:      amount,
           payment_status:        'UNPAID',
+          line_items:            payload.lineItems || purchaseOrder.line_items || [],
+          tax_summary:           payload.taxSummary || purchaseOrder.tax_summary || null,
+          invoice_creation_method: payload.invoiceCreationMethod || 'MANUAL',
+          invoice_source:        payload.invoiceSource || 'MANUAL_ENTRY',
+          invoice_category:      payload.invoiceCategory || 'TAX_INVOICE',
         },
         include: { vendor: true, purchase_order: true },
       });
@@ -116,20 +147,48 @@ class InvoiceService {
         entityId:   invoice.id,
         action:     'created',
         fromStatus: null,
-        toStatus: initialStatus,
+        toStatus:   initialStatus,
         userId:     user.id,
-        remarks: `Invoice submitted. Approval starts from ${currentApprovalLevel}.`,
+        remarks:    `Invoice created for PO ${purchaseOrder.po_number}. Approval level: ${currentApprovalLevel}.`,
         req,
       });
 
-      // Notify Case Manager that matching can now begin
-      notificationService.notifyInvoiceNextLevel(
-invoice,
-currentApprovalLevel
-).catch(()=>{});
+      // Auto-trigger Three-Way Matching (Task 10)
+      matchingService.startMatching(invoice.id, grn.id, user, req, deliveryChallan.id).catch((matchErr) => {
+        console.warn('[InvoiceService] Automatic 3-way matching note:', matchErr?.message);
+      });
+
+      // Notify approvers
+      notificationService.notifyInvoiceNextLevel(invoice, currentApprovalLevel).catch(() => {});
 
       return invoice;
     });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // GET APPROVED PURCHASE ORDERS FOR INVOICE SELECTION
+  // ────────────────────────────────────────────────────────────────────────────
+  async getApprovedPurchaseOrdersForInvoice(query, user) {
+    const search = (query.search || '').trim();
+    const limit = Number(query.limit || 25);
+
+    const where = {
+      status: { in: ['approved', 'open', 'closed'] },
+      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+      ...(search && {
+        OR: [
+          { po_number: { contains: search, mode: 'insensitive' } },
+          { vendor: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      }),
+    };
+
+    const { purchaseOrders } = await purchaseOrderRepository.findAll({
+      where,
+      take: limit,
+    });
+
+    return purchaseOrders;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -806,6 +865,37 @@ currentApprovalLevel
     });
 
     return { message: 'Observation remark added successfully.' };
+  }
+
+  async downloadInvoicePdf(id, user, req = null) {
+    const invoice = await this.getInvoiceById(id, user);
+    if (!invoice) {
+      throw new ApiError(404, 'Invoice not found.');
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        entity_type: 'invoice',
+        entity_id: invoice.id,
+        action: 'downloaded',
+        from_status: invoice.status,
+        to_status: invoice.status,
+        performed_by_id: user.id,
+        remarks: `PDF downloaded by ${user.first_name || user.email} (${user.role}) for Invoice #${invoice.invoice_number || invoice.invoiceNumber}`,
+        new_value: {
+          downloadedBy: user.id,
+          userEmail: user.email,
+          role: user.role,
+          documentType: 'INVOICE',
+          documentNumber: invoice.invoice_number || invoice.invoiceNumber,
+          timestamp: new Date(),
+        },
+        ip_address: req?.ip || null,
+        user_agent: req?.headers?.['user-agent'] || null,
+      },
+    });
+
+    return invoice;
   }
 }
 

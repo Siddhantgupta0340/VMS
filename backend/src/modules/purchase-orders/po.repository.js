@@ -41,6 +41,10 @@ class PurchaseOrderRepository {
       include: poInclude,
     });
   }
+
+  async transaction(callback) {
+    return prisma.$transaction(callback);
+  }
 }
 
 export default new PurchaseOrderRepository();

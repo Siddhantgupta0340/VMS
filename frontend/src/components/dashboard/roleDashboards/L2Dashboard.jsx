@@ -1,7 +1,7 @@
 import DashboardOverview from "./DashboardOverview";
 
 const L2Dashboard = () => {
-  return <DashboardOverview endpoint="/v1/dashboard/me" />;
+  return <DashboardOverview />;
 };
 
 export default L2Dashboard;

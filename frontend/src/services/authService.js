@@ -1,41 +1,113 @@
 import api from "../api/axios";
+import {
+  PASSWORD_CHANGE_TOKEN_KEY,
+  clearAuthSession,
+  getAccessToken,
+  hasAuthTokens,
+  setStoredUser,
+  setTokenStorage,
+} from "./authSession";
 
-const ACCESS_TOKEN_KEY = "vms_access_token";
-const REFRESH_TOKEN_KEY = "vms_refresh_token";
-const USER_KEY = "vms_user";
+const GENERIC_LOGIN_ERROR = "Login failed. Please check your email and password.";
+const SERVICE_UNAVAILABLE_MESSAGE = "The service is temporarily unavailable. Please try again shortly.";
+const NETWORK_ERROR_MESSAGE = "Unable to connect to the server. Check your internet connection.";
+const INTERNAL_SERVER_ERROR_MESSAGE = "Internal Server Error. Please try again later.";
+const INTERNAL_ERROR_PATTERNS = [
+  /prisma/i,
+  /users\./i,
+  /deleted_by_id/i,
+  /findFirst/i,
+  /stack/i,
+  /SQL/i,
+  /P20\d{2}/i,
+];
 
-const setTokenStorage = (rememberMe, accessToken, refreshToken) => {
-  const storage = rememberMe ? localStorage : sessionStorage;
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+const getSafeAuthErrorMessage = (err) => {
+  const responseMessage = err?.response?.data?.message;
+  const responseCode = err?.response?.data?.code;
+  const status = err?.response?.status;
 
-  storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  storage.setItem(REFRESH_TOKEN_KEY, refreshToken || "");
+  if (!err?.response) {
+    if (err?.code === "ECONNABORTED") return SERVICE_UNAVAILABLE_MESSAGE;
+    return NETWORK_ERROR_MESSAGE;
+  }
+
+  if (status === 401) return GENERIC_LOGIN_ERROR;
+  if (status === 403) return "You do not have permission to access this page.";
+  if (status === 404) return "Resource not found.";
+  if (status >= 500) return INTERNAL_SERVER_ERROR_MESSAGE;
+
+  if (responseCode === "SERVICE_TEMPORARILY_UNAVAILABLE") {
+    return SERVICE_UNAVAILABLE_MESSAGE;
+  }
+
+  if (typeof responseMessage === "string" && responseMessage.trim()) {
+    const safeMessage = responseMessage.trim();
+    if (!INTERNAL_ERROR_PATTERNS.some((pattern) => pattern.test(safeMessage))) {
+      return safeMessage;
+    }
+  }
+
+  return GENERIC_LOGIN_ERROR;
 };
 
 export const login = async ({ email, password, rememberMe }) => {
   try {
     const res = await api.post("/v1/auth/login", { email, password });
-    const { user, accessToken, refreshToken } = res.data?.data || {};
+    const { user, accessToken, refreshToken, requiresPasswordChange, passwordChangeToken } = res.data?.data || {};
+
+    if (requiresPasswordChange && passwordChangeToken) {
+      sessionStorage.setItem(PASSWORD_CHANGE_TOKEN_KEY, passwordChangeToken);
+      return { success: true, requiresPasswordChange: true, user };
+    }
 
     if (!accessToken || !user) {
       return { success: false, message: "Login failed" };
     }
 
     setTokenStorage(rememberMe, accessToken, refreshToken);
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem(USER_KEY, JSON.stringify(user));
+    setStoredUser(user);
 
     return { success: true, user };
   } catch (err) {
     return {
       success: false,
-      message:
-        err?.response?.data?.message || err?.message || "Login failed",
+      message: getSafeAuthErrorMessage(err),
+      code: err?.response?.data?.code,
     };
   }
+};
+
+export const completeTemporaryPasswordChange = async ({ newPassword, confirmPassword }) => {
+  const passwordChangeToken = sessionStorage.getItem(PASSWORD_CHANGE_TOKEN_KEY);
+  const res = await api.post("/v1/auth/complete-temporary-password", {
+    passwordChangeToken,
+    newPassword,
+    confirmPassword,
+  });
+  const { user, accessToken, refreshToken } = res.data?.data || {};
+  if (!accessToken || !user) {
+    return { success: false, message: "Password changed, but login session could not be created." };
+  }
+  setTokenStorage(false, accessToken, refreshToken);
+  setStoredUser(user);
+  sessionStorage.removeItem(PASSWORD_CHANGE_TOKEN_KEY);
+  return { success: true, user };
+};
+
+export const validateActivationToken = async (token) => {
+  const res = await api.get("/v1/auth/validate-activation-token", { params: { token } });
+  return res.data.data;
+};
+
+export const setActivationPassword = async ({ token, newPassword }) => {
+  const res = await api.post("/v1/auth/set-password", { token, newPassword });
+  return res.data;
+};
+
+export const resendActivation = async (email) => {
+  const res = await api.post("/v1/auth/resend-activation", { email });
+  return res.data;
 };
 
 export const logout = async () => {
@@ -43,10 +115,7 @@ export const logout = async () => {
   // api interceptor will attach it automatically from stored access token.
 
   try {
-    const accessToken =
-      localStorage.getItem(ACCESS_TOKEN_KEY) ||
-      sessionStorage.getItem(ACCESS_TOKEN_KEY);
-
+    const accessToken = getAccessToken();
     if (accessToken) {
       // backend logout is protected; api interceptor will add Authorization
       await api.post("/v1/auth/logout");
@@ -54,54 +123,27 @@ export const logout = async () => {
   } catch {
     // ignore network/auth errors during logout
   } finally {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem(USER_KEY);
+    clearAuthSession();
   }
 };
 
 export const getCurrentUser = async () => {
-  // Prefer cached user to keep initial render fast
-  try {
-    const cached =
-      localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
-    if (cached) return JSON.parse(cached);
-  } catch {
-    // ignore
-  }
-
-  const accessToken =
-    localStorage.getItem(ACCESS_TOKEN_KEY) ||
-    sessionStorage.getItem(ACCESS_TOKEN_KEY);
-
+  const accessToken = getAccessToken();
   if (!accessToken) return null;
 
   try {
     const res = await api.get("/v1/auth/profile");
     const profile = res.data?.data;
 
-    const storage = localStorage.getItem(ACCESS_TOKEN_KEY)
-      ? localStorage
-      : sessionStorage;
-    storage.setItem(USER_KEY, JSON.stringify(profile));
-
+    setStoredUser(profile);
     return profile;
   } catch {
+    clearAuthSession();
     return null;
   }
 };
 
 export const isAuthenticated = () => {
-  try {
-    return (
-      !!localStorage.getItem(ACCESS_TOKEN_KEY) ||
-      !!sessionStorage.getItem(ACCESS_TOKEN_KEY)
-    );
-  } catch {
-    return false;
-  }
+  return hasAuthTokens();
 };
 

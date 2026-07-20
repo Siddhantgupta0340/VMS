@@ -23,15 +23,18 @@ export const INVOICE_STATUS = {
   // Terminal States
   APPROVED:                'APPROVED',
   REJECTED:                'REJECTED',
+  PAID:                    'PAID',
   CANCELLED:               'CANCELLED',
 };
 
 // ─── Three-Way Matching Statuses ─────────────────────────────────────────────
 export const THREE_WAY_MATCH_STATUS = {
-  PENDING:   'PENDING',
-  MATCHED:   'MATCHED',
-  UNMATCHED: 'UNMATCHED',
-  SKIPPED:   'SKIPPED',
+  PENDING:       'PENDING',
+  MATCHED:       'MATCHED',
+  PARTIAL_MATCH: 'PARTIAL_MATCH',
+  MISMATCH:      'MISMATCH',
+  UNMATCHED:     'UNMATCHED',
+  SKIPPED:       'SKIPPED',
 };
 
 // ─── Admin Review Statuses ────────────────────────────────────────────────────
@@ -39,12 +42,13 @@ export const ADMIN_REVIEW_STATUS = {
   PENDING:  'PENDING',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
+  RETURNED: 'RETURNED',
 };
 
 // ─── Invoice Approval Amount Thresholds ──────────────────────────────────────
 export const INVOICE_APPROVAL_LIMITS = {
   TEAM_LEAD_MAX: 10000,    // ≤ ₹10,000 → Team Lead only
-  MANAGER_MAX:   100000,   // ≤ ₹1,00,000 → Team Lead + Manager
+  FINANCE_HEAD_MIN: Number(process.env.FINANCE_HEAD_INVOICE_APPROVAL_THRESHOLD || 100000),
   // > ₹1,00,000 → Team Lead + Manager + Finance Head
 };
 
@@ -62,7 +66,7 @@ export const getRequiredInvoiceApprovalRole = (amount) => {
     return ROLES.TEAM_LEAD;
   }
 
-  if (invoiceAmount <= INVOICE_APPROVAL_LIMITS.MANAGER_MAX) {
+  if (invoiceAmount < INVOICE_APPROVAL_LIMITS.FINANCE_HEAD_MIN) {
     return ROLES.MANAGER;
   }
 
@@ -132,7 +136,7 @@ export const getNextApprovalStatus = (amount, currentStatus) => {
     if (invoiceAmount <= INVOICE_APPROVAL_LIMITS.TEAM_LEAD_MAX) {
       return INVOICE_STATUS.PENDING_TEAM_LEAD;
     }
-    if (invoiceAmount <= INVOICE_APPROVAL_LIMITS.MANAGER_MAX) {
+    if (invoiceAmount < INVOICE_APPROVAL_LIMITS.FINANCE_HEAD_MIN) {
       return INVOICE_STATUS.PENDING_MANAGER;
     }
     return INVOICE_STATUS.PENDING_FINANCE_HEAD;
@@ -146,7 +150,7 @@ export const getNextApprovalStatus = (amount, currentStatus) => {
   }
 
   if (s === INVOICE_STATUS.PENDING_MANAGER) {
-    if (invoiceAmount <= INVOICE_APPROVAL_LIMITS.MANAGER_MAX) {
+    if (invoiceAmount < INVOICE_APPROVAL_LIMITS.FINANCE_HEAD_MIN) {
       return INVOICE_STATUS.APPROVED;
     }
     return INVOICE_STATUS.PENDING_FINANCE_HEAD;
@@ -164,7 +168,7 @@ export const getNextApprovalStatus = (amount, currentStatus) => {
     return INVOICE_STATUS.PENDING_MANAGER;
   }
   if (s === 'PENDING_L2') {
-    if (invoiceAmount <= INVOICE_APPROVAL_LIMITS.MANAGER_MAX) {
+    if (invoiceAmount < INVOICE_APPROVAL_LIMITS.FINANCE_HEAD_MIN) {
       return INVOICE_STATUS.APPROVED;
     }
     return INVOICE_STATUS.PENDING_FINANCE_HEAD;
@@ -235,6 +239,7 @@ export const isValidStatusTransition = (fromStatus, toStatus) => {
     ],
     [INVOICE_STATUS.APPROVED]:   [],
     [INVOICE_STATUS.REJECTED]:   [],
+    [INVOICE_STATUS.PAID]:       [],
     [INVOICE_STATUS.CANCELLED]:  [],
   };
 
@@ -255,6 +260,7 @@ export const getStatusLabel = (status) => {
     [INVOICE_STATUS.PENDING_FINANCE_HEAD]:    'Pending Finance Head Approval',
     [INVOICE_STATUS.APPROVED]:                'Approved',
     [INVOICE_STATUS.REJECTED]:                'Rejected',
+    [INVOICE_STATUS.PAID]:                    'Paid',
     [INVOICE_STATUS.CANCELLED]:               'Cancelled',
     // Legacy
     PENDING_L1:   'Pending Team Lead Approval',
@@ -265,3 +271,4 @@ export const getStatusLabel = (status) => {
   };
   return labels[status] || status;
 };
+

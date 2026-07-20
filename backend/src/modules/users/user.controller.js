@@ -13,7 +13,7 @@ class UserController {
    * @access  Private (Admin)
    */
   createUser = asyncHandler(async (req, res) => {
-    const user = await userService.createUser(req.body);
+    const user = await userService.createUser(req.body, req.user, req.ip, req.headers['user-agent']);
     res.status(201).json({
       success: true,
       message: USER_MESSAGES.USER_CREATED,
@@ -47,7 +47,7 @@ class UserController {
    * @access  Private (Admin)
    */
   updateUser = asyncHandler(async (req, res) => {
-    const updatedUser = await userService.updateUser(req.params.id, req.body);
+    const updatedUser = await userService.updateUser(req.params.id, req.body, req.user, req.ip, req.headers['user-agent']);
     res.status(200).json({
       success: true,
       message: USER_MESSAGES.USER_UPDATED,
@@ -57,12 +57,26 @@ class UserController {
 
   /**
    * @desc    Delete a user (soft delete)
-   * @route   DELETE /api/v1/users/:id
+   * @route   DELETE /api/v1/users/:id 
    * @access  Private (Admin)
    */
   deleteUser = asyncHandler(async (req, res) => {
-    const message = await userService.deleteUser(req.params.id);
-    res.status(200).json({ success: true, message });
+    const result = await userService.deleteUser(req.params.id, req.user, req.ip, req.headers['user-agent']);
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.user,
+    });
+  });
+
+  /**
+   * @desc    Restore a soft-deleted user
+   * @route   POST /api/v1/users/:id/restore
+   * @access  Private (Admin)
+   */
+  restoreUser = asyncHandler(async (req, res) => {
+    const restoredUser = await userService.restoreUser(req.params.id, req.user, req.ip, req.headers['user-agent']);
+    res.status(200).json({ success: true, message: 'User account restored successfully.', data: restoredUser });
   });
 
   /**
@@ -83,15 +97,28 @@ class UserController {
     res.status(200).json({ success: true, message: USER_MESSAGES.STATUS_UPDATED, data: updatedUser });
   });
 
-  /**
-   * @desc    Reset a user's password (by Admin)
-   * @route   POST /api/v1/users/:id/reset-password
-   * @access  Private (Admin)
-   */
   adminResetPassword = asyncHandler(async (req, res) => {
-    const message = await userService.adminResetPassword(req.params.id, req.body.newPassword);
+    const message = await userService.adminResetPassword(
+      req.params.id,
+      req.body.newPassword,
+      req.user,
+      req.ip,
+      req.headers['user-agent']
+    );
     res.status(200).json({ success: true, message });
   });
+
+  resendCredentials = asyncHandler(async (req, res) => {
+    const result = await userService.resendCredentials(
+      req.params.id,
+      req.body.password,
+      req.user,
+      req.ip,
+      req.headers['user-agent']
+    );
+    res.status(200).json({ success: true, ...result });
+  });
+
 }
 
 export default new UserController();

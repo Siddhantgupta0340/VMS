@@ -1,4 +1,4 @@
-import { ROLES } from '../../zodSchema/index.js';
+import { PERMISSION_KEYS } from '../auth/role-permissions.js';
 
 /**
  * Permission mapping for the Vendor Management module.
@@ -9,9 +9,8 @@ import { ROLES } from '../../zodSchema/index.js';
  */
 export const VENDOR_PERMISSIONS = {
   CREATE: [
-    ROLES.SUPER_ADMIN,
-    ROLES.CASE_MANAGER,
+    PERMISSION_KEYS.MANAGE_VENDORS,
   ],
-  READ:   [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD],
-  REVIEW: [ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN],
+  READ:   [PERMISSION_KEYS.VIEW_VENDORS],
+  REVIEW: [PERMISSION_KEYS.REVIEW_VENDORS],
 };

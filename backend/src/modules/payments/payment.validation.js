@@ -61,7 +61,7 @@ export const searchPaymentsSchema = z.object({
   query: z.object({
     status: z.enum([
       'PENDING', 'INITIATED', 'PROCESSING', 'SUCCESS', 'FAILED', 
-      'CANCELLED', 'REFUNDED', 'PARTIALLY_PAID', 'COMPLETED'
+      'CANCELLED', 'RETURNED', 'REFUNDED', 'PARTIALLY_PAID', 'COMPLETED'
     ]).optional(),
     invoiceId: z.string().uuid('Invalid invoice ID format').optional(),
     vendorId: z.string().uuid('Invalid vendor ID format').optional(),

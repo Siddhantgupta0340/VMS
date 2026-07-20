@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { ROLE_PERMISSIONS } from "../../config/permissions";
+import { canAccessPath } from "../../config/permissions";
 
 const ProtectedRoute = ({ children }) => {
   const {
@@ -21,25 +21,17 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!isAuthenticated || !user) {
+    const redirectPath = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
-        to="/login"
-        state={{ from: location }}
+        to={`/login?redirect=${encodeURIComponent(redirectPath)}`}
+        state={{ from: { pathname: `${location.pathname}${location.search}${location.hash}` } }}
         replace
       />
     );
   }
 
-  const allowedRoutes =
-    ROLE_PERMISSIONS[user.role] || [];
-
-  const currentPath = location.pathname;
-
-  const hasPermission = allowedRoutes.some((route) =>
-    currentPath.startsWith(route)
-  );
-
-  if (!hasPermission) {
+  if (!canAccessPath(user, location.pathname)) {
     return <Navigate to="/403" replace />;
   }
 

@@ -3,6 +3,14 @@ import ApiError from '../utils/ApiError.js';
 import { AUTH_MESSAGES } from '../modules/auth/auth.constants.js';
 import { UserEntity } from '../zodSchema/index.js';
 import prisma from '../config/prisma.js';
+import { getPermissionsForRole } from '../modules/auth/role-permissions.js';
+import { withDatabaseRetry } from '../utils/dbRetry.js';
+
+const authError = (statusCode, message, code) => {
+  const error = new ApiError(statusCode, message);
+  error.code = code;
+  return error;
+};
 
 /**
  * Middleware to protect routes by verifying a JWT access token.
@@ -27,20 +35,20 @@ export const protect = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new ApiError(401, AUTH_MESSAGES.UNAUTHORIZED);
+      throw authError(401, AUTH_MESSAGES.UNAUTHORIZED, 'UNAUTHENTICATED');
     }
 
     const token = authHeader.split(' ')[1];
     const decoded = verifyAccessToken(token);
 
     if (!decoded) {
-      throw new ApiError(401, AUTH_MESSAGES.TOKEN_EXPIRED);
+      throw authError(401, AUTH_MESSAGES.TOKEN_EXPIRED, 'TOKEN_EXPIRED');
     }
 
     const userId = decoded[UserEntity.columns.ID];
 
     // Fetch fresh user data from DB on every request for security and completeness.
-    const user = await prisma.user.findUnique({
+    const user = await withDatabaseRetry('auth user lookup', () => prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -50,11 +58,12 @@ export const protect = async (req, res, next) => {
         last_name: true,
         status: true,
         deleted_at: true,
+        must_change_password: true,
       },
-    });
+    }));
 
-    if (!user || user.deleted_at !== null) {
-      throw new ApiError(401, AUTH_MESSAGES.UNAUTHORIZED);
+    if (!user || user.deleted_at !== null) { 
+      throw authError(401, AUTH_MESSAGES.UNAUTHORIZED, 'UNAUTHENTICATED');
     }
 
     if (user.status !== 'ACTIVE') {
@@ -62,20 +71,26 @@ export const protect = async (req, res, next) => {
       throw new ApiError(403, `Your account is ${statusText}. Please contact an administrator.`);
     }
 
+    if (user.must_change_password) {
+      throw new ApiError(403, 'Password change is required before accessing VMS.');
+    }
+
     // Attach full user context to the request object.
     req.user = {
       id: user.id,
       email: user.email,
       role: user.role,
+      permissions: getPermissionsForRole(user.role),
       first_name: user.first_name,
       last_name: user.last_name,
       status: user.status || 'ACTIVE',
+      must_change_password: user.must_change_password,
     };
 
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      next(new ApiError(401, AUTH_MESSAGES.TOKEN_EXPIRED));
+      next(authError(401, AUTH_MESSAGES.TOKEN_EXPIRED, 'TOKEN_EXPIRED'));
     } else {
       next(error);
     }

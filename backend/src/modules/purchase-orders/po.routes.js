@@ -5,26 +5,52 @@ import validate from '../../middleware/validate.middleware.js';
 import purchaseOrderController from './po.controller.js';
 import {
   createPurchaseOrderSchema,
+  calculatePurchaseOrderTaxSchema,
   purchaseOrderIdSchema,
   searchPurchaseOrdersSchema,
-  updatePurchaseOrderStatusSchema,
+  updatePurchaseOrderSchema,
+  deletePurchaseOrderSchema,
 } from './po.validation.js';
+import { PERMISSION_KEYS } from '../auth/role-permissions.js';
 import { ROLES } from '../../zodSchema/index.js';
 
 const router = express.Router();
 
-const READ_ROLES   = [ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD, ROLES.TEAM_LEAD, ROLES.MANAGER];
-const CREATE_ROLES = [ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN];
-const MANAGE_ROLES = [ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN];
+const DOWNLOAD_ROLES = [
+  PERMISSION_KEYS.DOWNLOAD_PURCHASE_ORDER,
+  ROLES.CASE_MANAGER,
+  ROLES.TEAM_LEAD,
+  ROLES.MANAGER,
+  ROLES.FINANCE_HEAD,
+  ROLES.SUPER_ADMIN,
+];
+
+const READ_ACCESS = [
+  PERMISSION_KEYS.VIEW_PURCHASE_ORDERS,
+  ROLES.CASE_MANAGER,
+  ROLES.TEAM_LEAD,
+  ROLES.MANAGER,
+  ROLES.FINANCE_HEAD,
+  ROLES.SUPER_ADMIN,
+];
+
+const CREATE_ACCESS = [PERMISSION_KEYS.MANAGE_PURCHASE_ORDERS, ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN];
 
 router.use(protect);
 
 router
   .route('/')
-  .post(authorize(CREATE_ROLES), validate(createPurchaseOrderSchema), purchaseOrderController.createPurchaseOrder)
-  .get(authorize(READ_ROLES), validate(searchPurchaseOrdersSchema), purchaseOrderController.getPurchaseOrders);
+  .post(authorize(CREATE_ACCESS), validate(createPurchaseOrderSchema), purchaseOrderController.createPurchaseOrder)
+  .get(authorize(READ_ACCESS), validate(searchPurchaseOrdersSchema), purchaseOrderController.getPurchaseOrders);
 
-router.get('/:id', authorize(READ_ROLES), validate(purchaseOrderIdSchema), purchaseOrderController.getPurchaseOrderById);
-router.patch('/:id/status', authorize(MANAGE_ROLES), validate(updatePurchaseOrderStatusSchema), purchaseOrderController.updatePurchaseOrderStatus);
+router.post('/calculate-tax', authorize(CREATE_ACCESS), validate(calculatePurchaseOrderTaxSchema), purchaseOrderController.calculatePurchaseOrderTax);
+
+router.get('/:id/download', authorize(DOWNLOAD_ROLES), validate(purchaseOrderIdSchema), purchaseOrderController.downloadPurchaseOrderPdf);
+
+router
+  .route('/:id')
+  .get(authorize(READ_ACCESS), validate(purchaseOrderIdSchema), purchaseOrderController.getPurchaseOrderById)
+  .put(authorize(CREATE_ACCESS), validate(updatePurchaseOrderSchema), purchaseOrderController.updatePurchaseOrder)
+  .delete(authorize(CREATE_ACCESS), validate(deletePurchaseOrderSchema), purchaseOrderController.deletePurchaseOrder);
 
 export default router;

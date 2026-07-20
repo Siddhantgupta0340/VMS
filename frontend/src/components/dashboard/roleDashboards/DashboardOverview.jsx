@@ -1,743 +1,516 @@
-import { useEffect, useMemo, useState } from "react";
-import api from "../../../api/axios";
-
+import { useCallback, useEffect, useState } from "react";
 import {
-  Building2,
-  FileText,
-  Receipt,
-  CreditCard,
   Activity,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  Wallet,
-  FileSearch,
-  Layers,
-  Package,
+  Building2,
   DollarSign,
-  ArrowRight,
+  FileSearch,
+  Package,
+  Receipt,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+  Wallet,
 } from "lucide-react";
-
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  Tooltip,
   Area,
   AreaChart,
-  BarChart,
   Bar,
-  PieChart,
-  Pie,
+  BarChart,
+  CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 
-const CompanyName = "VMS Enterprise";
-const RoleMap = {
-  SUPER_ADMIN: "Super Admin",
-  CASE_MANAGER: "Case Manager",
-  TEAM_LEAD: "Team Lead",
-  MANAGER: "Manager",
-  FINANCE_HEAD: "Finance Head",
-};
+import {
+  DATE_PRESETS,
+  GROUP_OPTIONS,
+  getDashboardAnalytics,
+} from "../../../services/dashboardService";
 
-function safeNumber(v, fallback = 0) {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : fallback;
+const COMPANY_NAME = "VMS Enterprise";
+const STATUS_PALETTE = ["#2563eb", "#0ea5e9", "#f43f5e", "#64748b"];
+
+function safeNumber(value, fallback = 0) {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
 }
 
-function formatCompact(n) {
-  const num = safeNumber(n, 0);
+function formatCompact(value) {
   return new Intl.NumberFormat(undefined, {
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(num);
+  }).format(safeNumber(value, 0));
 }
 
-function formatINR(n) {
-  const num = safeNumber(n, 0);
-  try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(num);
-  } catch {
-    return `₹${formatCompact(num)}`;
-  }
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(safeNumber(value, 0));
 }
 
-function buildMonthlyTrend(source, key, months = 12) {
-  // source can be an array of { month, value } or already chart-ready
-  const now = new Date();
-  const labels = [];
-  for (let i = months - 1; i >= 0; i -= 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    labels.push(d.toLocaleString(undefined, { month: "short" }));
-  }
-
-  const out = labels.map((m, idx) => {
-    const found = Array.isArray(source)
-      ? source.find((x) => String(x.month).toLowerCase() === m.toLowerCase())
-      : null;
-    const v = found ? found[key] ?? found.value ?? found.total ?? found.amount : undefined;
-    if (v !== undefined && v !== null) {
-      return { month: m, value: safeNumber(v, 0) };
-    }
-
-    // deterministic dummy growth if backend has no chart data
-    const base = 40 + idx * 4;
-    return { month: m, value: base + (idx % 3) * 6 };
-  });
-
-  return out;
+function formatDateTime(value) {
+  if (!value) return "Timestamp unavailable";
+  return new Date(value).toLocaleString();
 }
 
-function buildBarSeries(source, key, months = 12) {
-  const trend = buildMonthlyTrend(source, key, months);
-  return trend.map((x) => ({ month: x.month, value: x.value }));
+function normalizeSeries(source) {
+  if (!Array.isArray(source)) return [];
+
+  return source
+    .map((item) => ({
+      label: item?.label ?? item?.period ?? "",
+      value: safeNumber(item?.value, 0),
+      count: safeNumber(item?.count, 0),
+    }))
+    .filter((item) => item.label);
 }
 
-function buildPieSeriesFromCounts(pieInput) {
-  // pieInput may be { approved, pending, rejected, cancelled } or [{name,value}]
-  const counts = pieInput && !Array.isArray(pieInput) ? pieInput : null;
-
-  if (Array.isArray(pieInput) && pieInput.length > 0) {
-    const mapped = pieInput.map((x) => {
-      const name = x?.name ?? x?.label ?? x?.status ?? "";
-      const value = x?.value ?? x?.count ?? x?.total ?? 0;
-      return { name, value: safeNumber(value, 0) };
-    });
-    return mapped;
-  }
-
-  if (counts) {
-    const approved = safeNumber(counts.approved ?? counts.APPROVED ?? counts.APPROVED_COUNT, 0);
-    const pending = safeNumber(counts.pending ?? counts.PENDING ?? counts.PENDING_COUNT, 0);
-    const rejected = safeNumber(counts.rejected ?? counts.REJECTED ?? counts.REJECTED_COUNT, 0);
-    const cancelled = safeNumber(counts.cancelled ?? counts.CANCELLED ?? counts.CANCELLED_COUNT, 0);
-
-    const total = approved + pending + rejected + cancelled;
-    if (total > 0) {
-      return [
-        { name: "Approved", value: approved },
-        { name: "Pending", value: pending },
-        { name: "Rejected", value: rejected },
-        { name: "Cancelled", value: cancelled },
-      ];
-    }
-  }
-
-  // deterministic dummy split
-  return [
-    { name: "Approved", value: 48 },
-    { name: "Pending", value: 28 },
-    { name: "Rejected", value: 9 },
-    { name: "Cancelled", value: 6 },
-  ];
-}
-
-function ChartShell({ title, children, subtitle }) {
+function EmptyPanel({ message = "No data available." }) {
   return (
-    <div className="rounded-3xl bg-white border border-slate-200 shadow-sm">
+    <div className="flex h-full min-h-48 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm font-medium text-slate-500">
+      {message}
+    </div>
+  );
+}
+
+function ChartShell({ title, children, hasData, subtitle }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-slate-900">{title}</h2>
             {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600">
+            <Activity size={18} />
+          </div>
         </div>
-        <div className="mt-5">{children}</div>
+        <div className="mt-5 h-80">
+          {hasData ? children : <EmptyPanel />}
+        </div>
       </div>
-    </div>
-  );
-}
-
-function KPITrend({ direction = "up" }) {
-  const isUp = direction === "up";
-  return (
-    <div className="flex items-center gap-2 mt-4">
-      <span className="inline-flex items-center justify-center h-7 w-7 rounded-xl bg-slate-50 border border-slate-200 text-slate-600">
-        <TrendingUp size={16} className={isUp ? "text-blue-600" : "text-red-600"} />
-      </span>
-      <span className="text-sm text-slate-600">{isUp ? "Steady" : "Declining"}</span>
-    </div>
+    </section>
   );
 }
 
 function StatCard({ title, value, subtitle, index, icon: Icon }) {
-  return (
-    <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-slate-500">{title}</p>
-          <div className="mt-3 flex items-end gap-3">
-            <h2 className="text-4xl font-bold text-slate-900 leading-none">{value}</h2>
-          </div>
-          {subtitle ? <p className="mt-2 text-sm text-slate-500">{subtitle}</p> : null}
-          <KPITrend direction={index % 2 === 0 ? "up" : "up"} />
-        </div>
+  const accent =
+    index % 4 === 0
+      ? "bg-blue-50 border-blue-100 text-blue-700"
+      : index % 4 === 1
+        ? "bg-slate-50 border-slate-200 text-slate-700"
+        : index % 4 === 2
+          ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+          : "bg-amber-50 border-amber-100 text-amber-700";
 
-        <div
-          className={
-            index % 5 === 0
-              ? "bg-blue-50 border border-blue-100 text-blue-700"
-              : index % 5 === 1
-                ? "bg-slate-50 border border-slate-200 text-slate-700"
-                : index % 5 === 2
-                  ? "bg-emerald-50 border border-emerald-100 text-emerald-700"
-                  : index % 5 === 3
-                    ? "bg-violet-50 border border-violet-100 text-violet-700"
-                    : "bg-orange-50 border border-orange-100 text-orange-700"
-          }
-          style={{ borderRadius: 18 }}
-          className={`h-12 w-12 flex items-center justify-center border ${
-            index % 5 === 0
-              ? "bg-blue-50 border-blue-100 text-blue-700"
-              : index % 5 === 1
-                ? "bg-slate-50 border-slate-200 text-slate-700"
-                : index % 5 === 2
-                  ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-                  : index % 5 === 3
-                    ? "bg-violet-50 border-violet-100 text-violet-700"
-                    : "bg-orange-50 border-orange-100 text-orange-700"
-          }`}
-        >
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <h2 className="mt-3 truncate text-3xl font-bold leading-none text-slate-950">{value}</h2>
+          {subtitle ? <p className="mt-2 text-sm text-slate-500">{subtitle}</p> : null}
+        </div>
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${accent}`}>
           <Icon size={20} />
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-function TimelineItem({ title, meta }) {
+function TimelineItem({ activity }) {
+  const actor = activity?.performed_by;
+  const actorName = `${actor?.first_name ?? ""} ${actor?.last_name ?? ""}`.trim() || actor?.email || "System";
+  const title = activity?.action ?? activity?.entity_type ?? "Activity";
+
   return (
     <div className="flex gap-4">
       <div className="relative">
-        <div className="h-10 w-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
           <div className="h-2 w-2 rounded-full bg-blue-600" />
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 top-10 h-6 w-px bg-slate-200" />
+        <div className="absolute left-1/2 top-10 h-6 w-px -translate-x-1/2 bg-slate-200" />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="mt-1 text-sm text-slate-500">{meta}</p>
+        <p className="truncate text-sm font-semibold capitalize text-slate-900">{title.replaceAll("_", " ")}</p>
+        <p className="mt-1 text-sm text-slate-500">
+          {actorName} - {formatDateTime(activity?.created_at)}
+        </p>
       </div>
     </div>
   );
 }
 
-function PendingTaskRow({ title, meta, tone, actionLabel }) {
-  const toneClass =
-    tone === "blue"
-      ? "bg-blue-50 border-blue-100 text-blue-700"
-      : tone === "green"
-        ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-        : tone === "red"
-          ? "bg-rose-50 border-rose-100 text-rose-700"
-          : "bg-slate-50 border-slate-200 text-slate-700";
+function TopVendorTable({ vendors }) {
+  if (!vendors.length) return <EmptyPanel />;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="mt-1 text-sm text-slate-500">{meta}</p>
-      </div>
-      <div className="flex flex-col items-end gap-2">
-        <span className={`px-3 py-1 rounded-xl text-xs border ${toneClass}`}>{tone === "blue" ? "Approval" : "Action"}</span>
-        {actionLabel ? (
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 transition text-xs inline-flex items-center gap-2"
-          >
-            {actionLabel}
-            <ArrowRight size={14} />
-          </button>
-        ) : null}
-      </div>
+    <div className="overflow-hidden rounded-2xl border border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-4 py-3">Vendor</th>
+            <th className="px-4 py-3 text-right">Revenue</th>
+            <th className="px-4 py-3 text-right">Payments</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {vendors.map((vendor) => (
+            <tr key={vendor.id}>
+              <td className="px-4 py-3">
+                <p className="font-semibold text-slate-900">{vendor.name}</p>
+                <p className="text-xs text-slate-500">{vendor.vendorCode}</p>
+              </td>
+              <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(vendor.revenue)}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{formatCompact(vendor.paymentCount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function useDummyIfEmpty(data, fallback) {
-  return data === null || data === undefined || data === "" ? fallback : data;
-}
-
-const DashboardOverview = ({ endpoint = "/v1/dashboard/me" }) => {
+const DashboardOverview = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-
-  // Role-based rendering depends on response content. We also infer from endpoint.
-  const roleKey = useMemo(() => {
-    if (endpoint.includes("finance-head")) return "FINANCE_HEAD";
-    return "ROLE_BASED"; // other roles use /me
-  }, [endpoint]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get(endpoint);
-        if (!mounted) return;
-        setData(res.data?.data ?? null);
-      } catch (e) {
-        if (!mounted) return;
-        setError(e?.response?.data?.message || e?.message || "Failed to load dashboard");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [endpoint]);
-
-  const now = useMemo(() => new Date(), []);
-  const dateLabel = now.toLocaleDateString(undefined, {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
+  const [filters, setFilters] = useState({
+    preset: "last30",
+    groupBy: "day",
+    startDate: "",
+    endDate: "",
   });
 
-  const summary = data?.summary || {};
-  const pendingActions = data?.pendingActions || {};
-  const recentActivity = data?.recentActivity || [];
+  const loadDashboard = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    setRefreshing(silent);
+    setError(null);
 
-  const inferredRoleLabel = useMemo(() => {
-    if (endpoint.includes("finance-head")) return "Finance Head";
-    if (endpoint === "/v1/dashboard/me") return "Case / Team / Manager";
-    return "";
-  }, [endpoint]);
-
-  const kpi = useMemo(() => {
-    // KPI mapping from existing backend summary shape.
-    const vendorsTotal = summary?.vendors?.total ?? summary?.vendors ?? null;
-    const poTotal = summary?.purchaseOrders?.total ?? summary?.purchaseOrders ?? null;
-    const invoicesTotal = summary?.invoices?.total ?? summary?.invoices ?? null;
-    const paymentsTotal = summary?.payments?.total ?? summary?.payments ?? null;
-
-    const matchTotal = summary?.threeWayMatching?.total ?? summary?.threeWayMatching ?? null;
-
-    const pendingCount = pendingActions
-      ? Object.values(pendingActions).reduce((acc, v) => {
-          if (typeof v === "number") return acc + v;
-          const n = Number(v);
-          return acc + (Number.isFinite(n) ? n : 0);
-        }, 0)
-      : 0;
-
-    // These extra metrics are role-spec placeholders, sourced from whichever fields exist.
-    const rejectedRequests = safeNumber(pendingActions?.pendingInvoiceApprovals, 0) > 0 ? 0 : 0;
-
-    return {
-      TotalVendors: safeNumber( 24),
-      TotalPurchaseOrders: safeNumber( 54),
-      TotalInvoices: safeNumber( 54),
-      // TotalPayments: safeNumber(paymentsTotal, 22),
-            TotalPayments: safeNumber( 22),
-
-      PendingApprovals: safeNumber( 8),
-      RejectedRequests: rejectedRequests,
-      ApprovedToday: safeNumber(summary?.invoices?.approvedToday, 12),
-      Revenue: safeNumber(summary?.purchaseOrders?.totalValue, 2500000),
-      OutstandingAmount: safeNumber(summary?.invoices?.remainingOutstanding, 1875000),
-      ThreeWayMatch: safeNumber(matchTotal, 40),
-    };
-  }, [summary, pendingActions]);
-
-  // Charts: backend currently does not provide chart datasets. We build from summary + pending counts with dummy fallback.
-  const monthlyVendorGrowth = useMemo(() => {
-    const src = data?.vendorGrowthSeries || data?.monthlyVendorGrowth || [];
-    return buildMonthlyTrend(src, "value");
-  }, [data]);
-
-  const purchaseOrdersByMonth = useMemo(() => {
-    const src = data?.purchaseOrdersByMonth || data?.poMonthlySeries || [];
-    return buildBarSeries(src, "value");
-  }, [data]);
-
-  const invoiceStatusDistribution = useMemo(() => {
-    const pie = data?.invoiceStatusDistribution || data?.invoices?.byStatus;
-    return buildPieSeriesFromCounts(pie || {
-      approved: summary?.invoices?.approved ?? 0,
-      pending: summary?.invoices?.pending ?? 0,
-      rejected: summary?.invoices?.rejected ?? 0,
-      cancelled: summary?.invoices?.cancelled ?? 0,
-    });
-  }, [data, summary]);
-
-  const timelineItems = useMemo(() => {
-    if (Array.isArray(recentActivity) && recentActivity.length > 0) {
-      return recentActivity.slice(0, 5).map((a, idx) => ({
-        title: a?.title ?? a?.action ?? a?.entity_type ?? "Activity",
-        meta: a?.details ?? a?.description ?? `Updated • ${idx + 1}h ago`,
-      }));
+    try {
+      const analytics = await getDashboardAnalytics(filters);
+      setData(analytics);
+    } catch {
+      setError("Dashboard data could not be loaded. Please try again.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, [filters]);
 
-    // fallback if backend returns empty
-    return [
-      { title: "Vendor Created", meta: "New vendor record validated for compliance" },
-      { title: "Invoice Approved", meta: "Approval completed at Team Lead stage" },
-      { title: "PO Generated", meta: "Purchase order issued for approved requisition" },
-      { title: "Payment Released", meta: "Payment batch processed successfully" },
-      { title: "Approval Pending", meta: "Workflow is awaiting next approver" },
-    ];
-  }, [recentActivity]);
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
-  const pendingTaskRows = useMemo(() => {
-    const items = [];
+  const summary = data?.summary ?? {};
+  const users = summary.users ?? {};
+  const vendors = summary.vendors ?? {};
+  const purchaseOrders = summary.purchaseOrders ?? {};
+  const invoices = summary.invoices ?? {};
+  const payments = summary.payments ?? {};
+  const revenue = summary.revenue ?? {};
+  const threeWayMatching = summary.threeWayMatching ?? {};
+  const revenueTrend = normalizeSeries(data?.trends?.revenue);
+  const vendorGrowth = normalizeSeries(data?.trends?.vendorGrowth);
+  const purchaseOrderTrend = normalizeSeries(data?.trends?.purchaseOrders);
+  const invoiceStatus = Array.isArray(data?.charts?.invoiceStatusDistribution)
+    ? data.charts.invoiceStatusDistribution.filter((item) => safeNumber(item.value) > 0)
+    : [];
+  const paymentStatus = Array.isArray(data?.charts?.paymentStatusDistribution)
+    ? data.charts.paymentStatusDistribution.filter((item) => safeNumber(item.value) > 0)
+    : [];
+  const recentActivity = Array.isArray(data?.recentActivity) ? data.recentActivity : [];
+  const topVendors = Array.isArray(data?.topVendors) ? data.topVendors : [];
 
-    // Use known backend pendingActions keys.
-    const keyEntries = Object.entries(pendingActions || {});
+  const kpiCards = [
+    {
+      title: "Recognized Revenue",
+      value: formatCurrency(revenue.recognized),
+      subtitle: "Successful payments only",
+      Icon: DollarSign,
+    },
+    {
+      title: "Total Users",
+      value: formatCompact(users.total),
+      subtitle: `${formatCompact(users.active)} active, ${formatCompact(users.deactivated)} deactivated`,
+      Icon: Users,
+    },
+    {
+      title: "Approved Vendors",
+      value: formatCompact(vendors.approved),
+      subtitle: `${formatCompact(vendors.total)} total vendor records`,
+      Icon: Building2,
+    },
+    {
+      title: "Purchase Orders",
+      value: formatCompact(purchaseOrders.total),
+      subtitle: formatCurrency(purchaseOrders.totalValue),
+      Icon: Package,
+    },
+    {
+      title: "Invoices",
+      value: formatCompact(invoices.total),
+      subtitle: `${formatCompact(invoices.approved)} approved, ${formatCompact(invoices.pending)} pending`,
+      Icon: Receipt,
+    },
+    {
+      title: "Outstanding Amount",
+      value: formatCurrency(invoices.outstandingAmount),
+      subtitle: `${formatCurrency(invoices.overdueAmount)} overdue`,
+      Icon: Wallet,
+    },
+    {
+      title: "Payment Success",
+      value: formatCompact(payments.success),
+      subtitle: `${formatCompact(payments.pending)} pending, ${formatCompact(payments.failed)} failed`,
+      Icon: ShieldCheck,
+    },
+    {
+      title: "Three-Way Matches",
+      value: formatCompact(threeWayMatching.total),
+      subtitle: `${formatCompact(threeWayMatching.matched)} matched`,
+      Icon: FileSearch,
+    },
+  ];
 
-    // Prefer meaningful keys if present.
-    const byKey = (k) => {
-      const v = pendingActions?.[k];
-      const n = typeof v === "number" ? v : Number(v);
-      return Number.isFinite(n) ? n : 0;
-    };
+  const metadataRange = data?.filters
+    ? `${new Date(data.filters.startDate).toLocaleDateString()} - ${new Date(data.filters.endDate).toLocaleDateString()}`
+    : "";
 
-    const pendingInvoices = byKey("pendingFinanceHeadInvoices") || byKey("pendingInvoiceApprovals") || byKey("pendingAdminReviewInvoices") || byKey("myPendingInvoices");
-    const pendingVendors = byKey("pendingVendorApprovals") || byKey("myPendingVendors");
-    const pendingPayments = byKey("pendingPaymentApprovals") || byKey("pendingPayments") || byKey("myPendingPayments");
-    const pendingMatching = byKey("unmatchedThreeWayMatches") || byKey("myPendingMatching");
-
-    if (pendingInvoices > 0) items.push({ title: "Pending Invoice Approval", meta: `${pendingInvoices} invoice(s) require review`, tone: "blue", action: "Open" });
-    if (pendingVendors > 0) items.push({ title: "Vendor Verification", meta: `${pendingVendors} vendor(s) await validation`, tone: "green", action: "Open" });
-    if (pendingPayments > 0) items.push({ title: "Payment Pending", meta: `${pendingPayments} payment(s) pending processing`, tone: "slate", action: "Open" });
-    if (pendingMatching > 0) items.push({ title: "Approval Required — 3-Way Match", meta: `${pendingMatching} matching record(s) need action`, tone: "red", action: "Open" });
-
-    // Fill with enterprise-ish defaults if empty
-    if (items.length === 0) {
-      items.push(
-        { title: "Approval Required", meta: "Invoices queued for review", tone: "blue", action: "Open" },
-        { title: "Pending Invoice", meta: "Workflow waiting at current approval level", tone: "slate", action: "Open" },
-        { title: "Vendor Verification", meta: "Compliance checks awaiting completion", tone: "green", action: "Open" },
-        { title: "Payment Pending", meta: "Scheduled payments awaiting release", tone: "slate", action: "Open" }
-      );
-    }
-
-    // Ensure only 4 tasks as per spec style
-    return items.slice(0, 4).map((x, idx) => ({
-      key: `${x.title}-${idx}`,
-      title: x.title,
-      meta: x.meta,
-      tone: x.tone,
-      actionLabel: x.action,
+  const handleFilterChange = (key, value) => {
+    setFilters((current) => ({
+      ...current,
+      [key]: value,
     }));
-  }, [pendingActions]);
-
-  const quickActions = useMemo(() => {
-    // Do not add new pages; use existing routes to common create pages.
-    // These routes are assumed by existing navigation/constants.
-    return [
-      { label: "Create Vendor", action: () => (window.location.href = "/vendors/new") },
-      { label: "Create PO", action: () => (window.location.href = "/purchase-orders/new") },
-      { label: "Create Invoice", action: () => (window.location.href = "/invoices/new") },
-      { label: "View Reports", action: () => (window.location.href = "/reports") },
-      { label: "Manage Users", action: () => (window.location.href = "/users") },
-    ];
-  }, []);
-
-  const roleName = useMemo(() => inferredRoleLabel, [inferredRoleLabel]);
-
-  const welcome = useMemo(() => {
-    const h = new Date().getHours();
-    if (h < 12) return "Good Morning";
-    if (h < 18) return "Good Afternoon";
-    return "Good Evening";
-  }, []);
-
-  const isFinance = endpoint.includes("finance-head");
-
-  const kpiCards = useMemo(() => {
-    if (isFinance) {
-      return [
-        {
-          title: "Payments",
-          value: formatCompact(kpi.TotalPayments),
-          subtitle: "Total payments in workflow",
-          Icon: DollarSign,
-        },
-        {
-          title: "Outstanding Amount",
-          value: formatINR(kpi.OutstandingAmount),
-          subtitle: "Remaining invoice exposure",
-          Icon: Wallet,
-        },
-        {
-          title: "Invoices Waiting",
-          value: formatCompact(kpi.PendingInvoices ?? kpi.TotalInvoices),
-          subtitle: "Awaiting Finance Head review",
-          Icon: FileSearch,
-        },
-        {
-          title: "Pending Approvals",
-          value: formatCompact(kpi.PendingApprovals),
-          subtitle: "Approvals queued for action",
-          Icon: ShieldCheck,
-        },
-      ];
-    }
-
-    // Default executive KPIs
-    return [
-      {
-        title: "Total Vendors",
-        value: formatCompact(kpi.TotalVendors),
-        subtitle: "Verified and active vendor base",
-        Icon: Building2,
-      },
-      {
-        title: "Purchase Orders",
-        value: formatCompact(kpi.TotalPurchaseOrders),
-        subtitle: "Open and processed POs",
-        Icon: Package,
-      },
-      {
-        title: "Invoices",
-        value: formatCompact(kpi.TotalInvoices),
-        subtitle: "Approved and queued invoices",
-        Icon: Receipt,
-      },
-      {
-        title: "Pending Approvals",
-        value: formatCompact(kpi.PendingApprovals),
-        subtitle: "Workflow items requiring review",
-        Icon: Clock,
-      },
-    ];
-  }, [isFinance, kpi]);
+  };
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center text-slate-500">Loading dashboard…</div>;
-  }
-
-  if (error) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
-        {error}
+      <div className="grid gap-6">
+        <div className="h-40 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
-      <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-        <div className="flex items-start justify-between gap-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm text-slate-500">{CompanyName}</p>
-            <h1 className="mt-2 text-4xl font-bold text-slate-900">
-              {welcome}, {roleName}
+            <p className="text-sm font-medium text-slate-500">{COMPANY_NAME}</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">
+              Analytics Dashboard
             </h1>
-            <p className="mt-2 text-slate-500">
-              Executive analytics and workflow status across vendors, purchase orders, invoices and payments.
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Live metrics from secured backend analytics queries across users, vendors, purchase orders, invoices, payments, and audit activity.
             </p>
-            <div className="mt-4 flex items-center gap-4 text-sm text-slate-600">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                Live
-              </span>
-              <span className="text-slate-400">•</span>
-              <span>{dateLabel}</span>
-            </div>
+            {metadataRange ? (
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Reporting period: {metadataRange}
+              </p>
+            ) : null}
           </div>
 
-          <div className="hidden md:flex items-center gap-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs text-slate-500">System Health</p>
-              <div className="mt-2 text-2xl font-bold text-slate-900">Operational</div>
-              <div className="mt-2 text-xs text-emerald-700">All workflows running normally</div>
-            </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Period</span>
+              <select
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                value={filters.preset}
+                onChange={(event) => handleFilterChange("preset", event.target.value)}
+              >
+                {DATE_PRESETS.map((preset) => (
+                  <option key={preset.value} value={preset.value}>{preset.label}</option>
+                ))}
+              </select>
+            </label>
+
+            {filters.preset === "custom" && (
+              <>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">Start</span>
+                  <input
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(event) => handleFilterChange("startDate", event.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">End</span>
+                  <input
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(event) => handleFilterChange("endDate", event.target.value)}
+                  />
+                </label>
+              </>
+            )}
+
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Group</span>
+              <select
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                value={filters.groupBy}
+                onChange={(event) => handleFilterChange("groupBy", event.target.value)}
+              >
+                {GROUP_OPTIONS.map((group) => (
+                  <option key={group.value} value={group.value}>{group.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              disabled={refreshing}
+              onClick={() => loadDashboard({ silent: true })}
+              type="button"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* KPI Row */}
-      <div className="grid gap-6 xl:grid-cols-4 md:grid-cols-2">
-        {kpiCards.map((c, idx) => (
-          <StatCard key={c.title} title={c.title} value={c.value} subtitle={c.subtitle} index={idx} icon={c.Icon} />
+      {error ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
+          <h2 className="text-base font-semibold">Dashboard unavailable</h2>
+          <p className="mt-1 text-sm">{error}</p>
+        </section>
+      ) : null}
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {kpiCards.map((card, index) => (
+          <StatCard
+            key={card.title}
+            title={card.title}
+            value={card.value}
+            subtitle={card.subtitle}
+            index={index}
+            icon={card.Icon}
+          />
         ))}
       </div>
 
-      {/* Charts + Pending */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-8 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartShell title="Monthly Vendor Growth" subtitle="Trend of vendor activity">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyVendorGrowth}>
-                    <defs>
-                      <linearGradient id="vendorGrowth" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#2563eb" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#64748b" }} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2.5} fill="url(#vendorGrowth)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="space-y-6 xl:col-span-8">
+          <ChartShell title="Recognized Revenue Trend" subtitle="Successful payments grouped by the selected period." hasData={revenueTrend.length > 0}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueTrend}>
+                <defs>
+                  <linearGradient id="revenueTrend" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity={0.03} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2.5} fill="url(#revenueTrend)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartShell>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ChartShell title="Vendor Growth" subtitle="New vendor records in the selected period." hasData={vendorGrowth.length > 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vendorGrowth}>
+                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#0ea5e9" radius={[10, 10, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartShell>
 
-            <ChartShell title="Purchase Orders by Month" subtitle="Issued PO volume">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={purchaseOrdersByMonth}>
-                    <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#64748b" }} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#2563eb" radius={[10, 10, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <ChartShell title="Purchase Order Value" subtitle="PO value grouped by the selected period." hasData={purchaseOrderTrend.length > 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={purchaseOrderTrend}>
+                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Bar dataKey="value" fill="#2563eb" radius={[10, 10, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartShell>
           </div>
 
-          <ChartShell title="Invoice Status Distribution" subtitle="Approved, Pending, Rejected, Cancelled">
-            <div className="h-96">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ChartShell title="Invoice Status Distribution" subtitle="Only statuses present in database records are shown." hasData={invoiceStatus.length > 0}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Tooltip />
-                  <Pie
-                    data={invoiceStatusDistribution}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    innerRadius={70}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {invoiceStatusDistribution.map((entry, idx) => {
-                      const palette = ["#2563eb", "#0ea5e9", "#f43f5e", "#64748b"];
-                      return <Cell key={`cell-${idx}`} fill={palette[idx % palette.length]} />;
-                    })}
+                  <Pie data={invoiceStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={105} innerRadius={62} paddingAngle={2} stroke="none">
+                    {invoiceStatus.map((entry, index) => (
+                      <Cell key={entry.name} fill={STATUS_PALETTE[index % STATUS_PALETTE.length]} />
+                    ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-          </ChartShell>
-        </div>
+            </ChartShell>
 
-        {/* Right Panel */}
-        <div className="xl:col-span-4 space-y-6">
-          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Quick Actions</h2>
-                <p className="mt-1 text-sm text-slate-500">Create, review and manage key workflow items.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 h-10 w-10 flex items-center justify-center text-slate-600">
-                <Activity size={18} />
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3">
-              {quickActions.map((a) => (
-                <button
-                  key={a.label}
-                  type="button"
-                  onClick={a.action}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition flex items-center justify-between"
-                >
-                  <span>{a.label}</span>
-                  <ArrowRight size={16} className="text-slate-400" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-            <h2 className="text-base font-semibold text-slate-900">Pending Tasks</h2>
-            <p className="mt-1 text-sm text-slate-500">Approval required items for your work queue.</p>
-            <div className="mt-5 space-y-3">
-              {pendingTaskRows.map((t) => (
-                <PendingTaskRow key={t.key} title={t.title} meta={t.meta} tone={t.tone} actionLabel={t.actionLabel} />
-              ))}
-            </div>
+            <ChartShell title="Payment Status Summary" subtitle="Counts by real payment status." hasData={paymentStatus.length > 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip />
+                  <Pie data={paymentStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={105} innerRadius={62} paddingAngle={2} stroke="none">
+                    {paymentStatus.map((entry, index) => (
+                      <Cell key={entry.name} fill={STATUS_PALETTE[index % STATUS_PALETTE.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartShell>
           </div>
         </div>
-      </div>
 
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-8">
-          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Recent Activities</h2>
-                <p className="mt-1 text-sm text-slate-500">Audit-style timeline for operational visibility.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 h-10 w-10 flex items-center justify-center text-slate-600">
-                <Activity size={18} />
-              </div>
+        <aside className="space-y-6 xl:col-span-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Top Vendors by Revenue</h2>
+            <p className="mt-1 text-sm text-slate-500">Successful payment value only.</p>
+            <div className="mt-5">
+              <TopVendorTable vendors={topVendors} />
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Recent Activity</h2>
+            <p className="mt-1 text-sm text-slate-500">Latest safe audit events in the selected period.</p>
 
             <div className="mt-6 space-y-6">
-              {timelineItems.map((t, idx) => (
-                <div key={`${t.title}-${idx}`}>
-                  <TimelineItem title={t.title} meta={t.meta} />
-                </div>
-              ))}
+              {recentActivity.length > 0 ? (
+                recentActivity.map((activity) => (
+                  <TimelineItem key={activity.id ?? `${activity.action}-${activity.created_at}`} activity={activity} />
+                ))
+              ) : (
+                <EmptyPanel />
+              )}
             </div>
-          </div>
-        </div>
-
-        <div className="xl:col-span-4">
-          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-            <h2 className="text-base font-semibold text-slate-900">Role Overview</h2>
-            <p className="mt-1 text-sm text-slate-500">At-a-glance metrics aligned to your approval scope.</p>
-
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Approval Queue Size</span>
-                <span className="text-sm font-bold text-slate-900">{formatCompact(kpi.PendingApprovals)}</span>
-              </div>
-              <div className="h-px bg-slate-200" />
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Invoices Covered</span>
-                <span className="text-sm font-bold text-slate-900">{formatCompact(kpi.TotalInvoices)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Vendor Base</span>
-                <span className="text-sm font-bold text-slate-900">{formatCompact(kpi.TotalVendors)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Purchase Orders</span>
-                <span className="text-sm font-bold text-slate-900">{formatCompact(kpi.TotalPurchaseOrders)}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-800">Operational Note</p>
-              <p className="mt-1 text-sm text-slate-600">
-                Dashboard values reflect live workflow states from the backend when available.
-              </p>
-            </div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
-
-      {/* Footer spacer to match existing layout density */}
-      <div className="h-2" />
     </div>
   );
 };
 
 export default DashboardOverview;
-

@@ -18,10 +18,18 @@ class NotificationRepository {
   /**
    * Find all notifications for a user with pagination.
    */
-  async findAll({ userId, isRead, skip = 0, take = 20 }) {
+  async findAll({ userId, isRead, type, entityType, createdFrom, createdTo, skip = 0, take = 20 }) {
     const where = {
       user_id: userId,
       ...(isRead !== undefined && { is_read: isRead }),
+      ...(type && { type }),
+      ...(entityType && { entity_type: entityType }),
+      ...((createdFrom || createdTo) && {
+        created_at: {
+          ...(createdFrom && { gte: createdFrom }),
+          ...(createdTo && { lte: createdTo }),
+        },
+      }),
     };
 
     const [notifications, total, unreadCount] = await Promise.all([
@@ -36,6 +44,12 @@ class NotificationRepository {
     ]);
 
     return { notifications, total, unreadCount };
+  }
+
+  async findByIdForUser(id, userId) {
+    return prisma.notification.findFirst({
+      where: { id, user_id: userId },
+    });
   }
 
   /**
@@ -63,6 +77,12 @@ class NotificationRepository {
    */
   async countUnread(userId) {
     return prisma.notification.count({ where: { user_id: userId, is_read: false } });
+  }
+
+  async deleteForUser(id, userId) {
+    return prisma.notification.deleteMany({
+      where: { id, user_id: userId },
+    });
   }
 }
 

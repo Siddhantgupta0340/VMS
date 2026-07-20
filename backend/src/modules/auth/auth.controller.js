@@ -13,16 +13,22 @@ class AuthController {
    * @access  Public
    */
   login = asyncHandler(async (req, res) => {
-    console.log("login", req.body);
     const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await authService.login(
+    const result = await authService.login(
       email,
       password,
     );
+    if (result.requiresPasswordChange) {
+      return res.status(200).json({
+        success: true,
+        message: 'Password change required before accessing VMS.',
+        data: result,
+      });
+    }
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
-      data: { user, accessToken, refreshToken },
+      data: result,
     });
   });
 
@@ -43,7 +49,6 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
-    console.log("token received");
     const { refreshToken: oldRefreshToken } = req.body;
     const { accessToken, refreshToken } =
       await authService.refreshToken(oldRefreshToken);
@@ -92,16 +97,8 @@ class AuthController {
    * @access  Public
    */
   forgotPassword = asyncHandler(async (req, res) => {
-    console.log("\n================ FORGOT PASSWORD =================");
-    console.log("[Controller] Forgot Password API Hit");
-    console.log("[Controller] Request Body:", req.body);
-
     const { email } = req.body;
-
-    console.log("[Controller] Email Received:", email);
     const message = await authService.forgotPassword(email);
-
-    console.log("[Controller] Service Response:", message);
 
     // Required response format
     return res.status(200).json({
@@ -138,6 +135,42 @@ class AuthController {
 
     res.status(200).json({ success: true, message });
   });
+
+  completeTemporaryPasswordChange = asyncHandler(async (req, res) => {
+    const { passwordChangeToken, newPassword } = req.body;
+    const result = await authService.completeTemporaryPasswordChange(passwordChangeToken, newPassword);
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully.',
+      data: result,
+    });
+  });
+
+  validateActivationToken = asyncHandler(async (req, res) => {
+    const data = await authService.validateActivationToken(req.query.token);
+    res.status(200).json({ success: true, data });
+  });
+
+  setPassword = asyncHandler(async (req, res) => {
+    const user = await authService.setPassword(req.body.token, req.body.newPassword);
+    res.status(200).json({ success: true, message: 'Password set successfully. You can now log in.', data: user });
+  });
+
+  activateAccount = asyncHandler(async (req, res) => {
+    const user = await authService.activateAccount(req.body.token, req.body.newPassword);
+    res.status(200).json({ success: true, message: 'Account activated successfully.', data: user });
+  });
+
+  resendActivation = asyncHandler(async (req, res) => {
+    const message = await authService.resendActivation(
+      req.body.email,
+      req.user || null,
+      req.ip,
+      req.headers['user-agent'],
+    );
+    res.status(200).json({ success: true, message });
+  });
+
 }
 
 export default new AuthController();

@@ -1,7 +1,7 @@
 import DashboardOverview from "./DashboardOverview";
 
 const AdminDashboard = () => {
-  return <DashboardOverview endpoint="/v1/dashboard/overview" />;
+  return <DashboardOverview />;
 };
 
 export default AdminDashboard;

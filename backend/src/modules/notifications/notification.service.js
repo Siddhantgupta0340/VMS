@@ -2,19 +2,37 @@ import ApiError from '../../utils/ApiError.js';
 import notificationRepository from './notification.repository.js';
 import prisma from '../../config/prisma.js';
 import { ROLES } from '../../zodSchema/index.js';
+import { toSafeErrorLog } from '../../utils/dbRetry.js';
 
 // ─── Notification Type Constants ──────────────────────────────────────────────
 export const NOTIFICATION_TYPES = {
+  // User Management
+  USER_CREATED: 'user_created',
+  USER_UPDATED: 'user_updated',
+  USER_DEACTIVATED: 'user_deactivated',
+  USER_ACTIVATED: 'user_activated',
+  USER_DELETED: 'user_deleted',
+  USER_CREDENTIAL_EMAIL_SENT: 'user_credential_email_sent',
+  USER_CREDENTIAL_EMAIL_FAILED: 'user_credential_email_failed',
+  PASSWORD_CHANGED: 'password_changed',
+
   // Vendor
+  VENDOR_CREATED:   'vendor_created',
+  VENDOR_UPDATED:   'vendor_updated',
   VENDOR_APPROVED:  'vendor_approved',
   VENDOR_REJECTED:  'vendor_rejected',
   VENDOR_BLOCKED:   'vendor_blocked',
+
+  // Purchase Order
+  PURCHASE_ORDER_UPDATED: 'purchase_order_updated',
+  PURCHASE_ORDER_DELETED: 'purchase_order_deleted',
 
   // Invoice status
   INVOICE_CREATED:                'invoice_created',
   INVOICE_APPROVED:               'invoice_approved',
   INVOICE_REJECTED:               'invoice_rejected',
   INVOICE_CANCELLED:              'invoice_cancelled',
+  INVOICE_UPDATED:                'invoice_updated',
 
   // Workflow steps (new names)
   INVOICE_PENDING_THREE_WAY_MATCH: 'invoice_pending_three_way_match',
@@ -37,21 +55,21 @@ export const NOTIFICATION_TYPES = {
   ADMIN_REVIEW_APPROVED: 'admin_review_approved',
   ADMIN_REVIEW_REJECTED: 'admin_review_rejected',
 
-  // Ticket Management
-  TICKET_DELETED:    'ticket_deleted',
-  TICKET_RESTORED:   'ticket_restored',
+  // Invoice archive/restore
+  INVOICE_DELETED:   'invoice_deleted',
+  INVOICE_RESTORED:  'invoice_restored',
 
   // Workflow general
   WORKFLOW_MOVED:    'workflow_moved',
 
   // Payment
   PAYMENT_CREATED:   'payment_created',
+  PAYMENT_COMPLETED: 'payment_completed',
+  PAYMENT_FAILED:    'payment_failed',
   PAYMENT_APPROVED:  'payment_approved',
   PAYMENT_REJECTED:  'payment_rejected',
   PAYMENT_BLOCKED:   'payment_blocked',
 
-  // PO
-  PO_CREATED:        'po_created',
 };
 
 // ─── Role → DB role string mapping (for user lookup) ─────────────────────────
@@ -63,24 +81,98 @@ const ROLE_LEVEL_MAP = {
   ADMIN_REVIEW:    null,  // Notify Admin (SUPER_ADMIN)
 };
 
+const MAX_PAGE_LIMIT = 100;
+
+const toPositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parseBooleanFilter = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  throw new ApiError(400, 'isRead must be true or false.');
+};
+
+const parseDateFilter = (value, fieldName) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ApiError(400, `${fieldName} must be a valid date.`);
+  }
+  return date;
+};
+
+const sanitizeNotification = (notification) => {
+  if (!notification) return null;
+  return {
+    id: notification.id,
+    user_id: notification.user_id,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type,
+    role: notification.role,
+    reference_id: notification.reference_id,
+    entity_type: notification.entity_type,
+    entity_id: notification.entity_id,
+    is_read: notification.is_read,
+    read_at: notification.read_at,
+    created_at: notification.created_at,
+  };
+};
+
 class NotificationService {
   // ────────────────────────────────────────────────────────────────────────────
   // GET / MARK NOTIFICATIONS
   // ────────────────────────────────────────────────────────────────────────────
 
   async getMyNotifications(userId, query) {
-    const page   = Number(query.page  || 1);
-    const limit  = Number(query.limit || 20);
-    const isRead = query.isRead !== undefined ? query.isRead === 'true' : undefined;
+    const page = toPositiveInt(query.page, 1);
+    const requestedLimit = toPositiveInt(query.limit, 20);
+    const limit = Math.min(requestedLimit, MAX_PAGE_LIMIT);
+    const isRead = parseBooleanFilter(query.isRead);
+    const type = typeof query.type === 'string' && query.type.trim() ? query.type.trim() : undefined;
+    const entityType = typeof query.entityType === 'string' && query.entityType.trim() ? query.entityType.trim() : undefined;
+    const createdFrom = parseDateFilter(query.createdFrom, 'createdFrom');
+    const createdTo = parseDateFilter(query.createdTo, 'createdTo');
+
+    if (createdFrom && createdTo && createdFrom > createdTo) {
+      throw new ApiError(400, 'createdFrom must be before createdTo.');
+    }
 
     const result = await notificationRepository.findAll({
       userId,
       isRead,
+      type,
+      entityType,
+      createdFrom,
+      createdTo,
       skip: (page - 1) * limit,
       take: limit,
     });
 
-    return { ...result, page, limit, totalPages: Math.ceil(result.total / limit) };
+    return {
+      notifications: result.notifications.map(sanitizeNotification),
+      total: result.total,
+      unreadCount: result.unreadCount,
+      page,
+      limit,
+      totalPages: Math.ceil(result.total / limit),
+    };
+  }
+
+  async getUnreadCount(userId) {
+    const unreadCount = await notificationRepository.countUnread(userId);
+    return { unreadCount };
+  }
+
+  async getById(notificationId, userId) {
+    const notification = await notificationRepository.findByIdForUser(notificationId, userId);
+    if (!notification) {
+      throw new ApiError(404, 'Notification not found.');
+    }
+    return sanitizeNotification(notification);
   }
 
   async markAsRead(notificationId, userId) {
@@ -88,31 +180,122 @@ class NotificationService {
     if (result.count === 0) {
       throw new ApiError(404, 'Notification not found or does not belong to you.');
     }
-    return { message: 'Notification marked as read.' };
+    const notification = await notificationRepository.findByIdForUser(notificationId, userId);
+    return {
+      message: 'Notification marked as read.',
+      notification: sanitizeNotification(notification),
+    };
   }
 
   async markAllAsRead(userId) {
-    await notificationRepository.markAllAsRead(userId);
-    return { message: 'All notifications marked as read.' };
+    const result = await notificationRepository.markAllAsRead(userId);
+    return { message: 'All notifications marked as read.', updatedCount: result.count };
+  }
+
+  async deleteNotification(notificationId, userId) {
+    const result = await notificationRepository.deleteForUser(notificationId, userId);
+    if (result.count === 0) {
+      throw new ApiError(404, 'Notification not found.');
+    }
+    return { message: 'Notification dismissed.' };
   }
 
   // ────────────────────────────────────────────────────────────────────────────
   // CREATE NOTIFICATION (internal)
   // ────────────────────────────────────────────────────────────────────────────
 
-  async createNotification(userId, type, title, message, entityType = null, entityId = null) {
+  async createNotification(userId, type, title, message, entityType = null, entityId = null, role = null) {
     try {
       return await notificationRepository.create({
         user_id:     userId,
         type,
         title,
         message,
+        role,
+        reference_id: entityId,
         entity_type: entityType,
         entity_id:   entityId,
       });
     } catch (error) {
-      console.error('[NotificationService] Failed to create notification:', error.message);
+      console.error('[NotificationService] Failed to create notification:', toSafeErrorLog(error));
     }
+  }
+
+  async getActiveUsersByRole(role) {
+    if (!role) return [];
+    return prisma.user.findMany({
+      where: { role, status: 'ACTIVE', deleted_at: null },
+      select: { id: true, role: true },
+    });
+  }
+
+  async createNotificationsForRole(role, type, title, message, entityType = null, entityId = null) {
+    const recipients = await this.getActiveUsersByRole(role);
+    if (!recipients.length) return { count: 0 };
+
+    return notificationRepository.createMany(
+      recipients.map((recipient) => ({
+        user_id: recipient.id,
+        role,
+        reference_id: entityId,
+        type,
+        title,
+        message,
+        entity_type: entityType,
+        entity_id: entityId,
+        is_read: false,
+      })),
+    );
+  }
+
+  async notifySuperAdmins(type, title, message, entityType = null, entityId = null) {
+    return this.createNotificationsForRole(ROLES.SUPER_ADMIN, type, title, message, entityType, entityId);
+  }
+
+  async notifyApprovalRole({ role, type, title, message, entityType, entityId }) {
+    await this.createNotificationsForRole(role, type, title, message, entityType, entityId);
+    await this.notifySuperAdmins(type, title, message, entityType, entityId);
+  }
+
+  async notifyCreator(userId, type, title, message, entityType = null, entityId = null) {
+    if (!userId) return;
+    await this.createNotification(userId, type, title, message, entityType, entityId);
+  }
+
+  async notifyUserCreated(creatorId, createdUser) {
+    if (!creatorId || !createdUser?.id) return;
+    await this.createNotification(
+      creatorId,
+      NOTIFICATION_TYPES.USER_CREATED,
+      'User account created',
+      `User account for ${createdUser.first_name || createdUser.email} was created successfully.`,
+      'user',
+      createdUser.id
+    );
+  }
+
+  async notifyCredentialEmailSent(creatorId, createdUser) {
+    if (!creatorId || !createdUser?.id) return;
+    await this.createNotification(
+      creatorId,
+      NOTIFICATION_TYPES.USER_CREDENTIAL_EMAIL_SENT,
+      'Activation email sent',
+      `Activation email was sent to ${createdUser.email}.`,
+      'user',
+      createdUser.id
+    );
+  }
+
+  async notifyCredentialEmailFailed(creatorId, createdUser) {
+    if (!creatorId || !createdUser?.id) return;
+    await this.createNotification(
+      creatorId,
+      NOTIFICATION_TYPES.USER_CREDENTIAL_EMAIL_FAILED,
+      'Activation email failed',
+      `Activation email could not be delivered to ${createdUser.email}.`,
+      'user',
+      createdUser.id
+    );
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -121,33 +304,111 @@ class NotificationService {
 
   async notifyVendorStatusChange(vendor, newStatus, actorName) {
     if (!vendor.created_by_id) return;
+    const normalizedStatus = String(newStatus || '').toUpperCase();
+    const approved = normalizedStatus === 'ACTIVE' || normalizedStatus === 'APPROVED';
+    const pending = normalizedStatus === 'PENDING';
+    const rejected = normalizedStatus === 'INACTIVE' || normalizedStatus === 'REJECTED';
+    const blocked = normalizedStatus === 'BLOCKED';
 
     const typeMap = {
-      approved: NOTIFICATION_TYPES.VENDOR_APPROVED,
-      rejected: NOTIFICATION_TYPES.VENDOR_REJECTED,
-      blocked:  NOTIFICATION_TYPES.VENDOR_BLOCKED,
+      PENDING:  NOTIFICATION_TYPES.VENDOR_CREATED,
+      ACTIVE: NOTIFICATION_TYPES.VENDOR_APPROVED,
+      INACTIVE: NOTIFICATION_TYPES.VENDOR_REJECTED,
+      BLOCKED:  NOTIFICATION_TYPES.VENDOR_BLOCKED,
     };
 
     const titleMap = {
-      approved: ' Vendor Approved',
-      rejected: ' Vendor Rejected',
-      blocked:  ' Vendor Blocked',
+      PENDING:  'Vendor Pending Review',
+      ACTIVE: 'Vendor Approved',
+      INACTIVE: 'Vendor Rejected',
+      BLOCKED:  'Vendor On Hold',
     };
 
     const messageMap = {
-      approved: `Your vendor "${vendor.name}" has been approved by ${actorName}. You can now create purchase orders.`,
-      rejected: `Your vendor "${vendor.name}" has been rejected by ${actorName}. Please review and resubmit.`,
-      blocked:  `Your vendor "${vendor.name}" has been blocked by ${actorName}.`,
+      PENDING: `Vendor "${vendor.name}" is pending Finance review.`,
+      ACTIVE: `Your vendor "${vendor.name}" has been approved by ${actorName}. You can now create purchase orders.`,
+      INACTIVE: `Your vendor "${vendor.name}" has been rejected by ${actorName}. Please review and resubmit.`,
+      BLOCKED:  `Your vendor "${vendor.name}" has been placed on hold by ${actorName}.`,
     };
+    const statusKey = approved ? 'ACTIVE' : pending ? 'PENDING' : rejected ? 'INACTIVE' : blocked ? 'BLOCKED' : normalizedStatus;
 
     await this.createNotification(
       vendor.created_by_id,
-      typeMap[newStatus],
-      titleMap[newStatus],
-      messageMap[newStatus],
+      typeMap[statusKey] || NOTIFICATION_TYPES.VENDOR_UPDATED,
+      titleMap[statusKey] || 'Vendor Status Updated',
+      messageMap[statusKey] || `Vendor "${vendor.name}" status changed to ${newStatus}.`,
       'vendor',
       vendor.id,
     );
+
+    await this.notifySuperAdmins(
+      typeMap[statusKey] || NOTIFICATION_TYPES.VENDOR_UPDATED,
+      titleMap[statusKey] || 'Vendor Status Updated',
+      messageMap[statusKey] || `Vendor "${vendor.name}" status changed to ${newStatus}.`,
+      'vendor',
+      vendor.id,
+    );
+
+    if (approved) {
+      const approvalTitle = 'Vendor Approved';
+      const approvalMessage = `Vendor "${vendor.name}" (${vendor.vendor_code}) has been approved by ${actorName}.`;
+      await Promise.all([
+        this.createNotificationsForRole(ROLES.TEAM_LEAD, NOTIFICATION_TYPES.VENDOR_APPROVED, approvalTitle, approvalMessage, 'vendor', vendor.id),
+        this.createNotificationsForRole(ROLES.MANAGER, NOTIFICATION_TYPES.VENDOR_APPROVED, approvalTitle, approvalMessage, 'vendor', vendor.id),
+      ]);
+    }
+  }
+
+  async notifyVendorApprovalRequested(vendor) {
+    await this.notifyApprovalRole({
+      role: ROLES.FINANCE_HEAD,
+      type: NOTIFICATION_TYPES.VENDOR_CREATED,
+      title: 'Vendor Pending Approval',
+      message: `Vendor "${vendor.name}" (${vendor.vendor_code}) is waiting for Finance Head approval.`,
+      entityType: 'vendor',
+      entityId: vendor.id,
+    });
+    await this.notifyCreator(
+      vendor.created_by_id,
+      NOTIFICATION_TYPES.VENDOR_CREATED,
+      'Vendor Submitted',
+      `Vendor "${vendor.name}" has been submitted for approval.`,
+      'vendor',
+      vendor.id,
+    );
+  }
+
+  async notifyVendorUpdated(vendor, actorName) {
+    await this.notifyApprovalRole({
+      role: ROLES.FINANCE_HEAD,
+      type: NOTIFICATION_TYPES.VENDOR_UPDATED,
+      title: 'Vendor Updated',
+      message: `Vendor "${vendor.name}" (${vendor.vendor_code}) was updated by ${actorName}.`,
+      entityType: 'vendor',
+      entityId: vendor.id,
+    });
+  }
+
+  async notifyDocumentEdited({ entityType, entityId, documentNumber, editedBy, summary }) {
+    const label = entityType === 'purchase_order' ? 'Purchase Order' : 'Invoice';
+    const type = entityType === 'purchase_order'
+      ? NOTIFICATION_TYPES.PURCHASE_ORDER_UPDATED
+      : NOTIFICATION_TYPES.INVOICE_UPDATED;
+    const message = `${label} ${documentNumber} was edited by ${editedBy} on ${new Date().toLocaleString('en-IN')}. Changes: ${summary || 'Updated document details.'}`;
+    await Promise.all([
+      this.createNotificationsForRole(ROLES.FINANCE_HEAD, type, `${label} Edited`, message, entityType, entityId),
+      this.createNotificationsForRole(ROLES.MANAGER, type, `${label} Edited`, message, entityType, entityId),
+      this.notifySuperAdmins(type, `${label} Edited`, message, entityType, entityId),
+    ]);
+  }
+
+  async notifyPurchaseOrderDeleted(purchaseOrder, actorName, deleteReason) {
+    const message = `Purchase Order ${purchaseOrder.po_number} was deleted by ${actorName}. Reason: ${deleteReason}`;
+    await Promise.all([
+      this.createNotificationsForRole(ROLES.FINANCE_HEAD, NOTIFICATION_TYPES.PURCHASE_ORDER_DELETED, 'Purchase Order Deleted', message, 'purchase_order', purchaseOrder.id),
+      this.createNotificationsForRole(ROLES.MANAGER, NOTIFICATION_TYPES.PURCHASE_ORDER_DELETED, 'Purchase Order Deleted', message, 'purchase_order', purchaseOrder.id),
+      this.notifySuperAdmins(NOTIFICATION_TYPES.PURCHASE_ORDER_DELETED, 'Purchase Order Deleted', message, 'purchase_order', purchaseOrder.id),
+    ]);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -203,7 +464,7 @@ class NotificationService {
   // NOTIFY NEXT LEVEL (broadcast to all users with the required role)
   // ────────────────────────────────────────────────────────────────────────────
 
-  async notifyInvoiceNextLevel(invoice, nextLevel) {
+  async notifyInvoiceNextLevel(invoice, nextLevel, context = {}) {
     try {
       // Map level name to DB role value
       const levelToRole = {
@@ -237,20 +498,49 @@ class NotificationService {
         MANAGER:      'Manager',
         FINANCE_HEAD: 'Finance Head',
       };
+      const poNumber = invoice.purchase_order?.po_number || invoice.po_number || 'N/A';
+      const vendorName = invoice.vendor?.name || invoice.vendor_name || 'Vendor N/A';
+      const creatorName = invoice.created_by
+        ? `${invoice.created_by.first_name || ''} ${invoice.created_by.last_name || ''}`.trim() || invoice.created_by.email
+        : null;
+      const requestedBy = context.requestedBy || creatorName || 'System';
+      const matchingResult = context.matchingResult || invoice.three_way_match_status || 'MATCHED';
+      const createdDate = invoice.created_at ? new Date(invoice.created_at).toISOString() : new Date().toISOString();
+      const priority = nextLevel === 'FINANCE_HEAD' ? 'High' : 'Normal';
+      const approvalMessage = [
+        `Invoice Number: ${invoice.invoice_number}`,
+        `Purchase Order Number: ${poNumber}`,
+        `Vendor: ${vendorName}`,
+        `Invoice Amount: ${invoice.currency || 'INR'} ${invoice.amount}`,
+        `Current Status: ${invoice.status}`,
+        `Requested By: ${requestedBy}`,
+        `Matching Result: ${matchingResult}`,
+        `Created Date: ${createdDate}`,
+        `Priority: ${priority}`,
+      ].join(' | ');
 
       const notifications = users.map((user) => ({
         user_id:     user.id,
+        role:        dbRole,
+        reference_id: invoice.id,
         type:        typeMap[nextLevel] || NOTIFICATION_TYPES.WORKFLOW_MOVED,
-        title:       ` New Invoice Pending ${humanLabel[nextLevel] || nextLevel} Approval`,
-        message:     `Invoice ${invoice.invoice_number} for ${invoice.currency} ${invoice.amount} requires your ${humanLabel[nextLevel] || nextLevel} approval.`,
+        title:       `Invoice Pending ${humanLabel[nextLevel] || nextLevel} Approval`,
+        message:     approvalMessage,
         entity_type: 'invoice',
         entity_id:   invoice.id,
         is_read:     false,
       }));
 
       await notificationRepository.createMany(notifications);
+      await this.notifySuperAdmins(
+        typeMap[nextLevel] || NOTIFICATION_TYPES.WORKFLOW_MOVED,
+        `Invoice Pending ${humanLabel[nextLevel] || nextLevel} Approval`,
+        approvalMessage,
+        'invoice',
+        invoice.id,
+      );
     } catch (error) {
-      console.error('[NotificationService] notifyInvoiceNextLevel failed:', error.message);
+      console.error('[NotificationService] notifyInvoiceNextLevel failed:', toSafeErrorLog(error));
     }
   }
 
@@ -260,24 +550,25 @@ class NotificationService {
 
   async notifyMatchingCompleted(invoice, matchStatus, matchPercentage) {
     try {
-      // Notify all Admins (SUPER_ADMIN)
-      const admins = await prisma.user.findMany({
-        where:  { role: ROLES.SUPER_ADMIN, status: 'ACTIVE', deleted_at: null },
+      const reviewers = await prisma.user.findMany({
+        where:  { role: { in: [ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN] }, status: 'ACTIVE', deleted_at: null },
         select: { id: true },
       });
 
-      if (!admins || admins.length === 0) return;
-
       const isMatched = matchStatus === 'MATCHED';
-      const notifications = admins.map((admin) => ({
-        user_id:     admin.id,
+      const recipientIds = new Set(reviewers.map((reviewer) => reviewer.id));
+      if (invoice.created_by_id) recipientIds.add(invoice.created_by_id);
+      if (recipientIds.size === 0) return;
+
+      const notifications = Array.from(recipientIds).map((userId) => ({
+        user_id:     userId,
         type:        isMatched ? NOTIFICATION_TYPES.THREE_WAY_MATCH_MATCHED : NOTIFICATION_TYPES.THREE_WAY_MATCH_UNMATCHED,
         title:       isMatched
           ? ` Three-Way Match: MATCHED (${matchPercentage}%)`
-          : ` Three-Way Match: UNMATCHED (${matchPercentage}%)`,
+          : ` Three-Way Match: MISMATCH (${matchPercentage}%)`,
         message:     isMatched
-          ? `Invoice ${invoice.invoice_number} has passed Three-Way Matching (${matchPercentage}% match). Awaiting your review.`
-          : `Invoice ${invoice.invoice_number} has FAILED Three-Way Matching (${matchPercentage}% match). Please review the mismatch report.`,
+          ? `Invoice ${invoice.invoice_number} has passed Three-Way Matching (${matchPercentage}% match). Awaiting Finance Head approval.`
+          : `Invoice ${invoice.invoice_number} has mismatches (${matchPercentage}% match). Approval is blocked until corrected.`,
         entity_type: 'invoice',
         entity_id:   invoice.id,
         is_read:     false,
@@ -285,42 +576,23 @@ class NotificationService {
 
       await notificationRepository.createMany(notifications);
     } catch (error) {
-      console.error('[NotificationService] notifyMatchingCompleted failed:', error.message);
+      console.error('[NotificationService] notifyMatchingCompleted failed:', toSafeErrorLog(error));
     }
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // TICKET DELETION NOTIFICATION
+  // INVOICE DELETION NOTIFICATION
   // ────────────────────────────────────────────────────────────────────────────
 
-  async notifyTicketDeleted(invoice, actorName, deleteReason) {
-    // Notify Finance Head users
+  async notifyInvoiceDeleted(invoice, actorName, deleteReason) {
     try {
-      const financeHeads = await prisma.user.findMany({
-        where:  { role: ROLES.FINANCE_HEAD, status: 'ACTIVE', deleted_at: null },
-        select: { id: true },
-      });
-
       const notifications = [];
-
-      // Notify Finance Heads
-      for (const fh of financeHeads) {
-        notifications.push({
-          user_id:     fh.id,
-          type:        NOTIFICATION_TYPES.TICKET_DELETED,
-          title:       '🗑️ Invoice Deleted',
-          message:     `Invoice ${invoice.invoice_number} was deleted by ${actorName}. Reason: ${deleteReason}`,
-          entity_type: 'invoice',
-          entity_id:   invoice.id,
-          is_read:     false,
-        });
-      }
 
       // Notify creator
       if (invoice.created_by_id) {
         notifications.push({
           user_id:     invoice.created_by_id,
-          type:        NOTIFICATION_TYPES.TICKET_DELETED,
+          type:        NOTIFICATION_TYPES.INVOICE_DELETED,
           title:       '🗑️ Invoice Deleted',
           message:     `Your invoice ${invoice.invoice_number} was deleted by ${actorName}. Reason: ${deleteReason}`,
           entity_type: 'invoice',
@@ -333,7 +605,7 @@ class NotificationService {
         await notificationRepository.createMany(notifications);
       }
     } catch (error) {
-      console.error('[NotificationService] notifyTicketDeleted failed:', error.message);
+      console.error('[NotificationService] notifyInvoiceDeleted failed:', toSafeErrorLog(error));
     }
   }
 
@@ -341,10 +613,12 @@ class NotificationService {
   // PAYMENT NOTIFICATIONS
   // ────────────────────────────────────────────────────────────────────────────
 
-  async notifyPaymentStatusChange(payment, newStatus, actorName) {
-    if (!payment.created_by_id) return;
-
+  async notifyPaymentStatusChange(payment, newStatus, actorName, remarks = '') {
     const statusKey = String(newStatus).toLowerCase();
+    const paymentNumber = payment.payment_number || payment.paymentNumber || 'N/A';
+    const invoiceNumber = payment.invoice?.invoice_number || payment.invoiceNumber || 'N/A';
+    const amountStr = `${payment.currency || 'INR'} ${Number(payment.amount || payment.requestedAmount || 0).toLocaleString('en-IN')}`;
+    const remarksSuffix = remarks ? ` Remarks: "${remarks}"` : '';
 
     const typeMap = {
       pending:   NOTIFICATION_TYPES.PAYMENT_CREATED,
@@ -354,28 +628,12 @@ class NotificationService {
       failed:    NOTIFICATION_TYPES.PAYMENT_REJECTED,
       blocked:   NOTIFICATION_TYPES.PAYMENT_BLOCKED,
       cancelled: NOTIFICATION_TYPES.INVOICE_CANCELLED,
+      returned:  NOTIFICATION_TYPES.PAYMENT_REJECTED,
       refunded:  NOTIFICATION_TYPES.PAYMENT_APPROVED,
-    };
-
-    const titleMap = {
-      pending:   ' Payment Requested',
-      initiated: ' Payment Initiated',
-      approved:  ' Payment Approved',
-      rejected:  ' Payment Rejected',
-      failed:    ' Payment Gateway Failed',
-      blocked:   ' Payment Blocked',
-      cancelled: ' Payment Cancelled',
-      refunded:  ' Payment Refunded',
-    };
-
-    const messageMap = {
-      pending:   `Payment of ${payment.currency} ${payment.amount} has been requested.`,
-      initiated: `Payment of ${payment.currency} ${payment.amount} has been initiated by ${actorName}.`,
-      approved:  `Payment of ${payment.currency} ${payment.amount} has been approved by ${actorName}.`,
-      rejected:  `Payment of ${payment.currency} ${payment.amount} has been rejected by ${actorName}.`,
       failed:    `Payment of ${payment.currency} ${payment.amount} has failed gateway verification.`,
       blocked:   `Payment of ${payment.currency} ${payment.amount} has been blocked by ${actorName}.`,
       cancelled: `Payment of ${payment.currency} ${payment.amount} has been cancelled by ${actorName}.`,
+      returned:  `Payment of ${payment.currency} ${payment.amount} has been returned for correction by ${actorName}.`,
       refunded:  `Payment of ${payment.currency} ${payment.amount} has been refunded by ${actorName}.`,
     };
 
@@ -384,6 +642,33 @@ class NotificationService {
     const message = messageMap[statusKey] || `Payment status changed to ${newStatus}.`;
 
     await this.createNotification(payment.created_by_id, type, title, message, 'payment', payment.id);
+    await this.notifySuperAdmins(type, title, message, 'payment', payment.id);
+  }
+
+  async notifyPaymentApprovalRequested(payment) {
+    const approvalRole = payment.required_approval_role || ROLES.FINANCE_HEAD;
+    const roleLabel = {
+      [ROLES.TEAM_LEAD]: 'Team Lead',
+      [ROLES.MANAGER]: 'Manager',
+      [ROLES.FINANCE_HEAD]: 'Finance Head',
+    }[approvalRole] || approvalRole;
+
+    await this.notifyApprovalRole({
+      role: approvalRole,
+      type: NOTIFICATION_TYPES.PAYMENT_CREATED,
+      title: 'Payment Pending Approval',
+      message: `Payment ${payment.payment_number} for ${payment.currency} ${payment.amount} requires ${roleLabel} approval.`,
+      entityType: 'payment',
+      entityId: payment.id,
+    });
+    await this.notifyCreator(
+      payment.created_by_id,
+      NOTIFICATION_TYPES.PAYMENT_CREATED,
+      'Payment Submitted',
+      `Payment ${payment.payment_number} has been submitted for approval.`,
+      'payment',
+      payment.id,
+    );
   }
 }
 

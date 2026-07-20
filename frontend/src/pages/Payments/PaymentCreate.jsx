@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { getInvoices } from "../../services/invoiceService";
 import { createPayment } from "../../services/paymentService";
 import { toast } from "sonner";
+import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
+import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
 
 const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
 
@@ -11,6 +13,7 @@ const PaymentCreate = () => {
   const navigate = useNavigate();
   const [approvedInvoices, setApprovedInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [validationErrors, setValidationErrors] = useState([]);
   const [formData, setFormData] = useState({
     invoiceId: "",
     paymentMethod: "",
@@ -18,6 +21,8 @@ const PaymentCreate = () => {
     referenceNo: "",
     notes: "",
   });
+  const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
+  const selectedInvoice = approvedInvoices.find((invoice) => invoice.id === formData.invoiceId);
 
   useEffect(() => {
     loadInvoices();
@@ -61,8 +66,24 @@ const PaymentCreate = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.invoiceId) {
-      toast.error("Invoice Number is required");
+    const bankErrors = selectedInvoice ? [
+      ["Bank Name", selectedInvoice.vendorBankName],
+      ["Account Holder", selectedInvoice.vendorAccountHolder],
+      ["Account Number", selectedInvoice.vendorBankAccountNo],
+      ["IFSC Code", selectedInvoice.vendorIfscCode],
+      ["Bank Branch", selectedInvoice.vendorBankBranch],
+    ]
+      .filter(([, value]) => !value)
+      .map(([label]) => ({
+        field: "invoiceId",
+        label,
+        message: `${label} missing. Complete vendor bank details in Vendor Master before creating a Payment.`,
+      })) : [];
+    const errors = [...validateRequiredFields("payment", formData), ...bankErrors];
+    setValidationErrors(errors);
+    if (errors.length) {
+      toast.error("Cannot save Payment. Please complete the highlighted fields.");
+      window.setTimeout(() => focusValidationField(errors[0].field), 0);
       return;
     }
     try {
@@ -108,20 +129,23 @@ const PaymentCreate = () => {
 
       {/* Form */}
       <div className="rounded-xl border border-slate-200 bg-white p-8">
+        <ValidationSummary
+          title="Cannot save Payment."
+          errors={validationErrors}
+          onSelect={(field) => focusValidationField(field)}
+        />
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Payment Details */}
           <div>
             <h2 className="mb-6 text-lg font-semibold text-slate-900">Payment Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Invoice Number *
-                </label>
+                <RequiredLabel>Invoice Number</RequiredLabel>
                 <select
                   name="invoiceId"
                   value={formData.invoiceId}
                   onChange={handleChange}
-                  className={input}
+                  className={`${input} ${fieldErrorClass(errorsByField.invoiceId)}`}
                   required
                 >
                   <option value="">Select Approved Invoice</option>
@@ -133,28 +157,24 @@ const PaymentCreate = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Amount *
-                </label>
+                <RequiredLabel>Amount</RequiredLabel>
                 <input
                   type="number"
                   name="amount"
                   value={formData.amount}
                   onChange={handleChange}
                   placeholder="0.00"
-                  className={input}
+                  className={`${input} ${fieldErrorClass(errorsByField.amount)}`}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Payment Method *
-                </label>
+                <RequiredLabel>Payment Method</RequiredLabel>
                 <select
                   name="paymentMethod"
                   value={formData.paymentMethod}
                   onChange={handleChange}
-                  className={input}
+                  className={`${input} ${fieldErrorClass(errorsByField.paymentMethod)}`}
                   required
                 >
                   <option value="">Select Payment Method</option>
@@ -178,6 +198,16 @@ const PaymentCreate = () => {
                 />
               </div>
             </div>
+            {selectedInvoice && (
+              <div className="mt-6 grid gap-4 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-3">
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">Vendor</span><strong>{selectedInvoice.vendor}</strong></div>
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">Bank Name</span><strong>{selectedInvoice.vendorBankName || "Bank Name missing. Complete in Vendor Master."}</strong></div>
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">Account Holder</span><strong>{selectedInvoice.vendorAccountHolder || "Account Holder missing. Complete in Vendor Master."}</strong></div>
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">Account Number</span><strong>{selectedInvoice.vendorBankAccountNo ? `**** ${String(selectedInvoice.vendorBankAccountNo).slice(-4)}` : "Account Number missing. Complete in Vendor Master."}</strong></div>
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">IFSC</span><strong>{selectedInvoice.vendorIfscCode || "IFSC Code missing. Complete in Vendor Master."}</strong></div>
+                <div><span className="block text-xs font-semibold uppercase text-slate-500">Bank Branch</span><strong>{selectedInvoice.vendorBankBranch || "Bank Branch missing. Complete in Vendor Master."}</strong></div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}

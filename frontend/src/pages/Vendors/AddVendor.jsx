@@ -5,42 +5,114 @@ import {
   Landmark,
 } from "lucide-react";
 
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { createVendor } from "../../services/vendorService";
+import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
+import VendorDocumentsPanel from "../../components/vendors/VendorDocumentsPanel";
+import { createVendor, getVendorById, updateVendor } from "../../services/vendorService";
+import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
+import { getErrorMessage, notify } from "../../utils/feedback";
 const input =
   "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
 
-const AddVendor = () => {
-
-  const navigate = useNavigate();
-
-const [formData, setFormData] = useState({
+const initialVendorForm = {
   companyName: "",
-  vendorCode: "",
   vendorCategory: "Manufacturer",
   vendorType: "",
+  taxType: "Regular",
+  cin: "",
+  msmeNumber: "",
   gst: "",
   pan: "",
   contactPerson: "",
   designation: "",
   email: "",
   phone: "",
+  alternatePhone: "",
   website: "",
   department: "",
   country: "",
   state: "",
+  district: "",
   city: "",
   postalCode: "",
+  addressLine1: "",
+  addressLine2: "",
   address: "",
   bankName: "",
+  accountHolder: "",
   accountNumber: "",
-  ifsc: "",
+  ifscCode: "",
+  bankBranch: "",
   paymentTerms: "",
   currency: "",
-  status: "Active",
+  status: "pending",
   notes: "",
-});
+};
+
+const AddVendor = () => {
+const { id } = useParams();
+const isEditMode = Boolean(id);
+
+const [formData, setFormData] = useState(initialVendorForm);
+const [generatedVendorCode, setGeneratedVendorCode] = useState("");
+const [createdVendorId, setCreatedVendorId] = useState("");
+const [vendorDocuments, setVendorDocuments] = useState([]);
+const [submitting, setSubmitting] = useState(false);
+const [loadingVendor, setLoadingVendor] = useState(isEditMode);
+const [validationErrors, setValidationErrors] = useState([]);
+const validationPanelRef = useRef(null);
+const activeVendorId = isEditMode ? id : createdVendorId;
+const isPersistedVendor = Boolean(activeVendorId);
+const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
+
+useEffect(() => {
+  if (!isEditMode) return;
+  const loadVendor = async () => {
+    try {
+      setLoadingVendor(true);
+      const vendor = await getVendorById(id);
+      setFormData({
+        ...initialVendorForm,
+        companyName: vendor.companyName || "",
+        vendorCategory: vendor.category || "",
+        vendorType: vendor.vendorType || "",
+        taxType: vendor.taxType || "Regular",
+        gst: vendor.gst || "",
+        pan: vendor.pan || "",
+        cin: vendor.cin || "",
+        msmeNumber: vendor.msmeNumber || "",
+        contactPerson: vendor.contactPerson || "",
+        designation: vendor.contactDesignation || "",
+        email: vendor.email || "",
+        phone: vendor.phone || "",
+        alternatePhone: vendor.alternatePhone || "",
+        country: vendor.country || "",
+        state: vendor.state || "",
+        district: vendor.district || "",
+        city: vendor.city || "",
+        postalCode: vendor.postalCode || "",
+        addressLine1: vendor.addressLine1 || vendor.address || "",
+        addressLine2: vendor.addressLine2 || "",
+        address: vendor.address || "",
+        bankName: vendor.bankName || "",
+        accountHolder: vendor.accountHolder || "",
+        accountNumber: vendor.bankAccountNo || "",
+        ifscCode: vendor.ifscCode || "",
+        bankBranch: vendor.bankBranch || "",
+        paymentTerms: vendor.paymentTerms || "",
+        status: vendor.status || "pending",
+      });
+      setGeneratedVendorCode(vendor.vendorCode || "");
+      setVendorDocuments(vendor.documents || []);
+    } catch (error) {
+      notify.error(getErrorMessage(error, "Vendor could not be loaded."));
+    } finally {
+      setLoadingVendor(false);
+    }
+  };
+  loadVendor();
+}, [id, isEditMode]);
 
 const handleChange = (e) => {
   setFormData((prev) => ({
@@ -50,14 +122,42 @@ const handleChange = (e) => {
 };
 
 const handleSubmit = async () => {
-await createVendor(formData);
-  alert("✅ Vendor created successfully");
-
-  navigate("/vendors");
+  if (submitting) return;
+  const errors = validateRequiredFields("vendor", formData);
+  setValidationErrors(errors);
+  if (errors.length) {
+    notify.error("Cannot save Vendor. Please complete the highlighted fields.");
+    window.setTimeout(() => focusValidationField(errors[0].field, {}, validationPanelRef), 0);
+    return;
+  }
+  try {
+    setSubmitting(true);
+    const vendor = isPersistedVendor ? await updateVendor(activeVendorId, formData) : await createVendor(formData);
+    const code = vendor?.vendor_code || vendor?.vendorCode || "";
+    setGeneratedVendorCode(code);
+    setCreatedVendorId(vendor?.id || id || "");
+    setVendorDocuments(vendor?.documents || []);
+    notify.success(isPersistedVendor ? "Vendor updated successfully." : code ? `Vendor created successfully. Code: ${code}` : "Vendor created successfully.");
+  } catch (error) {
+    notify.error(getErrorMessage(error, isPersistedVendor ? "Vendor could not be updated." : "Vendor could not be created."));
+  } finally {
+    setSubmitting(false);
+  }
 };
+
+if (loadingVendor) {
+  return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500">Loading vendor...</div>;
+}
 
   return (
     <div className="space-y-8">
+      <div ref={validationPanelRef}>
+        <ValidationSummary
+          title={isPersistedVendor ? "Cannot update Vendor." : "Cannot save Vendor."}
+          errors={validationErrors}
+          onSelect={(field) => focusValidationField(field, {}, validationPanelRef)}
+        />
+      </div>
 
       {/* Header */}
 
@@ -73,11 +173,11 @@ await createVendor(formData);
           </Link>
 
           <h1 className="mt-4 text-4xl font-bold">
-            Add New Vendor
+            {isEditMode ? "Edit Vendor" : "Add New Vendor"}
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Create and register a new supplier in ProcureFlow ERP.
+            {isEditMode ? "Update vendor information, banking details, and compliance documents." : "Create and register a new supplier in ProcureFlow ERP."}
           </p>
         </div>
 
@@ -100,15 +200,13 @@ await createVendor(formData);
         <div className="grid grid-cols-2 gap-6 p-6">
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Company Name
-            </label>
+            <RequiredLabel helper="Legal vendor name used across PO, invoice, matching, and payment.">Company Name</RequiredLabel>
 
             <input
   name="companyName"
   value={formData.companyName}
   onChange={handleChange}
-  className={input}
+  className={`${input} ${fieldErrorClass(errorsByField.companyName)}`}
   placeholder="ABC Industries Pvt Ltd"
 />
           </div>
@@ -119,21 +217,17 @@ await createVendor(formData);
             </label>
 
             <input
-              name="vendorCode"
-              value={formData.vendorCode}
-              onChange={handleChange}
-              className={input}
-              placeholder="VND-1005"
+              readOnly
+              value={generatedVendorCode || "Generated automatically after creation"}
+              className={`${input} bg-slate-50 text-slate-500`}
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Vendor Category
-            </label>
+            <RequiredLabel>Vendor Category</RequiredLabel>
 
             <select
-  className={input}
+  className={`${input} ${fieldErrorClass(errorsByField.vendorCategory)}`}
   name="vendorCategory"
   value={formData.vendorCategory}
   onChange={handleChange}
@@ -147,20 +241,17 @@ await createVendor(formData);
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Vendor Type
-            </label>
+            <RequiredLabel>Vendor Type</RequiredLabel>
 
-            <select className={input}>
-              <option>Domestic</option>
-              <option>International</option>
+            <select className={`${input} ${fieldErrorClass(errorsByField.vendorType)}`} name="vendorType" value={formData.vendorType} onChange={handleChange}>
+              <option value="">Select Type</option>
+              <option value="Domestic">Domestic</option>
+              <option value="International">International</option>
             </select>
           </div>
 
           <div>
-  <label className="mb-2 block text-sm font-medium">
-    GST Number
-  </label>
+  <RequiredLabel helper="Required for tax calculation in PO, invoice, and matching.">GST Number</RequiredLabel>
 
   <input
     type="text"
@@ -168,22 +259,39 @@ await createVendor(formData);
     value={formData.gst}
     onChange={handleChange}
     placeholder="Enter GST Number"
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+    className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none ${fieldErrorClass(errorsByField.gst)}`}
   />
 </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              PAN Number
-            </label>
+              <RequiredLabel>PAN Number</RequiredLabel>
 
             <input
-              className={input}
+              className={`${input} ${fieldErrorClass(errorsByField.pan)}`}
               name="pan"
               value={formData.pan}
               onChange={handleChange}
               placeholder="ABCDE1234F"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">CIN (Optional)</label>
+            <input className={input} name="cin" value={formData.cin} onChange={handleChange} placeholder="U12345MP2026PTC000001" />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">MSME Number (Optional)</label>
+            <input className={input} name="msmeNumber" value={formData.msmeNumber} onChange={handleChange} placeholder="UDYAM-MP-00-0000000" />
+          </div>
+
+          <div>
+            <RequiredLabel>Tax Type</RequiredLabel>
+            <select className={`${input} ${fieldErrorClass(errorsByField.taxType)}`} name="taxType" value={formData.taxType} onChange={handleChange}>
+              <option value="Regular">Regular</option>
+              <option value="Composition">Composition</option>
+              <option value="Exempt">Exempt</option>
+            </select>
           </div>
 
         </div>
@@ -207,9 +315,7 @@ await createVendor(formData);
         <div className="grid grid-cols-2 gap-6 p-6">
 
           <div>
-  <label className="mb-2 block text-sm font-medium">
-    Contact Person
-  </label>
+  <RequiredLabel>Contact Person</RequiredLabel>
 
   <input
     type="text"
@@ -217,17 +323,15 @@ await createVendor(formData);
     value={formData.contactPerson}
     onChange={handleChange}
     placeholder="Enter Contact Person"
-    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+    className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none ${fieldErrorClass(errorsByField.contactPerson)}`}
   />
 </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Designation
-            </label>
+            <RequiredLabel>Designation</RequiredLabel>
 
             <input
-              className={input}
+              className={`${input} ${fieldErrorClass(errorsByField.designation)}`}
               placeholder="Sales Manager"
               name="designation"
               value={formData.designation}
@@ -236,12 +340,10 @@ await createVendor(formData);
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Email
-            </label>
+            <RequiredLabel>Email</RequiredLabel>
 
             <input
-              className={input}
+              className={`${input} ${fieldErrorClass(errorsByField.email)}`}
               placeholder="john@company.com"
               name="email"
               value={formData.email}
@@ -250,17 +352,20 @@ await createVendor(formData);
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">
-              Phone
-            </label>
+            <RequiredLabel>Phone Number</RequiredLabel>
 
             <input
-              className={input}
+              className={`${input} ${fieldErrorClass(errorsByField.phone)}`}
               placeholder="+91 9876543210"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">Alternate Phone (Optional)</label>
+            <input className={input} placeholder="+91 9876543211" name="alternatePhone" value={formData.alternatePhone} onChange={handleChange} />
           </div>
 
           <div>
@@ -312,44 +417,55 @@ await createVendor(formData);
   <div className="grid grid-cols-2 gap-6 p-6">
 
     <div>
-      <label className="mb-2 block text-sm font-medium">
-        Country
-      </label>
+      <RequiredLabel>Country</RequiredLabel>
 
-      <select className={input} name="country" value={formData.country} onChange={handleChange}>
-        <option>India</option>
-        <option>United States</option>
-        <option>United Kingdom</option>
+      <select className={`${input} ${fieldErrorClass(errorsByField.country)}`} name="country" value={formData.country} onChange={handleChange}>
+        <option value="">Select Country</option>
+        <option value="India">India</option>
+        <option value="United States">United States</option>
+        <option value="United Kingdom">United Kingdom</option>
       </select>
     </div>
 
     <div>
-      <label className="mb-2 block text-sm font-medium">
-        State
-      </label>
+      <RequiredLabel>State</RequiredLabel>
 
-      <input className={input} placeholder="Madhya Pradesh" name="state" value={formData.state} onChange={handleChange} />
+      <input className={`${input} ${fieldErrorClass(errorsByField.state)}`} placeholder="Madhya Pradesh" name="state" value={formData.state} onChange={handleChange} />
     </div>
 
     <div>
       <label className="mb-2 block text-sm font-medium">
-        City
+        District
       </label>
 
-      <input className={input} placeholder="Indore" name="city" value={formData.city} onChange={handleChange} />
+      <input className={input} placeholder="Indore" name="district" value={formData.district} onChange={handleChange} />
     </div>
 
     <div>
-      <label className="mb-2 block text-sm font-medium">
-        Postal Code
-      </label>
+      <RequiredLabel>City</RequiredLabel>
 
-      <input className={input} placeholder="452001" name="postalCode" value={formData.postalCode} onChange={handleChange} />
+      <input className={`${input} ${fieldErrorClass(errorsByField.city)}`} placeholder="Indore" name="city" value={formData.city} onChange={handleChange} />
+    </div>
+
+    <div>
+      <RequiredLabel>Postal Code</RequiredLabel>
+
+      <input className={`${input} ${fieldErrorClass(errorsByField.postalCode)}`} placeholder="452001" name="postalCode" value={formData.postalCode} onChange={handleChange} />
+    </div>
+
+    <div>
+      <RequiredLabel>Address Line 1</RequiredLabel>
+      <input className={`${input} ${fieldErrorClass(errorsByField.addressLine1)}`} placeholder="Plot 42, Industrial Area" name="addressLine1" value={formData.addressLine1} onChange={handleChange} />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium">Address Line 2 (Optional)</label>
+      <input className={input} placeholder="Near Logistics Park" name="addressLine2" value={formData.addressLine2} onChange={handleChange} />
     </div>
 
     <div className="col-span-2">
       <label className="mb-2 block text-sm font-medium">
-        Address
+        Full Address
       </label>
 
       <textarea
@@ -357,7 +473,7 @@ await createVendor(formData);
         className={input}
         placeholder="Enter complete business address"
         name="address"
-        value={formData.address}
+        value={formData.address || [formData.addressLine1, formData.addressLine2, formData.city, formData.state, formData.postalCode, formData.country].filter(Boolean).join(", ")}
         onChange={handleChange}
       />
     </div>
@@ -378,13 +494,17 @@ await createVendor(formData);
 
   <div className="grid grid-cols-2 gap-6 p-6">
 
-    <input className={input} placeholder="Bank Name" name="bankName" value={formData.bankName} onChange={handleChange} />
+    <input className={`${input} ${fieldErrorClass(errorsByField.bankName)}`} placeholder="Bank Name *" name="bankName" value={formData.bankName} onChange={handleChange} />
 
-    <input className={input} placeholder="Account Number" name="accountNumber" value={formData.accountNumber} onChange={handleChange} />
+    <input className={`${input} ${fieldErrorClass(errorsByField.accountHolder)}`} placeholder="Account Holder *" name="accountHolder" value={formData.accountHolder} onChange={handleChange} />
 
-    <input className={input} placeholder="IFSC Code" name="ifscCode" value={formData.ifscCode} onChange={handleChange} />
+    <input className={`${input} ${fieldErrorClass(errorsByField.accountNumber)}`} placeholder="Account Number *" name="accountNumber" value={formData.accountNumber} onChange={handleChange} />
 
-    <select className={input} name="creditTerms" value={formData.creditTerms} onChange={handleChange}>
+    <input className={`${input} ${fieldErrorClass(errorsByField.ifscCode)}`} placeholder="IFSC Code *" name="ifscCode" value={formData.ifscCode} onChange={handleChange} />
+
+    <input className={`${input} ${fieldErrorClass(errorsByField.bankBranch)}`} placeholder="Branch *" name="bankBranch" value={formData.bankBranch} onChange={handleChange} />
+
+    <select className={input} name="paymentTerms" value={formData.paymentTerms} onChange={handleChange}>
       <option>Net 15</option>
       <option>Net 30</option>
       <option>Net 45</option>
@@ -397,45 +517,18 @@ await createVendor(formData);
       <option>EUR</option>
     </select>
 
-    <select className={input} name="status" value={formData.status} onChange={handleChange}>
-      <option>Active</option>
-      <option>Inactive</option>
+    <select className={input} name="status" value={formData.status} onChange={handleChange} disabled={!isEditMode}>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="blocked">Blocked</option>
     </select>
 
   </div>
 
 </div>
 
-<div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-  <div className="border-b p-6">
-
-    <h2 className="text-xl font-semibold">
-      Documents
-    </h2>
-
-  </div>
-
-  <div className="grid grid-cols-3 gap-6 p-6">
-
-    {["GST Certificate", "PAN Card", "Vendor Agreement"].map((item) => (
-      <label
-        key={item}
-        className="cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center transition hover:border-blue-500 hover:bg-blue-50"
-      >
-        <p className="font-medium">{item}</p>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Click to Upload
-        </p>
-
-        <input type="file" className="hidden" />
-      </label>
-    ))}
-
-  </div>
-
-</div>
+<VendorDocumentsPanel vendorId={activeVendorId} initialDocuments={vendorDocuments} />
 
 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
 
@@ -474,9 +567,10 @@ await createVendor(formData);
 
   <button
   onClick={handleSubmit}
+  disabled={submitting}
   className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
 >
-  Create Vendor
+  {submitting ? (isPersistedVendor ? "Saving..." : "Creating...") : isPersistedVendor ? "Save Changes" : "Create Vendor"}
 </button>
 
 </div>

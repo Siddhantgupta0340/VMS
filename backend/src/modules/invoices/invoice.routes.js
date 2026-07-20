@@ -16,6 +16,7 @@ import {
   invoiceIdSchema,
   searchInvoicesSchema,
   financeHeadObservationSchema,
+  approvedPurchaseOrdersForInvoiceSchema,
 } from './invoice.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
 
@@ -83,6 +84,13 @@ router.get('/pending/finance-head',
   invoiceController.getPendingFinanceHead,
 );
 
+// ─── Approved Purchase Orders for Invoice Selection ─────────────────────────────
+router.get('/approved-purchase-orders',
+  authorize(READ_ROLES),
+  validate(approvedPurchaseOrdersForInvoiceSchema),
+  invoiceController.getApprovedPurchaseOrdersForInvoice,
+);
+
 
 // ─── Base Collection Routes ───────────────────────────────────────────────────
 router
@@ -112,6 +120,11 @@ router.get('/:id/history',
   authorize(READ_ROLES),
   validate(invoiceIdSchema),
   invoiceController.getApprovalHistory,
+);
+router.get('/:id/download',
+  authorize(READ_ROLES),
+  validate(invoiceIdSchema),
+  invoiceController.downloadInvoicePdf,
 );
 
 // ─── Role-Level Approval Actions ──────────────────────────────────────────────
