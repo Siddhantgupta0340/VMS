@@ -105,6 +105,7 @@ const AppRoutes = () => {
         {/* Purchase Orders */}
         <Route path="/purchase-orders" element={<PurchaseOrderList />} />
         <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
+        <Route path="/purchase-orders/create" element={<PurchaseOrderCreate />} />
 
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />

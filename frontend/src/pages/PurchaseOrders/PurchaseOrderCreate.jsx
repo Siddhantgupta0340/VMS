@@ -76,6 +76,7 @@ const PurchaseOrderCreate = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const [vendors, setVendors] = useState([]);
+  const [vendorMasterDetails, setVendorMasterDetails] = useState(null);
   const [vendorQuery, setVendorQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loadingVendors, setLoadingVendors] = useState(false);
@@ -175,8 +176,6 @@ const PurchaseOrderCreate = () => {
       [event.target.name]: event.target.value,
     }));
   };
-
-  const [vendorMasterDetails, setVendorMasterDetails] = useState(null);
 
   const selectVendor = async (vendor) => {
     let full = vendor;

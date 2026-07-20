@@ -173,8 +173,8 @@ class InvoiceService {
     const limit = Number(query.limit || 25);
 
     const where = {
-      status: { in: ['approved', 'open', 'closed'] },
-      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+      deleted_at: null,
+      status: { not: 'cancelled' },
       ...(search && {
         OR: [
           { po_number: { contains: search, mode: 'insensitive' } },
