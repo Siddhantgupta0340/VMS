@@ -421,9 +421,7 @@ class PaymentService {
 
     // Construct role-specific where filter
     let roleClause = {};
-    if (user.role === ROLES.CASE_MANAGER) {
-      roleClause = { created_by_id: user.id };
-    } else if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
+    if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
       roleClause = paymentWhereForApprovalRole(user.role) || {};
     }
 
