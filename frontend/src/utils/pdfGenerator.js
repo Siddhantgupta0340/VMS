@@ -14,13 +14,17 @@ export const downloadHtmlAsPdf = async ({ htmlContent, filename, documentTitle =
 
   try {
     const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-9999px";
-    container.style.top = "-9999px";
+    container.style.position = "absolute";
+    container.style.top = "0";
+    container.style.left = "0";
     container.style.width = "850px";
+    container.style.zIndex = "-9999";
     container.style.background = "#ffffff";
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
+
+    // Wait for the browser to recalculate styles, reflow, and paint the newly appended element
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
     const opt = {
       margin: [8, 8, 8, 8],

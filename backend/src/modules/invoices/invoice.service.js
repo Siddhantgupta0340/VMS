@@ -95,19 +95,8 @@ class InvoiceService {
     // 4. Determine highest approval role required
     const requiredApprovalRole = getRequiredInvoiceApprovalRole(amount);
 
-    const initialStatus =
-      requiredApprovalRole === ROLES.TEAM_LEAD
-        ? INVOICE_STATUS.PENDING_TEAM_LEAD
-        : requiredApprovalRole === ROLES.MANAGER
-          ? INVOICE_STATUS.PENDING_MANAGER
-          : INVOICE_STATUS.PENDING_FINANCE_HEAD;
-
-    const currentApprovalLevel =
-      requiredApprovalRole === ROLES.TEAM_LEAD
-        ? 'TEAM_LEAD'
-        : requiredApprovalRole === ROLES.MANAGER
-          ? 'MANAGER'
-          : 'FINANCE_HEAD';
+    const initialStatus = INVOICE_STATUS.PENDING_THREE_WAY_MATCH;
+    const currentApprovalLevel = null;
 
     const timestamp = Date.now().toString().slice(-6);
     const invoiceNum = payload.invoiceNumber || `INV-${new Date().getFullYear()}-${timestamp}`;
@@ -183,10 +172,14 @@ class InvoiceService {
       }),
     };
 
+    console.debug("[InvoiceService] Repository Query Filter (where)", JSON.stringify(where, null, 2));
+
     const { purchaseOrders } = await purchaseOrderRepository.findAll({
       where,
       take: limit,
     });
+
+    console.debug("[InvoiceService] Prisma Query result length", { count: purchaseOrders.length });
 
     return purchaseOrders;
   }
@@ -636,7 +629,7 @@ class InvoiceService {
 
       // Notify stakeholders
       const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
-      notificationService.notifyTicketDeleted(invoice, actorName, deleteReason).catch(() => {});
+      notificationService.notifyInvoiceDeleted(invoice, actorName, deleteReason).catch(() => {});
 
       return { message: 'Invoice deleted successfully.', invoice: updatedInvoice };
     });

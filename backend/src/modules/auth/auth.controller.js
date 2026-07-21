@@ -25,6 +25,24 @@ class AuthController {
         data: result,
       });
     }
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie('vms_access_token', result.accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    if (result.refreshToken) {
+      res.cookie('vms_refresh_token', result.refreshToken, cookieOptions);
+    }
+
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
@@ -38,8 +56,9 @@ class AuthController {
    * @access  Private
    */
   logout = asyncHandler(async (req, res) => {
-    // Assuming userId is available from an authentication middleware (e.g., req.user.id)
     const message = await authService.logout(req.user.id);
+    res.clearCookie('vms_access_token', { path: '/' });
+    res.clearCookie('vms_refresh_token', { path: '/' });
     res.status(200).json({ success: true, message });
   });
 
@@ -49,9 +68,27 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
-    const { refreshToken: oldRefreshToken } = req.body;
+    const oldRefreshToken = req.cookies?.vms_refresh_token || req.body.refreshToken;
     const { accessToken, refreshToken } =
       await authService.refreshToken(oldRefreshToken);
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie('vms_access_token', accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    if (refreshToken) {
+      res.cookie('vms_refresh_token', refreshToken, cookieOptions);
+    }
+
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.REFRESH_SUCCESS,

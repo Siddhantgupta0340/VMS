@@ -13,6 +13,16 @@ import {
 import prisma from '../../config/prisma.js';
 import { compareThreeWayDocuments } from './matching.utils.js';
 
+const getRequiredPaymentApprovalRole = (amount, currency = 'INR') => {
+  if (String(currency || 'INR').toUpperCase() !== 'INR') {
+    return ROLES.FINANCE_HEAD;
+  }
+  const paymentAmount = Number(amount || 0);
+  if (paymentAmount <= 10000) return ROLES.TEAM_LEAD;
+  if (paymentAmount < 100000) return ROLES.MANAGER;
+  return ROLES.FINANCE_HEAD;
+};
+
 const actorName = (user) => `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || user?.role || 'System';
 const currentYear = () => new Date().getFullYear();
 const nextNumber = async (tx, sequenceName, prefix) => {
@@ -519,7 +529,7 @@ class MatchingService {
 
     const now = new Date();
 
-    return matchingRepository.transaction(async (tx) => {
+    const result = await matchingRepository.transaction(async (tx) => {
       // Update match record
       await tx.threeWayMatch.update({
         where: { id: matchId },

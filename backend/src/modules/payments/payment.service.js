@@ -427,16 +427,36 @@ class PaymentService {
       roleClause = paymentWhereForApprovalRole(user.role) || {};
     }
 
-    const where = {
-      ...(query.status && { status: query.status }),
-      ...(query.invoiceId && { invoice_id: query.invoiceId }),
-      ...(query.vendorId && { vendor_id: query.vendorId }),
-      ...(query.purchaseOrderId && { purchase_order_id: query.purchaseOrderId }),
-      ...(query.paymentMethod && { payment_method: query.paymentMethod }),
-      ...(query.paymentType && { payment_type: query.paymentType }),
-      ...(query.paymentProvider && { payment_provider: query.paymentProvider }),
-      ...roleClause,
-      ...(search && {
+    const conditions = [];
+
+    if (query.status) {
+      conditions.push({ status: query.status });
+    }
+    if (query.invoiceId) {
+      conditions.push({ invoice_id: query.invoiceId });
+    }
+    if (query.vendorId) {
+      conditions.push({ vendor_id: query.vendorId });
+    }
+    if (query.purchaseOrderId) {
+      conditions.push({ purchase_order_id: query.purchaseOrderId });
+    }
+    if (query.paymentMethod) {
+      conditions.push({ payment_method: query.paymentMethod });
+    }
+    if (query.paymentType) {
+      conditions.push({ payment_type: query.paymentType });
+    }
+    if (query.paymentProvider) {
+      conditions.push({ payment_provider: query.paymentProvider });
+    }
+
+    if (Object.keys(roleClause).length > 0) {
+      conditions.push(roleClause);
+    }
+
+    if (search) {
+      conditions.push({
         OR: [
           { payment_number: { contains: search, mode: 'insensitive' } },
           { vendor: { name: { contains: search, mode: 'insensitive' } } },
@@ -444,8 +464,10 @@ class PaymentService {
           { invoice: { invoice_number: { contains: search, mode: 'insensitive' } } },
           { purchase_order: { po_number: { contains: search, mode: 'insensitive' } } },
         ],
-      }),
-    };
+      });
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {};
 
     const result = await paymentRepository.findAll({
       where,

@@ -646,7 +646,7 @@ class NotificationService {
   }
 
   async notifyPaymentApprovalRequested(payment) {
-    const approvalRole = payment.required_approval_role || ROLES.FINANCE_HEAD;
+    const approvalRole = payment.requiredApprovalRole || payment.required_approval_role || ROLES.FINANCE_HEAD;
     const roleLabel = {
       [ROLES.TEAM_LEAD]: 'Team Lead',
       [ROLES.MANAGER]: 'Manager',

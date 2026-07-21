@@ -42,6 +42,7 @@ const mapInvoice = (invoice) => {
   currency: invoice.currency,
   status: invoice.status,
   paymentStatus: invoice.payment_status,
+  threeWayMatchStatus: invoice.three_way_match_status,
   invoiceDate: invoice.invoice_date,
   dueDate: invoice.due_date,
   description: invoice.description,
@@ -185,6 +186,8 @@ const mapApprovedPurchaseOrder = (po) => {
     items,
     taxSummary: normalizeTaxSummary(po.tax_summary || {}, items, amount),
     existingInvoices: po.invoices || [],
+    grns: po.grns || [],
+    deliveryChallans: po.delivery_challans || [],
   };
 };
 
@@ -199,8 +202,12 @@ export const getInvoiceById = async (id) => {
 };
 
 export const getApprovedPurchaseOrdersForInvoice = async (params = {}) => {
+  console.debug("[invoiceService] Fetching approved POs with params:", params);
   const res = await api.get("/v1/invoices/approved-purchase-orders", { params });
-  return (res.data.purchaseOrders || []).map(mapApprovedPurchaseOrder);
+  console.debug("[invoiceService] Response received from API:", res.data);
+  const mapped = (res.data.purchaseOrders || []).map(mapApprovedPurchaseOrder);
+  console.debug("[invoiceService] Mapped response records count:", mapped.length);
+  return mapped;
 };
 
 export const getPurchaseOrderForInvoice = async (purchaseOrderId) => {

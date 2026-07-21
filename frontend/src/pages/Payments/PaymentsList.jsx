@@ -17,7 +17,7 @@ import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   getPayments,
   getPendingPayments,
@@ -51,6 +51,9 @@ const historyEventMeta = (action = "") => {
 
 const PaymentsList = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const paymentIdParam = searchParams.get("id");
+
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState({});
@@ -67,11 +70,29 @@ const PaymentsList = () => {
 
   const isPaymentApprover = [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user?.role);
 
+  // Auto-open modal if payment ID query param is present on mount or updates
+  useEffect(() => {
+    if (paymentIdParam) {
+      getPaymentById(paymentIdParam)
+        .then((p) => {
+          if (p) {
+            setViewPaymentModal(p);
+            setLoadingHistory(true);
+            getPaymentHistory(p.id)
+              .then((hist) => setPaymentHistory(hist))
+              .catch((err) => console.error(err))
+              .finally(() => setLoadingHistory(false));
+          }
+        })
+        .catch((err) => console.error("Error auto-opening payment:", err));
+    }
+  }, [paymentIdParam]);
+
   const loadPayments = useCallback(async () => {
     try {
       setLoading(true);
       const [data, liveStats] = await Promise.all([
-        isPaymentApprover ? getPendingPayments() : getPayments(),
+        getPayments(),
         getPaymentStats().catch(() => null),
       ]);
       let filtered = [...data];

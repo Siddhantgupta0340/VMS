@@ -10,7 +10,12 @@ class InvoiceController {
 
   // ─── List & Get ────────────────────────────────────────────────────────────
   getApprovedPurchaseOrdersForInvoice = asyncHandler(async (req, res) => {
+    console.debug("[InvoiceController] getApprovedPurchaseOrdersForInvoice request received", {
+      jwtUser: req.user ? { id: req.user.id, role: req.user.role } : null,
+      requestParameters: req.query
+    });
     const purchaseOrders = await invoiceService.getApprovedPurchaseOrdersForInvoice(req.query, req.user);
+    console.debug("[InvoiceController] purchaseOrders returned count", { count: purchaseOrders.length });
     res.status(200).json({ success: true, purchaseOrders });
   });
 

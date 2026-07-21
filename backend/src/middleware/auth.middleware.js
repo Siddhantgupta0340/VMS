@@ -24,6 +24,19 @@ const authError = (statusCode, message, code) => {
  * {
  *   id: string,
  *   email: string,
+
+/**
+ * Middleware to protect routes by verifying a JWT access token.
+ *
+ * - Reads the Bearer token from the Authorization header.
+ * - Verifies the JWT signature and expiry.
+ * - Fetches the user record from the database to attach a rich `req.user` object.
+ * - Rejects requests where the user is deleted or inactive.
+ *
+ * req.user shape:
+ * {
+ *   id: string,
+ *   email: string,
  *   role: string,
  *   first_name: string | null,
  *   last_name: string | null,
@@ -32,19 +45,24 @@ const authError = (statusCode, message, code) => {
  */
 export const protect = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.vms_access_token) {
+      token = req.cookies.vms_access_token;
+    }
+
+    if (!token) {
       throw authError(401, AUTH_MESSAGES.UNAUTHORIZED, 'UNAUTHENTICATED');
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = verifyAccessToken(token);
 
     if (!decoded) {
       throw authError(401, AUTH_MESSAGES.TOKEN_EXPIRED, 'TOKEN_EXPIRED');
     }
-
     const userId = decoded[UserEntity.columns.ID];
 
     // Fetch fresh user data from DB on every request for security and completeness.

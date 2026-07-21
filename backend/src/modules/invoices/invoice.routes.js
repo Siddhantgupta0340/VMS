@@ -19,6 +19,7 @@ import {
   approvedPurchaseOrdersForInvoiceSchema,
 } from './invoice.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
+import { uploadInvoiceFile } from './invoice.upload.js';
 
 const router = express.Router();
 
@@ -100,6 +101,10 @@ router
       ROLES.CASE_MANAGER,
       ROLES.FINANCE_HEAD,
       ROLES.SUPER_ADMIN,
+    ]),
+    uploadInvoiceFile.fields([
+      { name: 'invoiceFile', maxCount: 1 },
+      { name: 'supportingDocuments', maxCount: 10 }
     ]),
     validate(createInvoiceSchema),
     invoiceController.createInvoice

@@ -7,7 +7,6 @@ import {
   setStoredUser,
   setTokenStorage,
 } from "./authSession";
-
 const GENERIC_LOGIN_ERROR = "Login failed. Please check your email and password.";
 const SERVICE_UNAVAILABLE_MESSAGE = "The service is temporarily unavailable. Please try again shortly.";
 const NETWORK_ERROR_MESSAGE = "Unable to connect to the server. Check your internet connection.";

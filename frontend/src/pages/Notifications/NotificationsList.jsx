@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   Bell,
   Check,
   CheckCircle2,
   CreditCard,
+  Eye,
   FileText,
   Inbox,
   RefreshCw,
@@ -313,8 +315,18 @@ const NotificationsList = () => {
                         {formatDateTime(notification.createdAt)}
                       </time>
                     </div>
-
                     <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {notification.entityType === "payment" && notification.entityId && (
+                        <Link
+                          to={`/payments?id=${notification.entityId}`}
+                          onClick={() => handleMarkRead(notification)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          <Eye size={14} />
+                          View Payment Request
+                        </Link>
+                      )}
+
                       {!notification.isRead && (
                         <button
                           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"

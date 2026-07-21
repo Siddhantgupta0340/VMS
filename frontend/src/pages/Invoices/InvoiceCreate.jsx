@@ -88,15 +88,25 @@ const InvoiceCreate = () => {
     supportingDocuments: [],
   });
 
+  const [fetchError, setFetchError] = useState(null);
+
   useEffect(() => {
     let active = true;
+    console.debug("[InvoiceCreate] search state changed", { search });
     const timer = window.setTimeout(async () => {
       setLoadingPurchaseOrders(true);
+      setFetchError(null);
       try {
+        console.debug("[InvoiceCreate] Triggering API request for PO list with search query", { search });
         const data = await getApprovedPurchaseOrdersForInvoice({ search, limit: 25 });
+        console.debug("[InvoiceCreate] Mapped PO list received successfully", { count: data.length });
         if (active) setPurchaseOrders(data);
       } catch (error) {
-        notify.error(getErrorMessage(error, "Available purchase orders could not be loaded."));
+        console.error("[InvoiceCreate] Error fetching PO list from API", error);
+        if (active) {
+          setFetchError(error);
+          notify.error(getErrorMessage(error, "Unable to fetch Purchase Orders."));
+        }
       } finally {
         if (active) setLoadingPurchaseOrders(false);
       }
@@ -410,7 +420,13 @@ const InvoiceCreate = () => {
                 <ErrorText message={errorsByField.purchaseOrder} />
                 {dropdownOpen && (
                   <div className="absolute z-30 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-                    {loadingPurchaseOrders ? (
+                    {fetchError ? (
+                      <div className="p-4 text-sm text-red-600 font-semibold">
+                        {fetchError.message?.toLowerCase().includes("conn") || fetchError.status === 500
+                          ? "Database connection failed. Unable to fetch Purchase Orders."
+                          : "Unable to fetch Purchase Orders."}
+                      </div>
+                    ) : loadingPurchaseOrders ? (
                       <div className="p-4 text-sm text-slate-500">Loading available purchase orders...</div>
                     ) : purchaseOrders.length ? (
                       purchaseOrders.map((purchaseOrder) => (
@@ -437,7 +453,9 @@ const InvoiceCreate = () => {
                         </button>
                       ))
                     ) : (
-                      <div className="p-4 text-sm text-slate-500">No available purchase orders found.</div>
+                      <div className="p-4 text-sm text-slate-500">
+                        {search ? "No matching Purchase Orders found." : "No eligible Purchase Orders available."}
+                      </div>
                     )}
                   </div>
                 )}
@@ -478,6 +496,8 @@ const InvoiceCreate = () => {
                 <Field label="IFSC Code" value={selectedPurchaseOrder.vendorIfscCode} isRequired />
                 <Field label="Payment Terms" value={selectedPurchaseOrder.paymentTerms} isRequired />
                 <Field label="Currency" value={selectedPurchaseOrder.currency} />
+                <Field label="Delivery Challan" value={selectedPurchaseOrder.deliveryChallans?.[0]?.delivery_challan_number || "-"} />
+                <Field label="GRN" value={selectedPurchaseOrder.grns?.[0]?.grn_number || "-"} />
                 <Field label="Grand Total" value={currency(selectedPurchaseOrder.taxSummary?.grandTotal || selectedPurchaseOrder.amount)} />
               </div>
             ) : null}
