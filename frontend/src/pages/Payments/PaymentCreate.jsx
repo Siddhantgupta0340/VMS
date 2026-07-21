@@ -13,7 +13,7 @@ const PaymentCreate = () => {
   const navigate = useNavigate();    
   const [approvedInvoices, setApprovedInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [validationErrors, setValidationErrors] = useState([]);    
+  const [validationErrors, setValidationErrors] = useState([]);       
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     invoiceId: "",
