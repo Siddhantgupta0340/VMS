@@ -10,7 +10,7 @@ import { fieldErrorClass, focusValidationField, validateRequiredFields } from ".
 const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
 const PaymentCreate = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate();    
   const [approvedInvoices, setApprovedInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState([]);
