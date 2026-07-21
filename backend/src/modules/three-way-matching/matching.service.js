@@ -13,6 +13,15 @@ import {
 import prisma from '../../config/prisma.js';
 import { compareThreeWayDocuments } from './matching.utils.js';
 
+let _paymentApprovalService = null;
+const getPaymentApprovalService = async () => {
+  if (!_paymentApprovalService) {
+    const mod = await import('../payment-approvals/payment-approval.service.js');
+    _paymentApprovalService = mod.default;
+  }
+  return _paymentApprovalService;
+};
+
 const getRequiredPaymentApprovalRole = (amount, currency = 'INR') => {
   if (String(currency || 'INR').toUpperCase() !== 'INR') {
     return ROLES.FINANCE_HEAD;
@@ -529,6 +538,9 @@ class MatchingService {
 
     const now = new Date();
 
+    let createdApproval = null;
+    let assignedApprover = null;
+
     const result = await matchingRepository.transaction(async (tx) => {
       // Update match record
       await tx.threeWayMatch.update({
@@ -541,7 +553,7 @@ class MatchingService {
         },
       });
 
-      await tx.invoice.update({
+      const updatedInvoice = await tx.invoice.update({
         where: { id: match.invoice_id },
         data: {
           status:                INVOICE_STATUS.APPROVED,
@@ -554,6 +566,7 @@ class MatchingService {
           finance_head_approved_at: now,
           final_approved_at: now,
         },
+        include: { vendor: true },
       });
 
       // Write audit log
@@ -573,11 +586,22 @@ class MatchingService {
         },
       });
 
-      const invoice = await tx.invoice.findUnique({ where: { id: match.invoice_id }, include: { vendor: true } });
-      notificationService.notifyInvoiceStatusChange(invoice, INVOICE_STATUS.APPROVED, user.role).catch(() => {});
+      const paService = await getPaymentApprovalService();
+      const approvalResult = await paService.createPaymentApprovalForInvoice(updatedInvoice, user, tx);
+      createdApproval = approvalResult.approval;
+      assignedApprover = approvalResult.approver;
+
+      notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.APPROVED, user.role).catch(() => {});
 
       return { message: 'Matching report approved. Invoice is approved for payment.' };
     });
+
+    if (createdApproval && assignedApprover) {
+      const paService = await getPaymentApprovalService();
+      paService.sendApprovalNotification(createdApproval, assignedApprover).catch(() => {});
+    }
+
+    return result;
   }
 
   // ────────────────────────────────────────────────────────────────────────────

@@ -76,6 +76,11 @@ class PaymentController {
     const stats = await paymentService.getPaymentStats(req.user);
     res.status(200).json({ success: true, data: stats });
   });
+
+  getPaymentCreationStats = asyncHandler(async (req, res) => {
+    const stats = await paymentService.getPaymentCreationStats(req.user);
+    res.status(200).json({ success: true, data: stats });
+  });
 }
 
 export default new PaymentController();

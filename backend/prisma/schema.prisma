@@ -94,6 +94,13 @@ model User {
   payments_rejected_old PaymentOld[] @relation("PaymentOldRejectedBy")
   payments_blocked_old  PaymentOld[] @relation("PaymentOldBlockedBy")
 
+  // Payment Approval relations
+  payment_approvals_assigned    PaymentApproval[] @relation("PaymentApprovalAssignedTo")
+  payment_approvals_requested   PaymentApproval[] @relation("PaymentApprovalRequestedBy")
+  payment_approvals_approved    PaymentApproval[] @relation("PaymentApprovalApprovedBy")
+  payment_approvals_rejected    PaymentApproval[] @relation("PaymentApprovalRejectedBy")
+  payment_approval_history_done PaymentApprovalHistory[] @relation("PaymentApprovalHistoryPerformedBy")
+
   // Audit & Notification relations
   approval_logs        AuditLog[]     @relation("AuditLogPerformedBy")
   legacy_approval_logs ApprovalLog[]  @relation("ApprovalLogPerformedBy")
@@ -167,6 +174,7 @@ model Vendor {
   invoices        Invoice[]
   invoice_attachments InvoiceAttachment[]
   payments        Payment[]
+  payment_approvals PaymentApproval[]
   grns            GoodsReceiptNote[]
   delivery_challans DeliveryChallan[]
   documents       VendorDocument[]
@@ -242,6 +250,7 @@ model PurchaseOrder {
   invoices          Invoice[]
   invoice_attachments InvoiceAttachment[]
   payments          Payment[]
+  payment_approvals PaymentApproval[]
   grns              GoodsReceiptNote[]
   goods_receipt_items GoodsReceiptItem[]
   delivery_challans DeliveryChallan[]
@@ -511,6 +520,7 @@ model Invoice {
 
   payments          Payment[]
   payments_old      PaymentOld[]
+  payment_approvals PaymentApproval[]
   three_way_matches ThreeWayMatch[]
   attachments       InvoiceAttachment[]
 
@@ -606,6 +616,8 @@ model ThreeWayMatch {
   delivery_challan  DeliveryChallan?  @relation(fields: [delivery_challan_id], references: [id])
   completed_by      User?             @relation("MatchingCompletedBy", fields: [completed_by_id], references: [id])
   admin_reviewed_by User?             @relation("MatchingAdminReviewedBy", fields: [admin_reviewed_by_id], references: [id])
+  payment_approvals PaymentApproval[]
+  payments          Payment[]
 
   @@index([invoice_id])
   @@index([delivery_challan_id])
@@ -622,9 +634,11 @@ model Payment {
   invoice_id               String
   vendor_id                String
   purchase_order_id        String
+  three_way_match_id       String?   // Link to matched 3-way match record
   amount                   Decimal   @db.Decimal(14, 2)
   currency                 String    @default("INR")
-  status                   String    @default("PENDING")
+  status                   String    @default("PENDING_APPROVAL") // PENDING_APPROVAL | PENDING | INITIATED | PROCESSING | SUCCESS | FAILED | CANCELLED | RETURNED | REFUNDED
+  approval_status          String    @default("PENDING")          // PENDING | APPROVED | REJECTED
   payment_method           String?
   payment_type             String    @default("FULL")
   payment_provider         String    @default("MANUAL")
@@ -646,16 +660,20 @@ model Payment {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  invoice        Invoice       @relation(fields: [invoice_id], references: [id])
-  vendor         Vendor        @relation(fields: [vendor_id], references: [id])
-  purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  invoice           Invoice        @relation(fields: [invoice_id], references: [id])
+  vendor            Vendor         @relation(fields: [vendor_id], references: [id])
+  purchase_order    PurchaseOrder  @relation(fields: [purchase_order_id], references: [id])
+  three_way_match   ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
 
-  processed_by User? @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
-  approved_by  User? @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
-  created_by   User? @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
-  updated_by   User? @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
+  processed_by      User? @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
+  approved_by       User? @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
+  created_by        User? @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
+  updated_by        User? @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
+
+  payment_approvals PaymentApproval[]
 
   @@index([status])
+  @@index([approval_status])
   @@index([invoice_id])
   @@index([vendor_id])
   @@index([purchase_order_id])
@@ -764,4 +782,89 @@ model Notification {
   @@index([entity_type, entity_id])
   @@index([reference_id])
   @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT APPROVAL
+// Dedicated approval record created BEFORE notification is sent.
+// approverId = exact assigned user (NOT role broadcast).
+// This is what the approver sees in the Payment Approval module.
+// ─────────────────────────────────────────────────────────────────────────────
+model PaymentApproval {
+  id                  String    @id @default(uuid())
+  payment_id          String?
+  invoice_id          String
+  purchase_order_id   String
+  vendor_id           String
+  three_way_match_id  String?
+
+  amount              Decimal   @db.Decimal(14, 2)
+  currency            String    @default("INR")
+  approval_level      Int       @default(1)
+  required_role       String    // TEAM_LEAD | MANAGER | FINANCE_HEAD
+
+  approver_id         String    // Exact assigned user ID — must always be set
+  status              String    @default("PENDING") // PENDING | APPROVED | REJECTED
+
+  remarks             String?
+  rejection_reason    String?
+
+  requested_by_id     String?
+  requested_at        DateTime  @default(now())
+
+  approved_by_id      String?
+  approved_at         DateTime?
+  rejected_by_id      String?
+  rejected_at         DateTime?
+
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  payment         Payment?      @relation(fields: [payment_id], references: [id])
+  invoice         Invoice       @relation(fields: [invoice_id], references: [id])
+  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  vendor          Vendor        @relation(fields: [vendor_id], references: [id])
+  three_way_match ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
+
+  approver        User          @relation("PaymentApprovalAssignedTo", fields: [approver_id], references: [id])
+  requested_by    User?         @relation("PaymentApprovalRequestedBy", fields: [requested_by_id], references: [id])
+  approved_by     User?         @relation("PaymentApprovalApprovedBy", fields: [approved_by_id], references: [id])
+  rejected_by     User?         @relation("PaymentApprovalRejectedBy", fields: [rejected_by_id], references: [id])
+
+  history         PaymentApprovalHistory[]
+
+  @@index([payment_id])
+  @@index([approver_id, status])
+  @@index([invoice_id])
+  @@index([status])
+  @@index([requested_at])
+  @@map("payment_approvals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT APPROVAL HISTORY
+// Immutable audit trail for every action on a PaymentApproval record.
+// ─────────────────────────────────────────────────────────────────────────────
+model PaymentApprovalHistory {
+  id                    String   @id @default(uuid())
+  payment_approval_id   String
+  payment_id            String?
+  invoice_id            String?
+
+  action                String   // REQUESTED | ASSIGNED | NOTIFICATION_SENT | APPROVED | REJECTED
+  previous_status       String?
+  new_status            String?
+  performed_by_id       String?
+  remarks               String?
+
+  created_at            DateTime @default(now())
+
+  payment_approval PaymentApproval @relation(fields: [payment_approval_id], references: [id], onDelete: Cascade)
+  performed_by     User?           @relation("PaymentApprovalHistoryPerformedBy", fields: [performed_by_id], references: [id])
+
+  @@index([payment_approval_id])
+  @@index([payment_id])
+  @@index([created_at])
+  @@map("payment_approval_history")
 }

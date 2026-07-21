@@ -46,3 +46,31 @@ export const holdInvoice = async (id, remarks = "") => {
   const res = await api.post(`/v1/invoices/${id}/remark`, { remark: remarks || "Held for review" });
   return res.data?.data;
 };
+
+// ─── Payment Approval Section ──────────────────────────────────────────────────
+
+export const getPaymentApprovals = async (params = {}) => {
+  const res = await api.get("/v1/payment-approvals", { params });
+  return res.data?.approvals || [];
+};
+
+export const getPaymentApprovalById = async (id) => {
+  const res = await api.get(`/v1/payment-approvals/${id}`);
+  return res.data?.data;
+};
+
+export const approvePaymentApproval = async (id, remarks = "") => {
+  const res = await api.post(`/v1/payment-approvals/${id}/approve`, { remarks });
+  return res.data?.data;
+};
+
+export const rejectPaymentApproval = async (id, rejectionReason = "") => {
+  const res = await api.post(`/v1/payment-approvals/${id}/reject`, { rejectionReason });
+  return res.data?.data;
+};
+
+export const getPaymentApprovalHistory = async (id) => {
+  const res = await api.get(`/v1/payment-approvals/${id}/history`);
+  return res.data?.data || [];
+};
+

@@ -7,6 +7,15 @@ import { providerRegistry } from './providers/payment-provider.factory.js';
 import { ROLES } from '../../zodSchema/index.js';
 import { INVOICE_STATUS } from '../invoices/invoice.service.js';
 import prisma from '../../config/prisma.js';
+// Lazy-loaded to avoid circular dependency
+let _paymentApprovalService = null;
+const getPaymentApprovalService = async () => {
+  if (!_paymentApprovalService) {
+    const mod = await import('../payment-approvals/payment-approval.service.js');
+    _paymentApprovalService = mod.default;
+  }
+  return _paymentApprovalService;
+};
 
 export const PAYMENT_STATUS = {
   PENDING: 'PENDING',
@@ -220,7 +229,7 @@ class PaymentService {
     }
 
     if (invoice.status.toUpperCase() !== INVOICE_STATUS.APPROVED) {
-      throw new ApiError(400, 'Payment can only be requested for an APPROVED invoice.');
+      throw new ApiError(400, 'Payment can only be recorded for an APPROVED invoice.');
     }
 
     if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
@@ -228,6 +237,20 @@ class PaymentService {
     }
 
     assertVendorBankReadyForPayment(invoice.vendor);
+
+    // Mandate Three-Way Matching MATCHED status
+    if ((invoice.three_way_match_status || '').toUpperCase() !== THREE_WAY_MATCH_STATUS.MATCHED) {
+      throw new ApiError(400, `Payment blocked: Three-Way Matching status is ${invoice.three_way_match_status || 'UNMATCHED'}.`);
+    }
+
+    // MANDATE PAYMENT APPROVAL WORKFLOW COMPLETED & APPROVED
+    const approvedApproval = await prisma.paymentApproval.findFirst({
+      where: { invoice_id: payload.invoiceId, status: 'APPROVED', payment_id: null },
+      orderBy: { approved_at: 'desc' },
+    });
+    if (!approvedApproval) {
+      throw new ApiError(400, 'Payment cannot be created: Required Payment Approval workflow is not completed or approved.');
+    }
 
     // Calculate unallocated balance to check for overpayments
     const existingPayments = await paymentRepository.findAll({
@@ -256,23 +279,55 @@ class PaymentService {
     const paymentNumber = buildPaymentNumber();
     const currency = payload.currency || invoice.currency || 'INR';
 
+    // Find the ThreeWayMatch for this invoice to link to the approval
+    const latestMatch = await prisma.threeWayMatch.findFirst({
+      where: { invoice_id: payload.invoiceId, status: 'MATCHED' },
+      orderBy: { created_at: 'desc' },
+      select: { id: true },
+    });
+    const threeWayMatchId = latestMatch?.id || null;
+
     const createdPayment = await paymentRepository.transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
-          payment_number: paymentNumber,
-          invoice_id: payload.invoiceId,
-          vendor_id: invoice.vendor_id,
+          payment_number:    paymentNumber,
+          invoice_id:        payload.invoiceId,
+          vendor_id:         invoice.vendor_id,
           purchase_order_id: invoice.purchase_order_id,
-          amount: paymentAmount,
+          three_way_match_id: threeWayMatchId,
+          amount:            paymentAmount,
           currency,
-          status: PAYMENT_STATUS.PENDING,
-          payment_method: payload.paymentMethod || 'NEFT',
-          payment_type: payload.paymentType || 'FULL',
-          payment_provider: payload.paymentProvider || 'MANUAL',
-          remarks: payload.remarks || '',
-          due_date: payload.dueDate ? new Date(payload.dueDate) : null,
-          created_by_id: user.id,
-          updated_by_id: user.id,
+          status:            'PENDING', // Directly PENDING (ready for execution) as approval is already done!
+          approval_status:   'APPROVED',
+          approved_by_id:    approvedApproval.approved_by_id,
+          approved_at:       approvedApproval.approved_at,
+          payment_method:    payload.paymentMethod || 'NEFT',
+          payment_type:      payload.paymentType || 'FULL',
+          payment_provider:  payload.paymentProvider || 'MANUAL',
+          remarks:           payload.remarks || payload.notes || '',
+          due_date:          payload.dueDate ? new Date(payload.dueDate) : null,
+          created_by_id:     user.id,
+          updated_by_id:     user.id,
+        },
+      });
+
+      // Update the PaymentApproval record to link it to the newly created payment
+      await tx.paymentApproval.update({
+        where: { id: approvedApproval.id },
+        data: { payment_id: payment.id },
+      });
+
+      // Create history entry for linking
+      await tx.paymentApprovalHistory.create({
+        data: {
+          payment_approval_id: approvedApproval.id,
+          payment_id:          payment.id,
+          invoice_id:          invoice.id,
+          action:              'ASSIGNED',
+          previous_status:     'APPROVED',
+          new_status:          'APPROVED',
+          performed_by_id:     user.id,
+          remarks:             `Payment ${payment.payment_number} created and linked to this approved request.`,
         },
       });
 
@@ -287,24 +342,24 @@ class PaymentService {
       await Promise.all([
         tx.auditLog.create({
           data: {
-            entity_type: 'payment',
-            entity_id: payment.id,
-            action: 'created',
-            from_status: null,
-            to_status: PAYMENT_STATUS.PENDING,
+            entity_type:     'payment',
+            entity_id:       payment.id,
+            action:          'created',
+            from_status:     null,
+            to_status:       'PENDING',
             performed_by_id: user.id,
-            remarks: payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+            remarks:         payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
           },
         }),
         tx.approvalLog.create({
           data: {
-            entity_type: 'payment',
-            entity_id: payment.id,
-            action: 'created',
-            from_status: null,
-            to_status: PAYMENT_STATUS.PENDING,
+            entity_type:     'payment',
+            entity_id:       payment.id,
+            action:          'created',
+            from_status:     null,
+            to_status:       'PENDING',
             performed_by_id: user.id,
-            remarks: payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+            remarks:         payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
           },
         }),
       ]);
@@ -312,10 +367,7 @@ class PaymentService {
       return payment;
     });
 
-    const decoratedPayment = decoratePayment(createdPayment);
-    // Send notifications to PostgreSQL
-    notificationService.notifyPaymentApprovalRequested(decoratedPayment).catch(() => {});
-    return decoratedPayment;
+    return decoratePayment(createdPayment);
   }
 
   /**
@@ -421,11 +473,17 @@ class PaymentService {
 
     // Construct role-specific where filter
     let roleClause = {};
-    if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
-      roleClause = paymentWhereForApprovalRole(user.role) || {};
+    if (query.status === 'PENDING_APPROVAL') {
+      if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
+        roleClause = paymentWhereForApprovalRole(user.role) || {};
+      }
     }
 
     const conditions = [];
+
+    if (user.role === ROLES.CASE_MANAGER) {
+      conditions.push({ created_by_id: user.id });
+    }
 
     if (query.status) {
       conditions.push({ status: query.status });
@@ -1121,6 +1179,61 @@ class PaymentService {
         teamLeadMax: TEAM_LEAD_PAYMENT_APPROVAL_MAX,
         financeHeadMin: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD,
       },
+    };
+  }
+
+  async getPaymentCreationStats(user) {
+    const [pendingApprovals, rejectedApprovals, matchedAndApproved, alreadyPaid, eligible] = await Promise.all([
+      prisma.paymentApproval.count({
+        where: {
+          status: 'PENDING',
+          ...(user.role === ROLES.CASE_MANAGER && { requested_by_id: user.id }),
+        },
+      }),
+      prisma.paymentApproval.count({
+        where: {
+          status: 'REJECTED',
+          ...(user.role === ROLES.CASE_MANAGER && { requested_by_id: user.id }),
+        },
+      }),
+      prisma.invoice.count({
+        where: {
+          status: 'APPROVED',
+          three_way_match_status: 'MATCHED',
+          deleted_at: null,
+          ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+        },
+      }),
+      prisma.invoice.count({
+        where: {
+          payment_status: 'PAID',
+          deleted_at: null,
+          ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+        },
+      }),
+      prisma.invoice.count({
+        where: {
+          status: 'APPROVED',
+          three_way_match_status: 'MATCHED',
+          payment_status: { not: 'PAID' },
+          remaining_amount: { gt: 0 },
+          deleted_at: null,
+          payment_approvals: {
+            some: {
+              status: 'APPROVED',
+            },
+          },
+          ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+        },
+      }),
+    ]);
+
+    return {
+      pendingApproval: pendingApprovals,
+      rejected: rejectedApprovals,
+      matchedApproved: matchedAndApproved,
+      alreadyPaid: alreadyPaid,
+      eligibleForPayment: eligible,
     };
   }
 }

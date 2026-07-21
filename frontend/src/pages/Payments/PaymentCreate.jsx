@@ -2,7 +2,7 @@ import { ArrowLeft, Search, AlertCircle, CheckCircle, FileText, User, ShoppingBa
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getInvoices } from "../../services/invoiceService";
-import { createPayment } from "../../services/paymentService";
+import { createPayment, getPaymentCreationStats } from "../../services/paymentService";
 import { toast } from "sonner";
 import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
@@ -12,6 +12,7 @@ const input = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outl
 const PaymentCreate = () => {
   const navigate = useNavigate();    
   const [approvedInvoices, setApprovedInvoices] = useState([]);
+  const [creationStats, setCreationStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,19 +29,23 @@ const PaymentCreate = () => {
 
   useEffect(() => {
     loadInvoices();
+    loadStats();
   }, []);
+
+  const loadStats = async () => {
+    try {
+      const stats = await getPaymentCreationStats();
+      setCreationStats(stats);
+    } catch (err) {
+      console.error("Failed to load creation stats", err);
+    }
+  };
 
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const invoices = await getInvoices();
-      // Filter for approved and unpaid/partially paid invoices (case-insensitive)
-      const approved = invoices.filter((i) => {
-        const statusUpper = (i.status || "").toUpperCase();
-        const payStatusUpper = (i.paymentStatus || "").toUpperCase();
-        return statusUpper === "APPROVED" && (payStatusUpper === "UNPAID" || payStatusUpper === "PARTIALLY_PAID");
-      });
-      setApprovedInvoices(approved);
+      const invoices = await getInvoices({ eligibleForPayment: true });
+      setApprovedInvoices(invoices);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load approved invoices list");
@@ -221,6 +226,14 @@ const PaymentCreate = () => {
                     </option>
                   ))}
                 </select>
+                {approvedInvoices.length === 0 ? (
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-amber-50 border border-amber-200 mt-2 animate-pulse">
+                    <AlertCircle className="text-amber-600 mt-0.5 flex-shrink-0" size={18} />
+                    <p className="text-sm font-medium text-amber-800">
+                      No approved invoices are currently available for payment.
+                    </p>
+                  </div>
+                ) : null}
                 {filteredInvoices.length === 0 && searchTerm && (
                   <p className="text-xs text-rose-500 mt-1">No matching approved invoices found.</p>
                 )}
@@ -316,6 +329,35 @@ const PaymentCreate = () => {
 
         {/* Selected Invoice Details Column */}
         <div className="space-y-6">
+          {/* Status/Counts Summary Card */}
+          {creationStats && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <h3 className="font-semibold text-slate-800 text-xs uppercase tracking-wider text-slate-400">Invoice & Payout Overview</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-lg text-center border border-slate-100">
+                  <span className="block text-[10px] text-slate-500 font-semibold uppercase">Pending Approval</span>
+                  <strong className="text-lg text-amber-600 mt-1 block font-bold">{creationStats.pendingApproval}</strong>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg text-center border border-slate-100">
+                  <span className="block text-[10px] text-slate-500 font-semibold uppercase">Rejected Requests</span>
+                  <strong className="text-lg text-rose-600 mt-1 block font-bold">{creationStats.rejected}</strong>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg text-center border border-slate-100">
+                  <span className="block text-[10px] text-slate-500 font-semibold uppercase">Matched & Approved</span>
+                  <strong className="text-lg text-blue-600 mt-1 block font-bold">{creationStats.matchedApproved}</strong>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg text-center border border-slate-100">
+                  <span className="block text-[10px] text-slate-500 font-semibold uppercase">Already Paid</span>
+                  <strong className="text-lg text-emerald-600 mt-1 block font-bold">{creationStats.alreadyPaid}</strong>
+                </div>
+              </div>
+              <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg flex items-center justify-between">
+                <span className="text-xs text-blue-800 font-semibold">Eligible for Payment:</span>
+                <strong className="text-sm bg-blue-600 text-white px-2.5 py-0.5 rounded-full font-bold">{creationStats.eligibleForPayment}</strong>
+              </div>
+            </div>
+          )}
+
           {selectedInvoice ? (
             <>
               {/* Validation Cards */}

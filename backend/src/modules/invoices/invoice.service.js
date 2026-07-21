@@ -21,6 +21,16 @@ import prisma from '../../config/prisma.js';
 
 export { INVOICE_STATUS, THREE_WAY_MATCH_STATUS, ADMIN_REVIEW_STATUS } from '../../utils/approval-helper.js';
 
+// Lazy-loaded to avoid circular dependency
+let _paymentApprovalService = null;
+const getPaymentApprovalService = async () => {
+  if (!_paymentApprovalService) {
+    const mod = await import('../payment-approvals/payment-approval.service.js');
+    _paymentApprovalService = mod.default;
+  }
+  return _paymentApprovalService;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -201,7 +211,17 @@ class InvoiceService {
       ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
     };
 
-    if (query.status) {
+    if (query.eligibleForPayment === 'true' || query.eligibleForPayment === true) {
+      where.status = INVOICE_STATUS.APPROVED;
+      where.three_way_match_status = THREE_WAY_MATCH_STATUS.MATCHED;
+      where.payment_status = { not: 'PAID' };
+      where.remaining_amount = { gt: 0 };
+      where.payment_approvals = {
+        some: {
+          status: 'APPROVED',
+        }
+      };
+    } else if (query.status) {
       where.status = query.status;
     }
 
@@ -314,7 +334,10 @@ class InvoiceService {
       updateData.final_approved_at = now;
     }
 
-    return invoiceRepository.transaction(async (tx) => {
+    let createdApproval = null;
+    let assignedApprover = null;
+
+    const resultInvoice = await invoiceRepository.transaction(async (tx) => {
       const updatedInvoice = await tx.invoice.update({
         where:   { id },
         data:    updateData,
@@ -331,15 +354,28 @@ class InvoiceService {
         req,
       });
 
-      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
       if (nextStatus === INVOICE_STATUS.APPROVED) {
-        notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.APPROVED, actorName).catch(() => {});
-      } else {
-        notificationService.notifyInvoiceNextLevel(updatedInvoice, updatedInvoice.current_approval_level).catch(() => {});
+        const paService = await getPaymentApprovalService();
+        const approvalResult = await paService.createPaymentApprovalForInvoice(updatedInvoice, user, tx);
+        createdApproval = approvalResult.approval;
+        assignedApprover = approvalResult.approver;
       }
 
       return updatedInvoice;
     });
+
+    const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+    if (nextStatus === INVOICE_STATUS.APPROVED) {
+      notificationService.notifyInvoiceStatusChange(resultInvoice, INVOICE_STATUS.APPROVED, actorName).catch(() => {});
+      if (createdApproval && assignedApprover) {
+        const paService = await getPaymentApprovalService();
+        paService.sendApprovalNotification(createdApproval, assignedApprover).catch(() => {});
+      }
+    } else {
+      notificationService.notifyInvoiceNextLevel(resultInvoice, resultInvoice.current_approval_level).catch(() => {});
+    }
+
+    return resultInvoice;
   }
 
   // ────────────────────────────────────────────────────────────────────────────

@@ -191,8 +191,8 @@ const mapApprovedPurchaseOrder = (po) => {
   };
 };
 
-export const getInvoices = async () => {
-  const res = await api.get("/v1/invoices");
+export const getInvoices = async (params = {}) => {
+  const res = await api.get("/v1/invoices", { params });
   return (res.data.invoices || []).map(mapInvoice);
 };
 

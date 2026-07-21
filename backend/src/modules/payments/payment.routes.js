@@ -22,6 +22,7 @@ const REVIEW_ACCESS = [PERMISSION_KEYS.EXECUTE_PAYMENT, ROLES.TEAM_LEAD, ROLES.M
 router.use(protect);
 
 router.get('/stats', authorize(READ_ACCESS), paymentController.getPaymentStats);
+router.get('/creation-stats', authorize(CREATE_ACCESS), paymentController.getPaymentCreationStats);
 router.get('/pending', authorize(REVIEW_ACCESS), validate(searchPaymentsSchema), paymentController.getPendingPayments);
 router.get('/completed', authorize(READ_ACCESS), validate(searchPaymentsSchema), paymentController.getCompletedPayments);
 

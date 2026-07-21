@@ -70,6 +70,11 @@ export const NOTIFICATION_TYPES = {
   PAYMENT_REJECTED:  'payment_rejected',
   PAYMENT_BLOCKED:   'payment_blocked',
 
+  // Payment Approval (dedicated workflow)
+  PAYMENT_APPROVAL_ASSIGNED: 'payment_approval_assigned',
+  PAYMENT_APPROVAL_APPROVED: 'payment_approval_approved',
+  PAYMENT_APPROVAL_REJECTED: 'payment_approval_rejected',
+
 };
 
 // ─── Role → DB role string mapping (for user lookup) ─────────────────────────
@@ -622,19 +627,41 @@ class NotificationService {
 
     const typeMap = {
       pending:   NOTIFICATION_TYPES.PAYMENT_CREATED,
+      pending_approval: NOTIFICATION_TYPES.PAYMENT_CREATED,
       initiated: NOTIFICATION_TYPES.PAYMENT_APPROVED,
       approved:  NOTIFICATION_TYPES.PAYMENT_APPROVED,
       rejected:  NOTIFICATION_TYPES.PAYMENT_REJECTED,
-      failed:    NOTIFICATION_TYPES.PAYMENT_REJECTED,
+      failed:    NOTIFICATION_TYPES.PAYMENT_FAILED,
       blocked:   NOTIFICATION_TYPES.PAYMENT_BLOCKED,
       cancelled: NOTIFICATION_TYPES.INVOICE_CANCELLED,
       returned:  NOTIFICATION_TYPES.PAYMENT_REJECTED,
       refunded:  NOTIFICATION_TYPES.PAYMENT_APPROVED,
-      failed:    `Payment of ${payment.currency} ${payment.amount} has failed gateway verification.`,
-      blocked:   `Payment of ${payment.currency} ${payment.amount} has been blocked by ${actorName}.`,
-      cancelled: `Payment of ${payment.currency} ${payment.amount} has been cancelled by ${actorName}.`,
-      returned:  `Payment of ${payment.currency} ${payment.amount} has been returned for correction by ${actorName}.`,
-      refunded:  `Payment of ${payment.currency} ${payment.amount} has been refunded by ${actorName}.`,
+    };
+
+    const titleMap = {
+      pending:          'Payment Created',
+      pending_approval: 'Payment Awaiting Approval',
+      initiated:        'Payment Initiated',
+      approved:         'Payment Approved',
+      rejected:         'Payment Rejected',
+      failed:           'Payment Failed',
+      blocked:          'Payment Blocked',
+      cancelled:        'Payment Cancelled',
+      returned:         'Payment Returned for Correction',
+      refunded:         'Payment Refunded',
+    };
+
+    const messageMap = {
+      pending:          `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} has been created.`,
+      pending_approval: `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} is pending approval.`,
+      initiated:        `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} has been initiated by ${actorName}.`,
+      approved:         `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} has been approved by ${actorName}.${remarksSuffix}`,
+      rejected:         `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} has been rejected by ${actorName}.${remarksSuffix}`,
+      failed:           `Payment ${paymentNumber} (Invoice: ${invoiceNumber}) for ${amountStr} has failed.${remarksSuffix}`,
+      blocked:          `Payment ${paymentNumber} for ${amountStr} has been blocked by ${actorName}.${remarksSuffix}`,
+      cancelled:        `Payment ${paymentNumber} for ${amountStr} has been cancelled by ${actorName}.${remarksSuffix}`,
+      returned:         `Payment ${paymentNumber} for ${amountStr} has been returned for correction by ${actorName}.${remarksSuffix}`,
+      refunded:         `Payment ${paymentNumber} for ${amountStr} has been refunded by ${actorName}.${remarksSuffix}`,
     };
 
     const type    = typeMap[statusKey]    || NOTIFICATION_TYPES.PAYMENT_CREATED;
@@ -646,21 +673,22 @@ class NotificationService {
   }
 
   async notifyPaymentApprovalRequested(payment) {
+    // LEGACY: kept for backward compat but now only notifies SUPER_ADMIN.
+    // New flow uses notifyPaymentApprovalAssigned (specific user).
     const approvalRole = payment.requiredApprovalRole || payment.required_approval_role || ROLES.FINANCE_HEAD;
     const roleLabel = {
-      [ROLES.TEAM_LEAD]: 'Team Lead',
-      [ROLES.MANAGER]: 'Manager',
+      [ROLES.TEAM_LEAD]:    'Team Lead',
+      [ROLES.MANAGER]:      'Manager',
       [ROLES.FINANCE_HEAD]: 'Finance Head',
     }[approvalRole] || approvalRole;
 
-    await this.notifyApprovalRole({
-      role: approvalRole,
-      type: NOTIFICATION_TYPES.PAYMENT_CREATED,
-      title: 'Payment Pending Approval',
-      message: `Payment ${payment.payment_number} for ${payment.currency} ${payment.amount} requires ${roleLabel} approval.`,
-      entityType: 'payment',
-      entityId: payment.id,
-    });
+    await this.notifySuperAdmins(
+      NOTIFICATION_TYPES.PAYMENT_CREATED,
+      'Payment Pending Approval',
+      `Payment ${payment.payment_number} for ${payment.currency} ${payment.amount} requires ${roleLabel} approval.`,
+      'payment',
+      payment.id,
+    );
     await this.notifyCreator(
       payment.created_by_id,
       NOTIFICATION_TYPES.PAYMENT_CREATED,
@@ -669,6 +697,88 @@ class NotificationService {
       'payment',
       payment.id,
     );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // PAYMENT APPROVAL — ASSIGNED (specific user notification)
+  // Called AFTER transaction commits in payment.service.js createPayment()
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Notify the exact assigned approver that a payment needs their approval.
+   * Uses entity_type = 'payment_approval' and entity_id = paymentApproval.id
+   * so clicking the notification navigates to /payment-approvals?id=<approvalId>.
+   *
+   * @param {object} paymentApproval - The PaymentApproval record
+   * @param {object} approver - The assigned approver user {id, email, first_name, last_name, role}
+   */
+  async notifyPaymentApprovalAssigned(paymentApproval, approver) {
+    try {
+      const amount = Number(paymentApproval.amount || 0);
+      const currency = paymentApproval.currency || 'INR';
+      const amountStr = `${currency} ${amount.toLocaleString('en-IN')}`;
+      const approverName = approver
+        ? `${approver.first_name || ''} ${approver.last_name || ''}`.trim() || approver.email
+        : 'Approver';
+
+      // Notification to the SPECIFIC assigned approver
+      await this.createNotification(
+        approver.id,
+        NOTIFICATION_TYPES.PAYMENT_APPROVAL_ASSIGNED,
+        '💳 Payment Approval Required',
+        `A payment of ${amountStr} has been assigned to you for approval. Payment Approval ID: ${paymentApproval.id}.`,
+        'payment_approval',
+        paymentApproval.id,
+      );
+
+      // Also notify SUPER_ADMIN for visibility
+      await this.notifySuperAdmins(
+        NOTIFICATION_TYPES.PAYMENT_APPROVAL_ASSIGNED,
+        'Payment Approval Assigned',
+        `Payment approval for ${amountStr} has been assigned to ${approverName} (${approver.role}).`,
+        'payment_approval',
+        paymentApproval.id,
+      );
+    } catch (error) {
+      console.error('[NotificationService] notifyPaymentApprovalAssigned failed:', toSafeErrorLog(error));
+      // Do NOT rethrow — notification failure must not undo the approval record
+    }
+  }
+
+  /**
+   * Notify the payment requester (Case Manager) of the approval result.
+   *
+   * @param {object} paymentApproval - The PaymentApproval record (with relations loaded)
+   * @param {'APPROVED'|'REJECTED'} result - The result
+   * @param {object} actorUser - The approver who took action
+   */
+  async notifyPaymentApprovalResult(paymentApproval, result, actorUser) {
+    try {
+      const requestedById = paymentApproval.requested_by_id;
+      if (!requestedById) return;
+
+      const amount = Number(paymentApproval.amount || 0);
+      const currency = paymentApproval.currency || 'INR';
+      const amountStr = `${currency} ${amount.toLocaleString('en-IN')}`;
+      const actorName = actorUser
+        ? `${actorUser.first_name || ''} ${actorUser.last_name || ''}`.trim() || actorUser.email
+        : 'Approver';
+
+      const isApproved = result === 'APPROVED';
+
+      await this.createNotification(
+        requestedById,
+        isApproved ? NOTIFICATION_TYPES.PAYMENT_APPROVAL_APPROVED : NOTIFICATION_TYPES.PAYMENT_APPROVAL_REJECTED,
+        isApproved ? '✅ Payment Approval Granted' : '❌ Payment Approval Rejected',
+        isApproved
+          ? `Your payment request of ${amountStr} has been approved by ${actorName}.`
+          : `Your payment request of ${amountStr} was rejected by ${actorName}. Reason: ${paymentApproval.rejection_reason || 'No reason provided'}.`,
+        'payment_approval',
+        paymentApproval.id,
+      );
+    } catch (error) {
+      console.error('[NotificationService] notifyPaymentApprovalResult failed:', toSafeErrorLog(error));
+    }
   }
 }
 

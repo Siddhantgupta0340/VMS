@@ -75,6 +75,11 @@ export const getPaymentStats = async () => {
   return res.data.data;
 };
 
+export const getPaymentCreationStats = async () => {
+  const res = await api.get("/v1/payments/creation-stats");
+  return res.data.data;
+};
+
 export const getPaymentById = async (id) => {
   const res = await api.get(`/v1/payments/${id}`);
   return mapPayment(res.data.data);
