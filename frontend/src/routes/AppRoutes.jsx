@@ -21,6 +21,7 @@ import InvoiceCreate from "../pages/Invoices/InvoiceCreate";
 
 // Approvals
 import ApprovalsList from "../pages/Approvals/ApprovalsList";
+import PaymentApprovalDetails from "../pages/Approvals/PaymentApprovalDetails";
 
 // Payments
 import PaymentsList from "../pages/Payments/PaymentsList";
@@ -126,6 +127,8 @@ const AppRoutes = () => {
 
         {/* Approvals */}
         <Route path="/approvals" element={<ApprovalsList />} />
+        <Route path="/payment-approvals" element={<ApprovalsList />} />
+        <Route path="/payment-approvals/:id" element={<PaymentApprovalDetails />} />
 
         {/* Payments */}
         <Route path="/payments" element={<PaymentsList />} />

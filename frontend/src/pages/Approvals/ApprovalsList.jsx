@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useParams } from "react-router-dom";
 import { Search, Eye, Check, X, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getPaymentApprovals, approvePaymentApproval, rejectPaymentApproval, getPaymentApprovalHistory } from "../../services/approvalService";
+import { getPaymentApprovals, getPaymentApprovalById, approvePaymentApproval, rejectPaymentApproval, getPaymentApprovalHistory } from "../../services/approvalService";
 import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
 import { toast } from "sonner";
@@ -13,7 +13,8 @@ const money = (val, cur = "INR") =>
 const ApprovalsList = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const urlApprovalId = searchParams.get("id");
+  const { id: routeApprovalId } = useParams();
+  const urlApprovalId = searchParams.get("id") || routeApprovalId;
 
   const [approvalData, setApprovalData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,9 +42,16 @@ const ApprovalsList = () => {
       const data = await getPaymentApprovals();
       setApprovalData(data);
 
-      // If URL has ?id=<approvalId>, auto open detail modal
-      if (urlApprovalId && data.length > 0) {
-        const target = data.find((a) => a.id === urlApprovalId);
+      // If URL has ?id=<approvalId> or /payment-approvals/<approvalId>, auto open detail modal
+      if (urlApprovalId) {
+        let target = data.find((a) => a.id === urlApprovalId);
+        if (!target) {
+          try {
+            target = await getPaymentApprovalById(urlApprovalId);
+          } catch (err) {
+            console.error("Failed to load target approval by ID:", err);
+          }
+        }
         if (target) {
           handleOpenDetails(target);
         }

@@ -26,17 +26,23 @@ const approvalInclude = {
   purchase_order: { select: { id: true, po_number: true, order_date: true, amount: true, line_items: true } },
   vendor: { select: { id: true, name: true, vendor_code: true, gst_number: true, email: true } },
   three_way_match: {
-    select: {
-      id: true,
-      status: true,
-      match_percentage: true,
-      matched_fields: true,
-      unmatched_fields: true,
-      warnings: true,
-      po_snapshot: true,
-      grn_snapshot: true,
-      delivery_challan_snapshot: true,
-      invoice_snapshot: true,
+    include: {
+      grn: {
+        select: {
+          id: true,
+          grn_number: true,
+          created_at: true,
+          receipt_date: true,
+        },
+      },
+      delivery_challan: {
+        select: {
+          id: true,
+          delivery_challan_number: true,
+          created_at: true,
+          delivery_date: true,
+        },
+      },
     },
   },
   approver: {

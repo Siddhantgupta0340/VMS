@@ -111,19 +111,41 @@ const parseDateFilter = (value, fieldName) => {
 
 const sanitizeNotification = (notification) => {
   if (!notification) return null;
+  const paymentApprovalId = notification.entity_type === 'payment_approval' ? notification.entity_id : null;
+  const invoiceId = notification.reference_id || (notification.entity_type === 'invoice' ? notification.entity_id : null);
+  const actionUrl = paymentApprovalId
+    ? `/payment-approvals/${paymentApprovalId}`
+    : (invoiceId ? `/invoices/${invoiceId}` : null);
+
   return {
     id: notification.id,
+    notificationId: notification.id,
     user_id: notification.user_id,
+    userId: notification.user_id,
+    assignedUserId: notification.user_id,
     title: notification.title,
     message: notification.message,
     type: notification.type,
     role: notification.role,
+    assignedRole: notification.role,
     reference_id: notification.reference_id,
+    referenceId: notification.reference_id,
     entity_type: notification.entity_type,
+    entityType: notification.entity_type,
     entity_id: notification.entity_id,
+    entityId: notification.entity_id,
     is_read: notification.is_read,
+    isRead: notification.is_read,
     read_at: notification.read_at,
+    readAt: notification.read_at,
     created_at: notification.created_at,
+    createdAt: notification.created_at,
+    paymentApprovalId,
+    invoiceId,
+    purchaseOrderId: (notification.metadata && typeof notification.metadata === 'object') ? notification.metadata.purchaseOrderId || null : null,
+    threeWayMatchingId: (notification.metadata && typeof notification.metadata === 'object') ? notification.metadata.threeWayMatchingId || null : null,
+    actionUrl,
+    metadata: (notification.metadata && typeof notification.metadata === 'object') ? notification.metadata : {},
   };
 };
 
@@ -528,6 +550,10 @@ class NotificationService {
       ].join(' | ');
 
       const paymentApprovalId = context.paymentApprovalId || null;
+      if (!paymentApprovalId) {
+        console.warn('[NotificationService] notifyInvoiceNextLevel blocked: paymentApprovalId is missing.');
+        return;
+      }
 
       const notifications = users.map((user) => ({
         user_id:     user.id,
@@ -724,6 +750,10 @@ class NotificationService {
    */
   async notifyPaymentApprovalAssigned(paymentApproval, approver, tx = null) {
     try {
+      if (!paymentApproval || !paymentApproval.id) {
+        console.warn('[NotificationService] notifyPaymentApprovalAssigned blocked: paymentApproval.id is missing.');
+        return;
+      }
       const amount = Number(paymentApproval.amount || 0);
       const currency = paymentApproval.currency || 'INR';
       const amountStr = `${currency} ${amount.toLocaleString('en-IN')}`;

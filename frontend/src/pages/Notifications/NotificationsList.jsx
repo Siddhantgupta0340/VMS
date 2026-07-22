@@ -316,16 +316,6 @@ const NotificationsList = () => {
                       </time>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {notification.entityType === "payment_approval" && notification.entityId && (
-                        <Link
-                          to={`/approvals?id=${notification.entityId}`}
-                          onClick={() => handleMarkRead(notification)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
-                        >
-                          <Eye size={14} />
-                          View Approval Request
-                        </Link>
-                      )}
 
                       {notification.entityType === "payment" && notification.entityId && (
                         <Link
@@ -345,7 +335,7 @@ const NotificationsList = () => {
                           onClick={() => handleMarkRead(notification)}
                           type="button"
                         >
-                          <CheckCircle2 size={14} />
+                          <CheckCircle2 size={14} /> 
                           Mark read
                         </button>
                       )}

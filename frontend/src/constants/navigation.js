@@ -40,7 +40,7 @@ export const navigation = [
         },
         activePaths: ["/vendors", "/finance-head/vendors"],
         permission: PERMISSIONS.VIEW_VENDORS,
-        excludedRoles: [ROLES.MANAGER],
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
       },
 
       {
@@ -48,6 +48,7 @@ export const navigation = [
         icon: ShoppingCart,
         path: "/purchase-orders",
         permission: PERMISSIONS.VIEW_PURCHASE_ORDERS,
+        allowedRoles: [ROLES.CASE_MANAGER],
       },
 
       {
@@ -55,7 +56,7 @@ export const navigation = [
         icon: ClipboardCheck,
         path: "/receipt-documents",
         permission: PERMISSIONS.VIEW_THREE_WAY_MATCHING,
-        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.CASE_MANAGER],
       },
 
       {
@@ -63,7 +64,7 @@ export const navigation = [
         icon: Receipt,
         path: "/invoices",
         permission: PERMISSIONS.VIEW_INVOICES,
-        excludedRoles: [ROLES.FINANCE_HEAD, ROLES.MANAGER],
+        allowedRoles: [ROLES.CASE_MANAGER],
       },
 
       {
@@ -71,7 +72,7 @@ export const navigation = [
         icon: GitCompare,
         path: "/three-way-matching",
         permission: PERMISSIONS.VIEW_THREE_WAY_MATCHING,
-        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.CASE_MANAGER],
       },
 
       {
@@ -79,7 +80,7 @@ export const navigation = [
         icon: Wallet,
         path: "/approvals",
         permission: PERMISSIONS.VIEW_APPROVALS,
-        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD],
       },
 
       {
@@ -87,7 +88,7 @@ export const navigation = [
         icon: Wallet,
         path: "/payments",
         permission: PERMISSIONS.VIEW_PAYMENTS,
-        excludedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER],
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD],
       },
     ],
   },
@@ -100,12 +101,14 @@ export const navigation = [
         icon: FileBarChart2,
         path: "/super-admin/reports",
         permission: PERMISSIONS.VIEW_VENDOR_REPORTS,
+        allowedRoles: [ROLES.SUPER_ADMIN],
       },
       {
         title: "Audit Logs",
         icon: History,
         path: "/audit-logs",
         permission: PERMISSIONS.VIEW_AUDIT_LOGS,
+        allowedRoles: [ROLES.SUPER_ADMIN],
       },
     ],
   },
@@ -113,13 +116,6 @@ export const navigation = [
   {
     // section: "ADMINISTRATION",
     items: [
-      // {
-      //   title: "Reports",
-      //   icon: BarChart3,
-      //   path: "/reports",
-      //   permission: PERMISSIONS.VIEW_REPORTS,
-      // },
-
       {
         title: "Notifications",
         icon: Bell,
@@ -132,6 +128,7 @@ export const navigation = [
         icon: Users,
         path: "/users",
         permission: PERMISSIONS.MANAGE_USERS,
+        allowedRoles: [ROLES.SUPER_ADMIN],
       },
     ],
   },
