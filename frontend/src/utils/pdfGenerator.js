@@ -15,10 +15,9 @@ export const downloadHtmlAsPdf = async ({ htmlContent, filename, documentTitle =
   try {
     const container = document.createElement("div");
     container.style.position = "absolute";
-    container.style.top = "0";
-    container.style.left = "0";
+    container.style.top = "-9999px";
+    container.style.left = "-9999px";
     container.style.width = "850px";
-    container.style.zIndex = "-9999";
     container.style.background = "#ffffff";
     container.innerHTML = htmlContent;
     document.body.appendChild(container);

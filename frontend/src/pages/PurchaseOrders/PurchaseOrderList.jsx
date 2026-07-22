@@ -51,7 +51,7 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
         <strong>${esc(item.itemName || item.description || "Item")}</strong>
         ${item.description && item.itemName ? `<br/><span style="color:#64748b;font-size:10px">${esc(item.description)}</span>` : ""}
       </td>
-      <td>—</td>
+      <td>${esc(item.hsnCode || "—")}</td>
       <td style="text-align:center">${esc(item.quantity || 0)}</td>
       <td class="num">${esc(money(item.unitPrice, po.currency))}</td>
       <td class="num">${esc(money(item.taxableAmount, po.currency))}</td>
@@ -143,9 +143,14 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
       </div>
 
       <!-- Vendor -->
-      <h2>Vendor / Bill To</h2>
+      <h2>Vendor &amp; Delivery Details</h2>
       <div class="info-grid cols3">
         <div class="box"><div class="lbl">Vendor Name</div><div class="val">${esc(po.vendor || "N/A")}</div></div>
+        <div class="box"><div class="lbl">Vendor Code</div><div class="val">${esc(po.vendorCode || "N/A")}</div></div>
+        <div class="box"><div class="lbl">Vendor GST</div><div class="val">${esc(po.vendorGst || "N/A")}</div></div>
+      </div>
+      <div class="info-grid cols3">
+        <div class="box"><div class="lbl">Vendor Address</div><div class="val">${esc(po.vendorAddress || "N/A")}</div></div>
         <div class="box"><div class="lbl">Delivery Address</div><div class="val">${esc(po.deliveryAddress || "N/A")}</div></div>
         <div class="box"><div class="lbl">Billing Address</div><div class="val">${esc(po.billingAddress || "N/A")}</div></div>
       </div>

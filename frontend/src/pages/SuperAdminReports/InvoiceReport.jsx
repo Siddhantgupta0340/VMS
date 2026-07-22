@@ -39,16 +39,19 @@ const statusLabel = (s) => {
 };
 
 const COLUMNS = [
-  { key: "invoice_number", label: "Invoice #",      sortable: true },
+  { key: "invoice_number", label: "Invoice Number",  sortable: true },
+  { key: "purchase_order", label: "PO Number",       render: (v) => v?.po_number || "—" },
   { key: "vendor",         label: "Vendor",          render: (v) => v?.name || "—" },
-  { key: "purchase_order", label: "PO",              render: (v) => v?.po_number || "—" },
-  { key: "invoice_total",  label: "Total",           sortable: true,
-    render: (v, row) => v != null ? `${row.currency} ${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—" },
-  { key: "status",         label: "Status",          sortable: true, render: (v) => <StatusBadge status={v} /> },
-  { key: "payment_status", label: "Payment",         render: (v) => <StatusBadge status={v} /> },
   { key: "invoice_date",   label: "Invoice Date",    sortable: true, render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
-  { key: "due_date",       label: "Due Date",        sortable: true, render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+  { key: "invoice_total",  label: "Amount",           sortable: true,
+    render: (v, row) => v != null ? `${row.currency} ${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—" },
+  { key: "status",         label: "Status",          sortable: true, render: (v) => formatStatus(v) },
+  { key: "created_by",     label: "Created By",      render: (v) => v ? `${v.first_name} ${v.last_name}` : "—" },
+  { key: "approval_status", label: "Approval Status", sortable: true, render: (_, row) => <StatusBadge status={row.status} /> },
+  { key: "payment_status", label: "Payment Status",  sortable: true, render: (v) => <StatusBadge status={v} /> },
+  { key: "created_at",     label: "Created Date",    sortable: true, render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
 ];
+
 
 const formatAmt = (v) => (v != null ? `₹ ${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—");
 
@@ -134,7 +137,7 @@ const InvoiceReport = () => {
     fetchSummary(filters);
     syncURL(filters);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startDate, filters.endDate, filters.status, filters.paymentStatus, filters.overdueOnly, filters.sortField, filters.sortOrder, filters.page]);
+  }, [filters.startDate, filters.endDate, filters.status, filters.paymentStatus, filters.search, filters.overdueOnly, filters.sortField, filters.sortOrder, filters.page]);
 
   const updateFilter = (key, value) =>
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -143,11 +146,13 @@ const InvoiceReport = () => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       setFilters((prev) => ({ ...prev, search: value, page: 1 }));
-      fetchData({ ...filters, search: value, page: 1 });
     }, 400);
   };
 
-  const handleSort       = (field, order) => setFilters((prev) => ({ ...prev, sortField: field, sortOrder: order, page: 1 }));
+  const handleSort       = (field, order) => {
+    const mappedField = field === "approval_status" ? "status" : field;
+    setFilters((prev) => ({ ...prev, sortField: mappedField, sortOrder: order, page: 1 }));
+  };
   const handlePageChange = (p) => setFilters((prev) => ({ ...prev, page: p }));
 
   const handleClearFilters = () => {

@@ -64,7 +64,7 @@ export const navigation = [
         icon: Receipt,
         path: "/invoices",
         permission: PERMISSIONS.VIEW_INVOICES,
-        excludedRoles: [ROLES.FINANCE_HEAD],
+        excludedRoles: [ROLES.FINANCE_HEAD, ROLES.TEAM_LEAD, ROLES.MANAGER],
       },
 
       {
@@ -97,7 +97,7 @@ export const navigation = [
         icon: FileBarChart2,
         path: "/reports",
         permission: PERMISSIONS.VIEW_REPORTS,
-        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER],
+        allowedRoles: [],
       },
     ],
   },
