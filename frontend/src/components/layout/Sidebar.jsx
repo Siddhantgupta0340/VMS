@@ -121,7 +121,7 @@ const Sidebar = () => {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-3 py-4" aria-label="Sidebar menu">
+        <nav className="min-h-0 flex-1 overflow-hidden overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-3 py-4" aria-label="Sidebar menu">
           <div className="space-y-4">
             {filteredNavigation.map((section, index) => (
               <section key={section.section || `section-${index}`}>

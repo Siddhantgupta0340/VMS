@@ -17,10 +17,11 @@ import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   getPayments,
   getPendingPayments,
+  getCompletedPayments,
   getPaymentById,
   getPaymentHistory,
   getPaymentStats,
@@ -53,6 +54,8 @@ const PaymentsList = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const paymentIdParam = searchParams.get("id");
+  const location = useLocation();
+  const isHistoryPage = location.pathname === "/payment-history";
 
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +95,7 @@ const PaymentsList = () => {
     try {
       setLoading(true);
       const [data, liveStats] = await Promise.all([
-        getPayments(),
+        isHistoryPage ? getCompletedPayments() : getPayments(),
         getPaymentStats().catch(() => null),
       ]);
       let filtered = [...data];
@@ -114,7 +117,7 @@ const PaymentsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, isPaymentApprover]);
+  }, [activeFilters, isPaymentApprover, isHistoryPage]);
 
   useEffect(() => {
     loadPayments();
@@ -250,7 +253,7 @@ const PaymentsList = () => {
             >
               <Eye size={15} />
             </button>
-            {isPending && isPaymentApprover && (
+            {!isHistoryPage && isPending && isPaymentApprover && (
               <>
                 <button
                   onClick={() => {
@@ -281,7 +284,7 @@ const PaymentsList = () => {
                 </button>
               </>
             )}
-            {isPending && user?.role === ROLES.CASE_MANAGER && (
+            {!isHistoryPage && isPending && user?.role === ROLES.CASE_MANAGER && (
               <button
                 onClick={() => {
                   setSelectedPayment(row);
@@ -343,12 +346,14 @@ const PaymentsList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            {isPaymentApprover ? "Payment Approvals" : "Payments"}
+            {isHistoryPage ? "Payment History" : (isPaymentApprover ? "Payment Approvals" : "Payments")}
           </h1>
           <p className="mt-2 text-slate-500">
-            {isPaymentApprover
-              ? "Review payment approval requests assigned to your approval limit"
-              : "Track and manage all vendor disbursements and payout requests"}
+            {isHistoryPage
+              ? "Track and review all processed and historical payments"
+              : (isPaymentApprover
+                ? "Review payment approval requests assigned to your approval limit"
+                : "Track and manage all vendor disbursements and payout requests")}
           </p>
         </div>
 

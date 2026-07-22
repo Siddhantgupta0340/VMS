@@ -40,7 +40,7 @@ export const navigation = [
         },
         activePaths: ["/vendors", "/finance-head/vendors"],
         permission: PERMISSIONS.VIEW_VENDORS,
-        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD],
       },
 
       {
@@ -64,7 +64,7 @@ export const navigation = [
         icon: Receipt,
         path: "/invoices",
         permission: PERMISSIONS.VIEW_INVOICES,
-        allowedRoles: [ROLES.CASE_MANAGER],
+        excludedRoles: [ROLES.FINANCE_HEAD],
       },
 
       {
@@ -72,7 +72,8 @@ export const navigation = [
         icon: GitCompare,
         path: "/three-way-matching",
         permission: PERMISSIONS.VIEW_THREE_WAY_MATCHING,
-        allowedRoles: [ROLES.CASE_MANAGER],
+        allowedRoles: [ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN],
+        excludedRoles: [ROLES.FINANCE_HEAD],
       },
 
       {
@@ -89,6 +90,22 @@ export const navigation = [
         path: "/payments",
         permission: PERMISSIONS.VIEW_PAYMENTS,
         allowedRoles: [ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD],
+      },
+
+      {
+        title: "Payment History",
+        icon: History,
+        path: "/payment-history",
+        permission: PERMISSIONS.VIEW_PAYMENTS,
+        allowedRoles: [ROLES.FINANCE_HEAD],
+      },
+
+      {
+        title: "Reports",
+        icon: FileBarChart2,
+        path: "/reports",
+        permission: PERMISSIONS.VIEW_REPORTS,
+        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD],
       },
     ],
   },

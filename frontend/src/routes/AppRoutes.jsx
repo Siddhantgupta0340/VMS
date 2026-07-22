@@ -132,6 +132,7 @@ const AppRoutes = () => {
 
         {/* Payments */}
         <Route path="/payments" element={<PaymentsList />} />
+        <Route path="/payment-history" element={<PaymentsList />} />
         <Route path="/payments/new" element={<PaymentCreate />} />
 
         {/* Users */}
