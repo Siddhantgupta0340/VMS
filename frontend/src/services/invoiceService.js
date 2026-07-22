@@ -212,9 +212,21 @@ const mapApprovedPurchaseOrder = (po) => {
 };
 
 export const getInvoices = async (params = {}) => {
-  const res = await api.get("/v1/invoices", { params });
-  return (res.data.invoices || []).map(mapInvoice);
+  const cleanParams = typeof params === "object" && params !== null ? params : {};
+  const res = await api.get("/v1/invoices", { params: cleanParams });
+  const rawInvoices = res.data.invoices || (Array.isArray(res.data) ? res.data : []);
+  const mapped = rawInvoices.map(mapInvoice);
+
+  const result = [...mapped];
+  result.invoices = mapped;
+  result.total = res.data.total ?? mapped.length;
+  result.page = res.data.page ?? 1;
+  result.limit = res.data.limit ?? 10;
+  result.totalPages = res.data.totalPages ?? 1;
+
+  return result;
 };
+
 
 export const getInvoiceById = async (id) => {
   const res = await api.get(`/v1/invoices/${id}`);

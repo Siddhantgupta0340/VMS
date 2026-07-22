@@ -10,7 +10,7 @@ import {
   testDatabaseConnection,
   validateDatabaseUrl,
 } from './config/prisma.js';
-import { classifyDatabaseError, toSafeErrorLog } from './utils/dbRetry.js';
+import { classifyDatabaseError, isTransientDatabaseError, toSafeErrorLog } from './utils/dbRetry.js';
 
 const PORT = process.env.PORT || 5000;
 let server;
@@ -128,11 +128,32 @@ const startServer = async () => {
     });
   };
 
+  // Attempt database connection with retries for transient Neon cold-start timeouts.
+  const connectWithRetry = async (maxAttempts = 3) => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        validateDatabaseUrl();
+        await prisma.$connect();
+        await testDatabaseConnection();
+        return; // success
+      } catch (error) {
+        const isLast = attempt === maxAttempts;
+        const isTransient = isTransientDatabaseError(error);
+
+        if (!isLast && isTransient) {
+          const delayMs = 1000 * attempt; // 1s, 2s
+          console.warn(`[startup] Database connection attempt ${attempt}/${maxAttempts} failed (transient). Retrying in ${delayMs}ms…`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else {
+          throw error;
+        }
+      }
+    }
+  };
+
   try {
-    // 1. Database Configuration and Connection Check
-    validateDatabaseUrl();
-    await prisma.$connect();
-    await testDatabaseConnection();
+    // 1. Database Configuration and Connection Check (with retry)
+    await connectWithRetry();
     console.log('Successfully connected to PostgreSQL database.', getSafeDatabaseInfo());
 
     // 2. Run development seeders only when explicitly requested.
@@ -153,7 +174,6 @@ const startServer = async () => {
       console.log('[seedDevUsers] Skipped. Set ENABLE_DEV_SEED=true to seed development users.');
     }
 
-
     // 3. Create HTTP Server
     listen();
 
@@ -164,13 +184,18 @@ const startServer = async () => {
       console.error(`[startup] Failed phase: ${error.startupPhase}`);
     }
     console.error(toSafeErrorLog(error));
-    await disconnectDatabase();
 
     if (canStartWithoutDatabase(startupError)) {
+      // ⚠️  Do NOT call disconnectDatabase() here — the pool must stay alive so
+      //    requests can still reach PostgreSQL once it becomes reachable again.
+      //    Calling pool.end() here was the root cause of:
+      //    "Cannot use a pool after calling end on the pool"
       listen('degraded');
       return;
     }
 
+    // Fatal error: safely close the pool before exiting.
+    await disconnectDatabase();
     process.exit(1);
   }
 };

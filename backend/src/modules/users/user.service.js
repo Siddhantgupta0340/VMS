@@ -282,69 +282,60 @@ class UserService {
       newUser.id
     ).catch(() => {});
 
-    try {
-      await sendTemporaryPasswordEmail({
-        user: newUser,
-        temporaryPassword: password,
-        expiresAt: temporaryPasswordExpiresAt,
-      });
-
+    // Dispatch temporary credentials email asynchronously in background so user creation completes instantly
+    (async () => {
       try {
-        const sentAt = new Date();
-        await userRepository.updateUser(newUser.id, {
-          [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'SENT',
-          [UserEntity.columns.CREDENTIALS_EMAIL_SENT_AT]: sentAt,
+        await sendTemporaryPasswordEmail({
+          user: newUser,
+          temporaryPassword: password,
+          expiresAt: temporaryPasswordExpiresAt,
         });
-        await prisma.auditLog.create({
-          data: {
-            entity_type: 'user',
-            entity_id: newUser.id,
-            action: 'temporary_credentials_email_sent',
-            performed_by_id: requester.id,
-            remarks: `Temporary credentials email sent to ${newUser.email}`,
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-        });
-      } catch {
-        // Non-fatal after user transaction commit.
-      }
-      notificationService.notifyCredentialEmailSent(requester.id, newUser).catch(() => {});
-    } catch (error) {
-      try {
-        await userRepository.updateUser(newUser.id, {
-          [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'FAILED',
-        });
-        await prisma.auditLog.create({
-          data: {
-            entity_type: 'user',
-            entity_id: newUser.id,
-            action: 'temporary_credentials_email_failed',
-            performed_by_id: requester.id,
-            remarks: 'Temporary credentials email failed.',
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-        });
-      } catch {
-        // Non-fatal after user transaction commit.
-      }
-      notificationService.notifyCredentialEmailFailed(requester.id, newUser).catch(() => {});
-      const sanitized = sanitizeUser({
-        ...newUser,
-        [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'FAILED',
-      });
-      sanitized.credentialsEmailStatus = 'FAILED';
-      return sanitized;
-    }
 
-    const sanitized = sanitizeUser({
-      ...newUser,
-      [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'SENT',
-      [UserEntity.columns.CREDENTIALS_EMAIL_SENT_AT]: new Date(),
-    });
-    sanitized.credentialsEmailStatus = 'SENT';
-    return sanitized;
+        try {
+          const sentAt = new Date();
+          await userRepository.updateUser(newUser.id, {
+            [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'SENT',
+            [UserEntity.columns.CREDENTIALS_EMAIL_SENT_AT]: sentAt,
+          });
+          await prisma.auditLog.create({
+            data: {
+              entity_type: 'user',
+              entity_id: newUser.id,
+              action: 'temporary_credentials_email_sent',
+              performed_by_id: requester.id,
+              remarks: `Temporary credentials email sent to ${newUser.email}`,
+              ip_address: ipAddress,
+              user_agent: userAgent,
+            },
+          });
+        } catch {
+          // Non-fatal after user transaction commit.
+        }
+        notificationService.notifyCredentialEmailSent(requester.id, newUser).catch(() => {});
+      } catch {
+        try {
+          await userRepository.updateUser(newUser.id, {
+            [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: 'FAILED',
+          });
+          await prisma.auditLog.create({
+            data: {
+              entity_type: 'user',
+              entity_id: newUser.id,
+              action: 'temporary_credentials_email_failed',
+              performed_by_id: requester.id,
+              remarks: 'Temporary credentials email failed.',
+              ip_address: ipAddress,
+              user_agent: userAgent,
+            },
+          });
+        } catch {
+          // Non-fatal after user transaction commit.
+        }
+        notificationService.notifyCredentialEmailFailed(requester.id, newUser).catch(() => {});
+      }
+    })().catch(() => {});
+
+    return sanitizeUser(newUser);
   }
 
   /**

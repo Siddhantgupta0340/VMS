@@ -4,7 +4,27 @@ import { classifyDatabaseError } from '../utils/dbRetry.js';
 
 const SERVICE_UNAVAILABLE_MESSAGE = 'The service is temporarily unavailable. Please try again later.';
 
+const POOL_DEAD_PATTERNS = [
+  /cannot use a pool after calling end/i,
+  /pool has been destroyed/i,
+  /connection terminated/i,
+  /connection timeout/i,
+];
+
+const isPoolDeadError = (err) =>
+  POOL_DEAD_PATTERNS.some((p) => p.test(err?.message || ''));
+
 const mapPrismaError = (err) => {
+  // pg pool was shut down (e.g. degraded-mode startup). Treat as transient 503.
+  if (isPoolDeadError(err)) {
+    return {
+      statusCode: 503,
+      code: 'SERVICE_TEMPORARILY_UNAVAILABLE',
+      message: SERVICE_UNAVAILABLE_MESSAGE,
+      errors: {},
+    };
+  }
+
   const isDatabaseError = (
     err?.name?.startsWith('Prisma') ||
     err?.code === 'DATABASE_ENV_INVALID' ||

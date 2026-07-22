@@ -184,9 +184,9 @@ const UserCreate = () => {
 
     try {
       await createUser(payload);
-      notify.success("User registered successfully.");
+      notify.success("User created successfully.");
       
-      // Never preserve credentials in memory after success
+      // Reset form credentials
       setFormData({
         firstName: "",
         lastName: "",
@@ -204,11 +204,16 @@ const UserCreate = () => {
 
       navigate("/users");
     } catch (err) {
-      console.error(err);
-      if (err?.response?.data?.code === "VALIDATION_ERROR" && err?.response?.data?.errors) {
-        // Map backend grouped validation errors
+      console.error("[UserCreate] Submit error:", err);
+      const status = err?.response?.status;
+      if (status === 409) {
+        setFieldErrors((prev) => ({ ...prev, email: "An account with this email address already exists." }));
+        notify.error("An account with this email address already exists.");
+      } else if (status === 403) {
+        notify.error("You do not have permission to create a user with this role.");
+      } else if (status === 400 && err?.response?.data?.errors) {
         setFieldErrors(err.response.data.errors);
-        notify.error("Validation failed. Please check field errors.");
+        notify.error("Validation failed. Please correct the highlighted fields.");
       } else {
         notify.error(getErrorMessage(err, "Failed to create user account."));
       }
@@ -216,6 +221,7 @@ const UserCreate = () => {
       setSubmitting(false);
     }
   };
+
 
   return (
     <div className="space-y-6">

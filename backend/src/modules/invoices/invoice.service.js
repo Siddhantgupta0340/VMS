@@ -207,8 +207,7 @@ class InvoiceService {
       ...(query.purchaseOrderId   && { purchase_order_id:     query.purchaseOrderId }),
       ...(query.requiredApprovalRole && { required_approval_role: query.requiredApprovalRole }),
       ...(query.paymentStatus     && { payment_status:        query.paymentStatus }),
-      // Case Managers can only see their own created invoices
-      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+      ...(query.createdById       && { created_by_id:         query.createdById }),
     };
 
     if (query.eligibleForPayment === 'true' || query.eligibleForPayment === true) {
@@ -229,6 +228,16 @@ class InvoiceService {
       where.current_approval_level = query.currentApprovalLevel;
     }
 
+    if (query.search && typeof query.search === 'string' && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { invoice_number: { contains: s, mode: 'insensitive' } },
+        { purchase_order: { po_number: { contains: s, mode: 'insensitive' } } },
+        { vendor: { name: { contains: s, mode: 'insensitive' } } },
+        { vendor: { vendor_code: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
     const result = await invoiceRepository.findAll({
       where,
       skip:  (page - 1) * limit,
@@ -244,6 +253,7 @@ class InvoiceService {
     };
   }
 
+
   // ────────────────────────────────────────────────────────────────────────────
   // GET INVOICE BY ID
   // ────────────────────────────────────────────────────────────────────────────
@@ -253,11 +263,9 @@ class InvoiceService {
     if (invoice.deleted_at && user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
       throw new ApiError(404, 'Invoice not found.');
     }
-    if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
-      throw new ApiError(403, 'You can only access invoices created by you.');
-    }
     return invoice;
   }
+
 
   // ────────────────────────────────────────────────────────────────────────────
   // APPROVE INVOICE (Team Lead / Manager / Finance Head)

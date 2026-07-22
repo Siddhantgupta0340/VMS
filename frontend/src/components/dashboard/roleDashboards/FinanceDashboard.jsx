@@ -50,7 +50,7 @@ const normalizeSeries = (source) =>
         .filter((item) => item.label)
     : [];
 
-const EmptyPanel = ({ message = "No data available." }) => (
+const EmptyPanel = ({ message = "No data available yet" }) => (
   <div className="flex h-full min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm font-medium text-slate-500">
     {message}
   </div>
@@ -66,14 +66,14 @@ const StatCard = ({ icon: Icon, title, value, subtitle, tone = "blue" }) => {
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <h2 className="mt-3 truncate text-3xl font-bold leading-none text-slate-950">{value}</h2>
-          {subtitle ? <p className="mt-2 text-sm text-slate-500">{subtitle}</p> : null}
+          <p className="truncate text-xs font-medium text-slate-500 sm:text-sm">{title}</p>
+          <h2 className="mt-2 truncate text-2xl font-bold leading-none text-slate-950 sm:text-3xl">{value}</h2>
+          {subtitle ? <p className="mt-1.5 truncate text-xs text-slate-500">{subtitle}</p> : null}
         </div>
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${tones[tone]}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-12 sm:w-12 ${tones[tone]}`}>
           <Icon size={20} />
         </div>
       </div>
@@ -82,38 +82,12 @@ const StatCard = ({ icon: Icon, title, value, subtitle, tone = "blue" }) => {
 };
 
 const ChartCard = ({ title, subtitle, hasData, children }) => (
-  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-    {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
-    <div className="mt-5 h-72">{hasData ? children : <EmptyPanel />}</div>
+  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <h2 className="truncate text-base font-semibold text-slate-900">{title}</h2>
+    {subtitle ? <p className="mt-1 truncate text-xs text-slate-500 sm:text-sm">{subtitle}</p> : null}
+    <div className="mt-4 h-64 min-w-0 w-full overflow-hidden sm:h-72">{hasData ? children : <EmptyPanel />}</div>
   </section>
 );
-
-const ActivityItem = ({ activity }) => {
-  const actor = activity?.performed_by;
-  const actorName = `${actor?.first_name || ""} ${actor?.last_name || ""}`.trim() || actor?.email || "System";
-
-  return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold capitalize text-slate-900">
-            {(activity?.action || "activity").replaceAll("_", " ")}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {actorName} - {activity?.performed_by?.employee_id || activity?.performed_by?.role || "SYSTEM"}
-          </p>
-        </div>
-        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
-          {activity?.entity_type || "event"}
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-slate-500">
-        {activity?.created_at ? new Date(activity.created_at).toLocaleString("en-IN") : "Timestamp unavailable"}
-      </p>
-    </div>
-  );
-};
 
 const FinanceDashboard = () => {
   const [data, setData] = useState(null);
@@ -157,7 +131,6 @@ const FinanceDashboard = () => {
     ? data.charts.employeeStatusDistribution.filter((item) => safeNumber(item.value) > 0)
     : [];
   const highValuePaymentTrend = normalizeSeries(data?.trends?.highValuePayments);
-  const recentActivity = Array.isArray(data?.recentActivity) ? data.recentActivity : [];
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -167,8 +140,8 @@ const FinanceDashboard = () => {
     return (
       <div className="grid gap-6">
         <div className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white" />
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 7 }).map((_, index) => (
             <div key={index} className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
           ))}
         </div>
@@ -178,23 +151,23 @@ const FinanceDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500">Finance Head Workspace</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Finance Head Workspace</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl md:text-4xl">
               Finance Review Dashboard
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Live vendor-review, high-value payment, managed employee, and scoped audit activity from secured backend queries.
+            <p className="mt-1 max-w-3xl text-xs text-slate-500 sm:text-sm">
+              Live vendor-review, high-value payment, and managed employee analytics from secured backend queries.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="grid gap-1 text-sm">
+          <div className="flex flex-wrap items-end gap-2.5">
+            <label className="grid gap-1 text-xs sm:text-sm">
               <span className="font-medium text-slate-600">Period</span>
               <select
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
                 value={filters.preset}
                 onChange={(event) => updateFilter("preset", event.target.value)}
               >
@@ -206,19 +179,19 @@ const FinanceDashboard = () => {
 
             {filters.preset === "custom" && (
               <>
-                <label className="grid gap-1 text-sm">
+                <label className="grid gap-1 text-xs sm:text-sm">
                   <span className="font-medium text-slate-600">Start</span>
                   <input
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
                     type="date"
                     value={filters.startDate}
                     onChange={(event) => updateFilter("startDate", event.target.value)}
                   />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className="grid gap-1 text-xs sm:text-sm">
                   <span className="font-medium text-slate-600">End</span>
                   <input
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
                     type="date"
                     value={filters.endDate}
                     onChange={(event) => updateFilter("endDate", event.target.value)}
@@ -227,10 +200,10 @@ const FinanceDashboard = () => {
               </>
             )}
 
-            <label className="grid gap-1 text-sm">
+            <label className="grid gap-1 text-xs sm:text-sm">
               <span className="font-medium text-slate-600">Group</span>
               <select
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
                 value={filters.groupBy}
                 onChange={(event) => updateFilter("groupBy", event.target.value)}
               >
@@ -241,12 +214,12 @@ const FinanceDashboard = () => {
             </label>
 
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:h-10 sm:px-4 sm:text-sm disabled:opacity-60"
               disabled={refreshing}
               onClick={() => loadDashboard({ silent: true })}
               type="button"
             >
-              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
               Refresh
             </button>
           </div>
@@ -254,13 +227,14 @@ const FinanceDashboard = () => {
       </section>
 
       {error ? (
-        <section className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
-          <h2 className="text-base font-semibold">Dashboard unavailable</h2>
-          <p className="mt-1 text-sm">{error}</p>
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
+          <h2 className="text-sm font-semibold sm:text-base">Dashboard unavailable</h2>
+          <p className="mt-1 text-xs sm:text-sm">{error}</p>
         </section>
       ) : null}
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      {/* Stat Cards Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
         <StatCard icon={Clock3} title="Pending Vendor Reviews" value={formatCompact(vendorReview.pending)} subtitle="Awaiting Finance decision" />
         <StatCard icon={AlertTriangle} title="Vendors On Hold" value={formatCompact(vendorReview.onHold)} subtitle="Blocked pending correction" tone="amber" />
         <StatCard icon={CheckCircle2} title="Approved Vendors" value={formatCompact(vendorReview.approved)} subtitle="Approved vendor records" tone="green" />
@@ -270,60 +244,71 @@ const FinanceDashboard = () => {
         <StatCard icon={Users} title="New Managed Employees" value={formatCompact(employees.newInPeriod)} subtitle="Lower-level roles only" tone="green" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-12">
-        <div className="space-y-6 xl:col-span-8">
-          <ChartCard title="High-Value Payment Trend" subtitle="INR payments at or above the Finance Head approval threshold." hasData={highValuePaymentTrend.length > 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={highValuePaymentTrend}>
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#64748b" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Bar dataKey="value" fill="#2563eb" radius={[10, 10, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+      {/* Main Bar Chart */}
+      <ChartCard title="High-Value Payment Trend" subtitle="INR payments at or above the Finance Head approval threshold." hasData={highValuePaymentTrend.length > 0}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={highValuePaymentTrend}>
+            <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
+            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
+            <Tooltip formatter={(value) => formatCurrency(value)} />
+            <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Vendor Review Status" subtitle="Distribution from real vendor review statuses." hasData={vendorDistribution.length > 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip />
-                  <Pie data={vendorDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={58} paddingAngle={2} stroke="none">
-                    {vendorDistribution.map((entry, index) => (
-                      <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
+      {/* Balanced 3-Column Chart & Overview Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ChartCard title="Vendor Review Status" subtitle="Distribution from real vendor review statuses." hasData={vendorDistribution.length > 0}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Tooltip />
+              <Pie data={vendorDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} paddingAngle={3} stroke="none">
+                {vendorDistribution.map((entry, index) => (
+                  <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-            <ChartCard title="Managed Employee Status" subtitle="Finance Head scope excludes Super Admin and Finance Head users." hasData={employeeDistribution.length > 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip />
-                  <Pie data={employeeDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={58} paddingAngle={2} stroke="none">
-                    {employeeDistribution.map((entry, index) => (
-                      <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
-        </div>
+        <ChartCard title="Managed Employee Status" subtitle="Excludes Super Admin and Finance Head users." hasData={employeeDistribution.length > 0}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Tooltip />
+              <Pie data={employeeDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} paddingAngle={3} stroke="none">
+                {employeeDistribution.map((entry, index) => (
+                  <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-        <aside className="xl:col-span-4">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Scoped Recent Activity</h2>
-            <p className="mt-1 text-sm text-slate-500">Audit events relevant to Finance Head responsibilities.</p>
-            <div className="mt-5 space-y-3">
-              {recentActivity.length > 0
-                ? recentActivity.map((activity) => <ActivityItem key={activity.id} activity={activity} />)
-                : <EmptyPanel />}
-            </div>
-          </section>
-        </aside>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="text-base font-semibold text-slate-900">Payment Overview</h2>
+          <p className="mt-1 text-xs text-slate-500 sm:text-sm">High-value payment counts from your approval scope.</p>
+          <dl className="mt-4 space-y-3">
+            {[
+              { label: "Awaiting Approval",  value: formatCompact(payments.awaitingApproval),  hint: formatCurrency(payments.awaitingAmount), tone: "amber" },
+              { label: "High-Value Payments", value: formatCompact(payments.highValueCount),    hint: `≥ ${formatCurrency(payments.threshold)}`, tone: "blue" },
+            ].map(({ label, value, hint, tone }) => {
+              const bg =
+                tone === "amber" ? "bg-amber-50 text-amber-700 border-amber-100"
+                : tone === "green" ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                : "bg-blue-50 text-blue-700 border-blue-100";
+              return (
+                <div key={label} className={`flex items-center justify-between rounded-xl border p-3.5 ${bg}`}>
+                  <div>
+                    <p className="text-xs font-semibold sm:text-sm">{label}</p>
+                    {hint ? <p className="mt-0.5 text-xs opacity-75">{hint}</p> : null}
+                  </div>
+                  <span className="text-xl font-bold sm:text-2xl">{value}</span>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
       </div>
     </div>
   );

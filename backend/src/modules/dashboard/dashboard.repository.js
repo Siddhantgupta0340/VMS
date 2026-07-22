@@ -264,23 +264,32 @@ class DashboardRepository {
     }));
   }
 
-  async getTopVendorsByRevenue(filters = {}, limit = 5) {
+  async getTopVendorsByRevenue(filters = {}, limit = 8) {
     const rows = await prisma.$queryRawUnsafe(
       `
         SELECT
           v.id,
           v.name,
           v.vendor_code,
-          SUM(p.amount)::numeric AS revenue,
-          COUNT(p.id)::int AS payment_count
-        FROM payments p
-        INNER JOIN vendors v ON v.id = p.vendor_id
-        WHERE p.status IN ('SUCCESS', 'success')
+          v.category,
+          v.approval_status,
+          v.status                                                              AS vendor_status,
+          COALESCE(SUM(p.amount) FILTER (WHERE p.status IN ('SUCCESS','success')),0)::numeric AS revenue,
+          COUNT(DISTINCT p.id)  FILTER (WHERE p.status IN ('SUCCESS','success'))::int         AS payment_count,
+          COUNT(DISTINCT po.id)::int                                            AS po_count,
+          COALESCE(SUM(po.amount), 0)::numeric                                  AS po_total_value,
+          COUNT(DISTINCT inv.id)::int                                            AS invoice_count,
+          COALESCE(SUM(inv.amount), 0)::numeric                                 AS invoice_total_value
+        FROM vendors v
+        LEFT JOIN payments p
+          ON p.vendor_id = v.id
           AND COALESCE(p.payment_date, p.created_at) >= $1
           AND COALESCE(p.payment_date, p.created_at) <= $2
-          AND v.deleted_at IS NULL
-        GROUP BY v.id, v.name, v.vendor_code
-        ORDER BY revenue DESC
+        LEFT JOIN purchase_orders po ON po.vendor_id = v.id
+        LEFT JOIN invoices inv       ON inv.vendor_id = v.id AND inv.deleted_at IS NULL
+        WHERE v.deleted_at IS NULL
+        GROUP BY v.id, v.name, v.vendor_code, v.category, v.approval_status, v.status
+        ORDER BY revenue DESC, po_total_value DESC, po_count DESC
         LIMIT $3
       `,
       filters.startDate,
@@ -289,13 +298,21 @@ class DashboardRepository {
     );
 
     return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      vendorCode: row.vendor_code,
-      revenue: toNumber(row.revenue),
-      paymentCount: toNumber(row.payment_count),
+      id:                row.id,
+      name:              row.name,
+      vendorCode:        row.vendor_code,
+      category:          row.category         || 'N/A',
+      approvalStatus:    row.approval_status  || 'PENDING',
+      status:            row.vendor_status    || 'PENDING',
+      revenue:           toNumber(row.revenue),
+      paymentCount:      toNumber(row.payment_count),
+      poCount:           toNumber(row.po_count),
+      poTotalValue:      toNumber(row.po_total_value),
+      invoiceCount:      toNumber(row.invoice_count),
+      invoiceTotalValue: toNumber(row.invoice_total_value),
     }));
   }
+
 
   async getRecentActivityInRange(filters = {}, limit = 8) {
     return prisma.auditLog.findMany({

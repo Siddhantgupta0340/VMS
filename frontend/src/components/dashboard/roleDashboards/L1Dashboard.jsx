@@ -1,8 +1,7 @@
-import DashboardOverview from "./DashboardOverview";
+import TeamLeadDashboard from "./TeamLeadDashboard";
 
 const L1Dashboard = () => {
-  return <DashboardOverview />;
+  return <TeamLeadDashboard />;
 };
 
 export default L1Dashboard;
-
