@@ -2,16 +2,43 @@ import prisma from '../../config/prisma.js';
 
 const approvalInclude = {
   payment: {
-    include: {
-      invoice: { select: { id: true, invoice_number: true, amount: true, currency: true } },
-      vendor: { select: { id: true, name: true, vendor_code: true } },
-      purchase_order: { select: { id: true, po_number: true } },
+    select: {
+      id: true,
+      payment_number: true,
+      status: true,
+      amount: true,
     },
   },
-  invoice: { select: { id: true, invoice_number: true, amount: true, currency: true } },
-  purchase_order: { select: { id: true, po_number: true } },
-  vendor: { select: { id: true, name: true, vendor_code: true } },
-  three_way_match: { select: { id: true, status: true, match_percentage: true } },
+  invoice: {
+    select: {
+      id: true,
+      invoice_number: true,
+      invoice_date: true,
+      amount: true,
+      invoice_total: true,
+      currency: true,
+      tax_summary: true,
+      line_items: true,
+      status: true,
+      paid_amount: true,
+    },
+  },
+  purchase_order: { select: { id: true, po_number: true, order_date: true, amount: true, line_items: true } },
+  vendor: { select: { id: true, name: true, vendor_code: true, gst_number: true, email: true } },
+  three_way_match: {
+    select: {
+      id: true,
+      status: true,
+      match_percentage: true,
+      matched_fields: true,
+      unmatched_fields: true,
+      warnings: true,
+      po_snapshot: true,
+      grn_snapshot: true,
+      delivery_challan_snapshot: true,
+      invoice_snapshot: true,
+    },
+  },
   approver: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true, employee_id: true },
   },
@@ -144,6 +171,24 @@ class PaymentApprovalRepository {
   async findPendingByPaymentId(paymentId) {
     return prisma.paymentApproval.findFirst({
       where: { payment_id: paymentId, status: 'PENDING' },
+    });
+  }
+
+  /**
+   * Check if any non-terminal approval already exists for an invoice.
+   * Used for idempotency — prevents duplicate approvals when matching is re-run.
+   * @param {string} invoiceId
+   * @param {object|null} tx - Optional Prisma transaction client
+   * @returns {PaymentApproval|null}
+   */
+  async findPendingByInvoiceId(invoiceId, tx = null) {
+    const client = tx || prisma;
+    return client.paymentApproval.findFirst({
+      where: {
+        invoice_id: invoiceId,
+        status: 'PENDING',
+      },
+      orderBy: { requested_at: 'desc' },
     });
   }
 

@@ -27,6 +27,33 @@ class PaymentApprovalController {
   });
 
   /**
+   * Get all payment approvals linked to a specific invoice.
+   * Allows the frontend to load approval state from an invoice detail page
+   * without requiring the frontend to hardcode any IDs or thresholds.
+   */
+  getApprovalsByInvoiceId = asyncHandler(async (req, res) => {
+    const approvals = await paymentApprovalService.getApprovalsByInvoiceId(req.params.invoiceId, req.user);
+    res.status(200).json({
+      success: true,
+      message: 'Payment approvals for invoice retrieved successfully.',
+      data: approvals,
+    });
+  });
+
+  /**
+   * Return the approval routing configuration (thresholds) from the backend.
+   * The frontend must call this endpoint instead of hardcoding amounts.
+   */
+  getApprovalConfig = asyncHandler(async (req, res) => {
+    const config = paymentApprovalService.getApprovalConfig();
+    res.status(200).json({
+      success: true,
+      message: 'Approval configuration retrieved successfully.',
+      data: config,
+    });
+  });
+
+  /**
    * Approve a pending payment approval.
    */
   approvePaymentApproval = asyncHandler(async (req, res) => {
@@ -66,3 +93,4 @@ class PaymentApprovalController {
 }
 
 export default new PaymentApprovalController();
+

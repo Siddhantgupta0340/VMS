@@ -2,7 +2,7 @@ import { ArrowLeft, Search, AlertCircle, CheckCircle, FileText, User, ShoppingBa
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getInvoices } from "../../services/invoiceService";
-import { createPayment, getPaymentCreationStats } from "../../services/paymentService";
+import { createPayment, getPaymentCreationStats, getEligibleInvoices } from "../../services/paymentService";
 import { toast } from "sonner";
 import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
@@ -44,8 +44,12 @@ const PaymentCreate = () => {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const invoices = await getInvoices({ eligibleForPayment: true });
-      setApprovedInvoices(invoices);
+      // Try dedicated eligible invoices endpoint first, fallback to getInvoices
+      let invoices = await getEligibleInvoices();
+      if (!invoices || invoices.length === 0) {
+        invoices = await getInvoices({ eligibleForPayment: true });
+      }
+      setApprovedInvoices(invoices || []);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load approved invoices list");

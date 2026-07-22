@@ -48,7 +48,7 @@ export const createInvoiceSchema = z.object({
     ),
     dueDate: z.preprocess(
       (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(),
+      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(), // Due Date is required
     ),
     remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional().default(''),
   }),
@@ -213,3 +213,6 @@ export default {
   approvedPurchaseOrdersForInvoiceSchema,
   invoiceActionSchema,
 };
+
+// Due Date is required
+

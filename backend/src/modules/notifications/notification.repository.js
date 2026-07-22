@@ -4,15 +4,17 @@ class NotificationRepository {
   /**
    * Create a new notification for a user.
    */
-  async create(data) {
-    return prisma.notification.create({ data });
+  async create(data, tx = null) {
+    const client = tx || prisma;
+    return client.notification.create({ data });
   }
 
   /**
    * Create multiple notifications at once (bulk).
    */
-  async createMany(notifications) {
-    return prisma.notification.createMany({ data: notifications });
+  async createMany(notifications, tx = null) {
+    const client = tx || prisma;
+    return client.notification.createMany({ data: notifications });
   }
 
   /**

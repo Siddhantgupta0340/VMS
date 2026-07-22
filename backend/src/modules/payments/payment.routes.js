@@ -23,6 +23,7 @@ router.use(protect);
 
 router.get('/stats', authorize(READ_ACCESS), paymentController.getPaymentStats);
 router.get('/creation-stats', authorize(CREATE_ACCESS), paymentController.getPaymentCreationStats);
+router.get('/eligible-invoices', authorize(CREATE_ACCESS), paymentController.getEligibleInvoices);
 router.get('/pending', authorize(REVIEW_ACCESS), validate(searchPaymentsSchema), paymentController.getPendingPayments);
 router.get('/completed', authorize(READ_ACCESS), validate(searchPaymentsSchema), paymentController.getCompletedPayments);
 

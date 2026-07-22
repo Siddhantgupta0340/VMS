@@ -26,6 +26,14 @@ const ACTION_ACCESS = [
 
 router.use(protect);
 
+// ── Configuration (no ID required) ───────────────────────────────────────────
+// Must be defined BEFORE /:id routes to avoid Express treating 'config' as an ID.
+router.get('/config', authorize(VIEW_ACCESS), paymentApprovalController.getApprovalConfig);
+
+// ── Invoice-level lookup ──────────────────────────────────────────────────────
+router.get('/by-invoice/:invoiceId', authorize(VIEW_ACCESS), paymentApprovalController.getApprovalsByInvoiceId);
+
+// ── Single approval operations ────────────────────────────────────────────────
 router.get('/', authorize(VIEW_ACCESS), paymentApprovalController.getMyApprovals);
 router.get('/:id', authorize(VIEW_ACCESS), paymentApprovalController.getApprovalById);
 router.post('/:id/approve', authorize(ACTION_ACCESS), paymentApprovalController.approvePaymentApproval);
@@ -33,3 +41,4 @@ router.post('/:id/reject', authorize(ACTION_ACCESS), paymentApprovalController.r
 router.get('/:id/history', authorize(VIEW_ACCESS), paymentApprovalController.getApprovalHistory);
 
 export default router;
+

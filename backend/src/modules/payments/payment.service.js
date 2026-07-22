@@ -30,6 +30,13 @@ export const PAYMENT_STATUS = {
   COMPLETED: 'COMPLETED',
 };
 
+export const THREE_WAY_MATCH_STATUS = {
+  PENDING: 'PENDING',
+  MATCHED: 'MATCHED',
+  MISMATCH: 'MISMATCH',
+  FAILED: 'FAILED',
+};
+
 // ─── Dynamic Approval Limit Configurations ────────────────────────────────────
 // Read limits dynamically from environment variables or system configuration defaults
 export const TEAM_LEAD_PAYMENT_APPROVAL_MAX = Number(
@@ -220,6 +227,119 @@ const assertVendorBankReadyForPayment = (vendor) => {
 
 class PaymentService {
   /**
+   * Step 1: Get invoices eligible for payment creation.
+   * Return only invoices where 3WM = MATCHED, Payment Approval = APPROVED, not CANCELLED, remaining_amount > 0.
+   */
+  async getEligibleInvoices(user) {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        three_way_match_status: 'MATCHED',
+        status: { in: ['APPROVED', 'PARTIALLY_PAID', 'PENDING_PAYMENT'] },
+        deleted_at: null,
+        ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+      },
+      include: {
+        vendor: true,
+        purchase_order: {
+          include: {
+            grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+            delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+          },
+        },
+        three_way_matches: {
+          where: { status: 'MATCHED' },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
+        payment_approvals: {
+          where: { status: 'APPROVED' },
+          orderBy: { approved_at: 'desc' },
+          take: 1,
+        },
+        payments: {
+          where: {
+            status: { in: ['PENDING', 'INITIATED', 'PROCESSING', 'SUCCESS', 'COMPLETED'] },
+          },
+          select: { id: true, amount: true, status: true },
+        },
+      },
+      orderBy: { updated_at: 'desc' },
+    });
+
+    const eligible = [];
+    for (const inv of invoices) {
+      const approvedApproval = inv.payment_approvals?.[0];
+      if (!approvedApproval) continue; // MUST have APPROVED PaymentApproval!
+
+      const invoiceTotal = Number(inv.invoice_total || inv.amount || 0);
+      const paidAmount = Number(inv.paid_amount || 0);
+
+      // Sum existing payment allocations
+      const allocated = inv.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalPaidOrAllocated = Math.max(paidAmount, allocated);
+      const remainingAmount = Math.max(0, invoiceTotal - totalPaidOrAllocated);
+
+      if (remainingAmount <= 0.01) continue; // Skip fully paid or fully allocated invoices!
+
+      const match = inv.three_way_matches?.[0];
+      const grnSnap = match?.grn_snapshot || match?.grnSnapshot;
+      const dcSnap = match?.delivery_challan_snapshot || match?.deliveryChallanSnapshot;
+      const directGrn = inv.purchase_order?.grns?.[0];
+      const directDc = inv.purchase_order?.delivery_challans?.[0];
+
+      eligible.push({
+        id: inv.id,
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoice_number,
+        invoiceDate: inv.invoice_date,
+        dueDate: inv.due_date,
+        status: inv.status,
+        threeWayMatchStatus: inv.three_way_match_status,
+        paymentApprovalStatus: approvedApproval.status,
+        approvedAmount: Number(approvedApproval.amount || invoiceTotal),
+        approvalId: approvedApproval.id,
+
+        // Vendor Details
+        vendorId: inv.vendor_id,
+        vendor: inv.vendor?.name,
+        vendorName: inv.vendor?.name,
+        vendorCode: inv.vendor?.vendor_code,
+        vendorGst: inv.vendor?.gst_number || inv.vendor?.tax_id || null,
+        gstNumber: inv.vendor?.gst_number || inv.vendor?.tax_id || null,
+        vendorAddress: inv.vendor?.billing_address || inv.vendor?.address || null,
+        vendorBankName: inv.vendor?.bank_name || null,
+        vendorAccountHolder: inv.vendor?.account_holder || null,
+        vendorBankAccountNo: inv.vendor?.bank_account_no || null,
+        vendorIfscCode: inv.vendor?.ifsc_code || null,
+        vendorBankBranch: inv.vendor?.bank_branch || null,
+
+        // PO Details
+        purchaseOrderId: inv.purchase_order_id,
+        poNumber: inv.purchase_order?.po_number,
+        poDate: inv.purchase_order?.order_date,
+        poTotal: Number(inv.purchase_order?.amount || 0),
+        purchaseOrderAmount: Number(inv.purchase_order?.amount || 0),
+
+        // GRN & DC Details
+        grnNumber: grnSnap?.grnNumber || grnSnap?.grn_number || directGrn?.grn_number || 'GRN-VERIFIED',
+        grnDate: grnSnap?.receivedDate || directGrn?.received_date || null,
+        deliveryChallanNumber: dcSnap?.deliveryChallanNumber || dcSnap?.delivery_challan_number || directDc?.delivery_challan_number || 'DC-VERIFIED',
+        deliveryChallanDate: dcSnap?.deliveryDate || directDc?.delivery_date || null,
+
+        // Financial Totals
+        invoiceTotal,
+        amount: invoiceTotal,
+        paidAmount,
+        outstandingAmount: remainingAmount,
+        remainingPayableAmount: remainingAmount,
+        currency: inv.currency || 'INR',
+      });
+    }
+
+    return eligible;
+  }
+
+  /**
    * Create a new payment request against an approved invoice.
    */
   async createPayment(payload, user) {
@@ -253,15 +373,15 @@ class PaymentService {
     }
 
     // Calculate unallocated balance to check for overpayments
-    const existingPayments = await paymentRepository.findAll({
+    const existingPayments = await prisma.payment.findMany({
       where: {
         invoice_id: payload.invoiceId,
         status: { in: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.SUCCESS] },
       },
-      take: 100,
+      select: { id: true, amount: true },
     });
 
-    const totalAllocated = existingPayments.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalAllocated = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const remainingAllocated = Number(invoice.invoice_total) - totalAllocated;
     const paymentAmount = Number(payload.amount);
 
@@ -279,14 +399,6 @@ class PaymentService {
     const paymentNumber = buildPaymentNumber();
     const currency = payload.currency || invoice.currency || 'INR';
 
-    // Find the ThreeWayMatch for this invoice to link to the approval
-    const latestMatch = await prisma.threeWayMatch.findFirst({
-      where: { invoice_id: payload.invoiceId, status: 'MATCHED' },
-      orderBy: { created_at: 'desc' },
-      select: { id: true },
-    });
-    const threeWayMatchId = latestMatch?.id || null;
-
     const createdPayment = await paymentRepository.transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
@@ -294,49 +406,79 @@ class PaymentService {
           invoice_id:        payload.invoiceId,
           vendor_id:         invoice.vendor_id,
           purchase_order_id: invoice.purchase_order_id,
-          three_way_match_id: threeWayMatchId,
           amount:            paymentAmount,
           currency,
-          status:            'PENDING', // Directly PENDING (ready for execution) as approval is already done!
-          approval_status:   'APPROVED',
-          approved_by_id:    approvedApproval.approved_by_id,
-          approved_at:       approvedApproval.approved_at,
+          status:            'SUCCESS', // Payment payout recorded successfully!
           payment_method:    payload.paymentMethod || 'NEFT',
           payment_type:      payload.paymentType || 'FULL',
           payment_provider:  payload.paymentProvider || 'MANUAL',
           remarks:           payload.remarks || payload.notes || '',
           due_date:          payload.dueDate ? new Date(payload.dueDate) : null,
+          payment_date:      new Date(),
           created_by_id:     user.id,
           updated_by_id:     user.id,
+        },
+        select: {
+          id: true,
+          payment_number: true,
+          invoice_id: true,
+          vendor_id: true,
+          purchase_order_id: true,
+          amount: true,
+          currency: true,
+          status: true,
+          payment_method: true,
+          payment_type: true,
+          payment_provider: true,
+          remarks: true,
+          due_date: true,
+          payment_date: true,
+          created_by_id: true,
+          updated_by_id: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
+
+      // Calculate new paid amount and remaining amount on invoice
+      const oldPaid = Number(invoice.paid_amount || 0);
+      const newPaidAmount = oldPaid + paymentAmount;
+      const invoiceTotal = Number(invoice.invoice_total || invoice.amount || 0);
+      const newRemainingAmount = Math.max(0, invoiceTotal - newPaidAmount);
+
+      const isFullyPaid = newRemainingAmount <= 0.01;
+      const finalPaymentStatus = isFullyPaid ? 'PAID' : 'PARTIALLY_PAID';
+      const finalInvoiceStatus = isFullyPaid ? 'PAID' : 'PARTIALLY_PAID';
+
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          paid_amount: newPaidAmount,
+          remaining_amount: newRemainingAmount,
+          payment_status: finalPaymentStatus,
+          status: finalInvoiceStatus,
         },
       });
 
       // Update the PaymentApproval record to link it to the newly created payment
       await tx.paymentApproval.update({
         where: { id: approvedApproval.id },
-        data: { payment_id: payment.id },
+        data: { payment_id: payment.id, status: 'APPROVED' },
       });
 
-      // Create history entry for linking
+      // Create history entry for linking and completion
       await tx.paymentApprovalHistory.create({
         data: {
           payment_approval_id: approvedApproval.id,
           payment_id:          payment.id,
           invoice_id:          invoice.id,
-          action:              'ASSIGNED',
+          action:              'COMPLETED',
           previous_status:     'APPROVED',
-          new_status:          'APPROVED',
+          new_status:          'COMPLETED',
           performed_by_id:     user.id,
-          remarks:             `Payment ${payment.payment_number} created and linked to this approved request.`,
+          remarks:             `Payment ${payment.payment_number} created for ${currency} ${paymentAmount}. Invoice updated to ${finalInvoiceStatus}.`,
         },
       });
-
-      if (invoice.payment_status === 'UNPAID') {
-        await tx.invoice.update({
-          where: { id: invoice.id },
-          data: { payment_status: 'PAYMENT_PENDING' },
-        });
-      }
 
       // Log payment creation in both AuditLog and ApprovalLog
       await Promise.all([
@@ -346,9 +488,9 @@ class PaymentService {
             entity_id:       payment.id,
             action:          'created',
             from_status:     null,
-            to_status:       'PENDING',
+            to_status:       'SUCCESS',
             performed_by_id: user.id,
-            remarks:         payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+            remarks:         payload.remarks || `Payment of ${currency} ${paymentAmount} recorded for invoice ${invoice.invoice_number}`,
           },
         }),
         tx.approvalLog.create({
@@ -357,9 +499,9 @@ class PaymentService {
             entity_id:       payment.id,
             action:          'created',
             from_status:     null,
-            to_status:       'PENDING',
+            to_status:       'SUCCESS',
             performed_by_id: user.id,
-            remarks:         payload.remarks || `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+            remarks:         payload.remarks || `Payment of ${currency} ${paymentAmount} recorded for invoice ${invoice.invoice_number}`,
           },
         }),
       ]);
@@ -474,6 +616,7 @@ class PaymentService {
     // Construct role-specific where filter
     let roleClause = {};
     if (query.status === 'PENDING_APPROVAL') {
+      console.log("--------------------------------------",query.status, user.role)
       if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
         roleClause = paymentWhereForApprovalRole(user.role) || {};
       }
@@ -1239,3 +1382,8 @@ class PaymentService {
 }
 
 export default new PaymentService();
+
+// approved_at: new Date()
+// notifyPaymentApprovalRequested
+
+

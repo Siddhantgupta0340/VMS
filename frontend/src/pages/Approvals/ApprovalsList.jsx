@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Eye, Check, X, ShieldAlert, Clock, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Search, Eye, Check, X, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { getPaymentApprovals, approvePaymentApproval, rejectPaymentApproval, getPaymentApprovalHistory } from "../../services/approvalService";
 import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
@@ -11,6 +12,8 @@ const money = (val, cur = "INR") =>
 
 const ApprovalsList = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const urlApprovalId = searchParams.get("id");
 
   const [approvalData, setApprovalData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,14 @@ const ApprovalsList = () => {
       setLoading(true);
       const data = await getPaymentApprovals();
       setApprovalData(data);
+
+      // If URL has ?id=<approvalId>, auto open detail modal
+      if (urlApprovalId && data.length > 0) {
+        const target = data.find((a) => a.id === urlApprovalId);
+        if (target) {
+          handleOpenDetails(target);
+        }
+      }
     } catch (err) {
       console.error("Failed to load payment approvals:", err);
       toast.error("Failed to load approvals list.");
@@ -49,7 +60,11 @@ const ApprovalsList = () => {
     return approvalData.filter((approval) => {
       // Role & User Based Filtering (Already filtered on backend, but let's double check)
       if (user.role !== ROLES.SUPER_ADMIN) {
-        if (approval.approverId !== user.id && approval.requestedById !== user.id) {
+        if (
+          approval.approverId !== user.id &&
+          approval.requiredRole !== user.role &&
+          approval.requestedById !== user.id
+        ) {
           return false;
         }
       }
@@ -181,67 +196,85 @@ const ApprovalsList = () => {
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice / PO</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Required Level</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval / Invoice</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor / PO</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">3WM Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Required Role</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned User</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredApprovals.map((approval) => (
-                  <tr key={approval.id} className="hover:bg-slate-50/80 transition-all">
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800 text-sm">Inv: {approval.invoiceNumber || "N/A"}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">PO: {approval.poNumber || "N/A"}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-800 text-sm">{approval.vendorName}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">Code: {approval.vendorCode || "N/A"}</div>
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-900 text-sm">
-                      {money(approval.amount, approval.currency)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        Level {approval.approvalLevel} ({approval.requiredRole})
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={approval.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center items-center gap-2">
-                        <button
-                          onClick={() => handleOpenDetails(approval)}
-                          className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        {approval.status === "PENDING" && approval.approverId === user.id && (
-                          <>
-                            <button
-                              onClick={() => handleOpenAction(approval, "approve")}
-                              className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
-                              title="Approve"
-                            >
-                              <Check size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleOpenAction(approval, "reject")}
-                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-                              title="Reject"
-                            >
-                              <X size={18} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredApprovals.map((approval) => {
+                  const canUserAct =
+                    (approval.status === "PENDING" || approval.approvalStatus === "PENDING") &&
+                    user.role !== ROLES.CASE_MANAGER &&
+                    (user.role === ROLES.SUPER_ADMIN ||
+                      approval.approverId === user.id ||
+                      approval.requiredRole === user.role ||
+                      approval.assignedRole === user.role);
+
+                  return (
+                    <tr key={approval.id} className="hover:bg-slate-50/80 transition-all">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-800 text-sm">Inv: {approval.invoiceNumber || "N/A"}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">ID: {approval.id.substring(0, 8)}...</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-slate-800 text-sm">{approval.vendorName || "N/A"}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">PO: {approval.poNumber || "N/A"}</div>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-900 text-sm">
+                        {money(approval.amount || approval.requestedAmount, approval.currency)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={approval.threeWayMatchStatus || "MATCHED"} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {approval.requiredRole || approval.assignedRole}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-700">
+                        {approval.approverName || approval.assignedUser || approval.approverEmail || "Role Pool"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={approval.status || approval.approvalStatus} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center items-center gap-2">
+                          <button
+                            onClick={() => handleOpenDetails(approval)}
+                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="View Full Details"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          {canUserAct && (
+                            <>
+                              <button
+                                onClick={() => handleOpenAction(approval, "approve")}
+                                className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                title="Approve Payment"
+                              >
+                                <Check size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleOpenAction(approval, "reject")}
+                                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                                title="Reject Payment"
+                              >
+                                <X size={18} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -251,12 +284,12 @@ const ApprovalsList = () => {
       {/* Details Slide-Over or Modal */}
       {selectedApproval && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-lg bg-white h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-350">
+          <div className="w-full max-w-2xl bg-white h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-350">
             {/* Modal Header */}
             <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-bold">Approval Request Details</h2>
-                <p className="text-xs text-slate-400 mt-1">ID: {selectedApproval.id}</p>
+                <h2 className="text-lg font-bold">Payment Approval Request</h2>
+                <p className="text-xs text-slate-400 mt-1">Approval ID: {selectedApproval.id}</p>
               </div>
               <button onClick={() => setSelectedApproval(null)} className="p-1 hover:bg-slate-800 rounded-lg transition">
                 <X size={20} />
@@ -266,52 +299,120 @@ const ApprovalsList = () => {
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Financial Overview */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex justify-between items-center">
+              <div className="bg-slate-900 text-white p-6 rounded-2xl flex justify-between items-center shadow-lg">
                 <div>
-                  <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Payment Amount</span>
-                  <div className="text-2xl font-extrabold text-slate-950 mt-1">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold block">Required Approval Amount</span>
+                  <div className="text-3xl font-extrabold text-emerald-400 mt-1">
                     {money(selectedApproval.amount, selectedApproval.currency)}
                   </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Remaining Payable: {money(selectedApproval.remainingPayableAmount, selectedApproval.currency)}
+                  </div>
                 </div>
-                <div>
+                <div className="text-right">
                   <StatusBadge status={selectedApproval.status} />
+                  <span className="text-xs text-slate-300 block mt-2 font-medium">
+                    Required Role: {selectedApproval.requiredRole}
+                  </span>
                 </div>
               </div>
 
-              {/* General details */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Document Links</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-slate-100 p-4 rounded-xl shadow-sm">
+              {/* Three-Way Matching Summary */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 size={16} className="text-emerald-500" /> Three-Way Matching Verification
+                </h3>
+                <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-emerald-900">Matching Status</span>
+                    <span className="font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full text-xs">
+                      {selectedApproval.threeWayMatchStatus || "MATCHED"} ({selectedApproval.threeWayMatchPercentage || 100}%)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-600">
+                    <span>Matched Amount: {money(selectedApproval.matchedAmount, selectedApproval.currency)}</span>
+                    <span>Variance: {money(selectedApproval.varianceAmount, selectedApproval.currency)}</span>
+                  </div>
+                  {selectedApproval.unmatchedFields?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-emerald-200 text-xs text-red-700">
+                      <strong>Mismatch Details:</strong>
+                      {selectedApproval.unmatchedFields.map((f, idx) => (
+                        <div key={idx} className="mt-1">
+                          - {f.field}: {f.reason}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Document References */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Document References</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                   <div>
                     <span className="text-slate-400 text-xs block">Invoice Number</span>
-                    <span className="font-semibold text-slate-800">{selectedApproval.invoiceNumber || "N/A"}</span>
+                    <span className="font-bold text-slate-800">{selectedApproval.invoiceNumber || "N/A"}</span>
+                    {selectedApproval.invoiceDate && (
+                      <span className="text-xs text-slate-400 block mt-0.5">Date: {new Date(selectedApproval.invoiceDate).toLocaleDateString("en-IN")}</span>
+                    )}
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block">Purchase Order</span>
-                    <span className="font-semibold text-slate-800">{selectedApproval.poNumber || "N/A"}</span>
+                    <span className="font-bold text-slate-800">{selectedApproval.poNumber || "N/A"}</span>
+                    {selectedApproval.poDate && (
+                      <span className="text-xs text-slate-400 block mt-0.5">Date: {new Date(selectedApproval.poDate).toLocaleDateString("en-IN")} (Total: {money(selectedApproval.poTotal, selectedApproval.currency)})</span>
+                    )}
                   </div>
                   <div>
+                    <span className="text-slate-400 text-xs block">Goods Receipt Note (GRN)</span>
+                    <span className="font-semibold text-slate-800">{selectedApproval.grnNumber || "GRN Verified"}</span>
+                    {selectedApproval.grnDate && (
+                      <span className="text-xs text-slate-400 block mt-0.5">Date: {new Date(selectedApproval.grnDate).toLocaleDateString("en-IN")}</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-xs block">Delivery Challan</span>
+                    <span className="font-semibold text-slate-800">{selectedApproval.deliveryChallanNumber || "Challan Verified"}</span>
+                    {selectedApproval.deliveryChallanDate && (
+                      <span className="text-xs text-slate-400 block mt-0.5">Date: {new Date(selectedApproval.deliveryChallanDate).toLocaleDateString("en-IN")}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Vendor Information */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+                  <div>
                     <span className="text-slate-400 text-xs block">Vendor Name</span>
-                    <span className="font-semibold text-slate-800">{selectedApproval.vendorName}</span>
+                    <span className="font-bold text-slate-800">{selectedApproval.vendorName}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block">Vendor Code</span>
                     <span className="font-semibold text-slate-800">{selectedApproval.vendorCode || "N/A"}</span>
                   </div>
+                  {selectedApproval.vendorGstin && (
+                    <div className="col-span-2">
+                      <span className="text-slate-400 text-xs block">GSTIN / Tax ID</span>
+                      <span className="font-semibold text-slate-800">{selectedApproval.vendorGstin}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Assigned Details */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Assignment Details</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-slate-100 p-4 rounded-xl shadow-sm">
+              {/* Assignment Details */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                   <div>
                     <span className="text-slate-400 text-xs block">Assigned Approver</span>
-                    <span className="font-semibold text-slate-800">{selectedApproval.approverName || "N/A"}</span>
+                    <span className="font-semibold text-slate-800">{selectedApproval.approverName || "Assigned by Role"}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-xs block">Approver Role</span>
-                    <span className="font-semibold text-slate-800">{selectedApproval.requiredRole}</span>
+                    <span className="text-slate-400 text-xs block">Assigned Role</span>
+                    <span className="font-semibold text-indigo-700">{selectedApproval.requiredRole}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block">Requested By</span>
@@ -341,15 +442,15 @@ const ApprovalsList = () => {
                 </div>
               )}
 
-              {/* Action History */}
+              {/* Action History / Audit Trail */}
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Clock size={16} /> Audit Trail
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock size={16} /> Audit Trail & History
                 </h3>
                 {loadingHistory ? (
                   <div className="text-center py-6 text-slate-400 text-sm flex items-center justify-center gap-2">
                     <Clock className="animate-spin text-slate-400" size={16} />
-                    Loading history...
+                    Loading approval history...
                   </div>
                 ) : history.length === 0 ? (
                   <div className="text-slate-400 text-sm italic">No history logged.</div>
@@ -374,22 +475,27 @@ const ApprovalsList = () => {
             </div>
 
             {/* Modal Actions */}
-            {selectedApproval.status === "PENDING" && selectedApproval.approverId === user.id && (
-              <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-4">
-                <button
-                  onClick={() => handleOpenAction(selectedApproval, "approve")}
-                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm transition flex justify-center items-center gap-1.5 text-sm"
-                >
-                  <Check size={18} /> Approve Payment
-                </button>
-                <button
-                  onClick={() => handleOpenAction(selectedApproval, "reject")}
-                  className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-sm transition flex justify-center items-center gap-1.5 text-sm"
-                >
-                  <X size={18} /> Reject Payment
-                </button>
-              </div>
-            )}
+            {(selectedApproval.status === "PENDING" || selectedApproval.approvalStatus === "PENDING") &&
+              user.role !== ROLES.CASE_MANAGER &&
+              (user.role === ROLES.SUPER_ADMIN ||
+                selectedApproval.approverId === user.id ||
+                selectedApproval.requiredRole === user.role ||
+                selectedApproval.assignedRole === user.role) && (
+                <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-4">
+                  <button
+                    onClick={() => handleOpenAction(selectedApproval, "approve")}
+                    className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm transition flex justify-center items-center gap-1.5 text-sm"
+                  >
+                    <Check size={18} /> Approve Payment
+                  </button>
+                  <button
+                    onClick={() => handleOpenAction(selectedApproval, "reject")}
+                    className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-sm transition flex justify-center items-center gap-1.5 text-sm"
+                  >
+                    <X size={18} /> Reject Payment
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       )}

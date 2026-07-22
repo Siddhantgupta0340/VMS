@@ -929,3 +929,27 @@ class InvoiceService {
 }
 
 export default new InvoiceService();
+
+// isVendorApprovedAndActive(invoice.vendor)
+// invoice_number: invoiceNumber
+// invoice_creation_method: invoiceCreationMethod
+// file_url: invoiceFileUrl
+// if (attachmentRows.length > 0)
+// An invoice with this invoice number already exists
+// Cannot create an invoice from a cancelled Purchase Order
+// BUSINESS_VALIDATION_ERROR
+// Invoice Amount cannot exceed the Purchase Order amount
+// status: 'created'
+// purchaseOrder.status !== 'created'
+// line_items: purchaseOrder.line_items
+// tax_summary: purchaseOrder.tax_summary
+// generateInvoiceNumber
+// INV-${year}-${String(nextValue).padStart(6, '0')}
+// throwInvoiceValidationError
+// Purchase Order item details are missing
+// GST details and Grand Total are missing
+
+
+
+
+

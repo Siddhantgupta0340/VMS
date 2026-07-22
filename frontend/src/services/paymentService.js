@@ -57,7 +57,7 @@ const mapPayment = (payment) => {
 
 export const getPayments = async (params = {}) => {
   const res = await api.get("/v1/payments", { params });
-  return (res.data.payments || []).map(mapPayment);
+  return (res.data.payments || []).map(mapPayment); 
 };
 
 export const getPendingPayments = async (params = {}) => {
@@ -78,6 +78,11 @@ export const getPaymentStats = async () => {
 export const getPaymentCreationStats = async () => {
   const res = await api.get("/v1/payments/creation-stats");
   return res.data.data;
+};
+
+export const getEligibleInvoices = async () => {
+  const res = await api.get("/v1/payments/eligible-invoices");
+  return res.data.data || [];
 };
 
 export const getPaymentById = async (id) => {

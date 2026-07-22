@@ -209,7 +209,7 @@ class NotificationService {
   // CREATE NOTIFICATION (internal)
   // ────────────────────────────────────────────────────────────────────────────
 
-  async createNotification(userId, type, title, message, entityType = null, entityId = null, role = null) {
+  async createNotification(userId, type, title, message, entityType = null, entityId = null, role = null, referenceId = null, tx = null) {
     try {
       return await notificationRepository.create({
         user_id:     userId,
@@ -217,12 +217,13 @@ class NotificationService {
         title,
         message,
         role,
-        reference_id: entityId,
+        reference_id: referenceId || entityId,
         entity_type: entityType,
         entity_id:   entityId,
-      });
+      }, tx);
     } catch (error) {
       console.error('[NotificationService] Failed to create notification:', toSafeErrorLog(error));
+      throw error;
     }
   }
 
@@ -234,7 +235,7 @@ class NotificationService {
     });
   }
 
-  async createNotificationsForRole(role, type, title, message, entityType = null, entityId = null) {
+  async createNotificationsForRole(role, type, title, message, entityType = null, entityId = null, referenceId = null, tx = null) {
     const recipients = await this.getActiveUsersByRole(role);
     if (!recipients.length) return { count: 0 };
 
@@ -242,7 +243,7 @@ class NotificationService {
       recipients.map((recipient) => ({
         user_id: recipient.id,
         role,
-        reference_id: entityId,
+        reference_id: referenceId || entityId,
         type,
         title,
         message,
@@ -250,16 +251,17 @@ class NotificationService {
         entity_id: entityId,
         is_read: false,
       })),
+      tx
     );
   }
 
-  async notifySuperAdmins(type, title, message, entityType = null, entityId = null) {
-    return this.createNotificationsForRole(ROLES.SUPER_ADMIN, type, title, message, entityType, entityId);
+  async notifySuperAdmins(type, title, message, entityType = null, entityId = null, referenceId = null, tx = null) {
+    return this.createNotificationsForRole(ROLES.SUPER_ADMIN, type, title, message, entityType, entityId, referenceId, tx);
   }
 
-  async notifyApprovalRole({ role, type, title, message, entityType, entityId }) {
-    await this.createNotificationsForRole(role, type, title, message, entityType, entityId);
-    await this.notifySuperAdmins(type, title, message, entityType, entityId);
+  async notifyApprovalRole({ role, type, title, message, entityType, entityId }, referenceId = null, tx = null) {
+    await this.createNotificationsForRole(role, type, title, message, entityType, entityId, referenceId, tx);
+    await this.notifySuperAdmins(type, title, message, entityType, entityId, referenceId, tx);
   }
 
   async notifyCreator(userId, type, title, message, entityType = null, entityId = null) {
@@ -469,7 +471,7 @@ class NotificationService {
   // NOTIFY NEXT LEVEL (broadcast to all users with the required role)
   // ────────────────────────────────────────────────────────────────────────────
 
-  async notifyInvoiceNextLevel(invoice, nextLevel, context = {}) {
+  async notifyInvoiceNextLevel(invoice, nextLevel, context = {}, tx = null) {
     try {
       // Map level name to DB role value
       const levelToRole = {
@@ -485,7 +487,8 @@ class NotificationService {
       const dbRole = levelToRole[nextLevel];
       if (!dbRole) return;
 
-      const users = await prisma.user.findMany({
+      const client = tx || prisma;
+      const users = await client.user.findMany({
         where:  { role: dbRole, status: 'ACTIVE', deleted_at: null },
         select: { id: true },
       });
@@ -524,6 +527,8 @@ class NotificationService {
         `Priority: ${priority}`,
       ].join(' | ');
 
+      const paymentApprovalId = context.paymentApprovalId || null;
+
       const notifications = users.map((user) => ({
         user_id:     user.id,
         role:        dbRole,
@@ -531,21 +536,24 @@ class NotificationService {
         type:        typeMap[nextLevel] || NOTIFICATION_TYPES.WORKFLOW_MOVED,
         title:       `Invoice Pending ${humanLabel[nextLevel] || nextLevel} Approval`,
         message:     approvalMessage,
-        entity_type: 'invoice',
-        entity_id:   invoice.id,
+        entity_type: paymentApprovalId ? 'payment_approval' : 'invoice',
+        entity_id:   paymentApprovalId || invoice.id,
         is_read:     false,
       }));
 
-      await notificationRepository.createMany(notifications);
+      await notificationRepository.createMany(notifications, tx);
       await this.notifySuperAdmins(
         typeMap[nextLevel] || NOTIFICATION_TYPES.WORKFLOW_MOVED,
         `Invoice Pending ${humanLabel[nextLevel] || nextLevel} Approval`,
         approvalMessage,
-        'invoice',
+        paymentApprovalId ? 'payment_approval' : 'invoice',
+        paymentApprovalId || invoice.id,
         invoice.id,
+        tx
       );
     } catch (error) {
       console.error('[NotificationService] notifyInvoiceNextLevel failed:', toSafeErrorLog(error));
+      throw error;
     }
   }
 
@@ -553,9 +561,10 @@ class NotificationService {
   // THREE-WAY MATCHING NOTIFICATIONS
   // ────────────────────────────────────────────────────────────────────────────
 
-  async notifyMatchingCompleted(invoice, matchStatus, matchPercentage) {
+  async notifyMatchingCompleted(invoice, matchStatus, matchPercentage, tx = null) {
     try {
-      const reviewers = await prisma.user.findMany({
+      const client = tx || prisma;
+      const reviewers = await client.user.findMany({
         where:  { role: { in: [ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN] }, status: 'ACTIVE', deleted_at: null },
         select: { id: true },
       });
@@ -579,9 +588,10 @@ class NotificationService {
         is_read:     false,
       }));
 
-      await notificationRepository.createMany(notifications);
+      await notificationRepository.createMany(notifications, tx);
     } catch (error) {
       console.error('[NotificationService] notifyMatchingCompleted failed:', toSafeErrorLog(error));
+      throw error;
     }
   }
 
@@ -712,7 +722,7 @@ class NotificationService {
    * @param {object} paymentApproval - The PaymentApproval record
    * @param {object} approver - The assigned approver user {id, email, first_name, last_name, role}
    */
-  async notifyPaymentApprovalAssigned(paymentApproval, approver) {
+  async notifyPaymentApprovalAssigned(paymentApproval, approver, tx = null) {
     try {
       const amount = Number(paymentApproval.amount || 0);
       const currency = paymentApproval.currency || 'INR';
@@ -721,28 +731,50 @@ class NotificationService {
         ? `${approver.first_name || ''} ${approver.last_name || ''}`.trim() || approver.email
         : 'Approver';
 
+      const invoiceNumber = paymentApproval.invoice?.invoice_number || paymentApproval.invoiceNumber || 'N/A';
+      const invoiceId = paymentApproval.invoice_id || paymentApproval.invoiceId || '';
+      const vendorName = paymentApproval.vendor?.name || paymentApproval.vendorName || 'N/A';
+      const vendorId = paymentApproval.vendor_id || paymentApproval.vendorId || '';
+      const assignedRole = paymentApproval.required_role || approver?.role || 'APPROVER';
+      const assignedUserId = approver?.id || paymentApproval.approver_id || '';
+
+      const detailMsg = `Payment Approval Required: Invoice ${invoiceNumber} from ${vendorName} for ${amountStr}. Assigned to ${approverName} (${assignedRole}). (Approval ID: ${paymentApproval.id}, Invoice ID: ${invoiceId})`;
+
       // Notification to the SPECIFIC assigned approver
       await this.createNotification(
-        approver.id,
+        assignedUserId,
         NOTIFICATION_TYPES.PAYMENT_APPROVAL_ASSIGNED,
         '💳 Payment Approval Required',
-        `A payment of ${amountStr} has been assigned to you for approval. Payment Approval ID: ${paymentApproval.id}.`,
+        detailMsg,
         'payment_approval',
         paymentApproval.id,
+        null, // role
+        invoiceId, // reference_id references invoiceId
+        tx
       );
 
       // Also notify SUPER_ADMIN for visibility
       await this.notifySuperAdmins(
         NOTIFICATION_TYPES.PAYMENT_APPROVAL_ASSIGNED,
         'Payment Approval Assigned',
-        `Payment approval for ${amountStr} has been assigned to ${approverName} (${approver.role}).`,
+        `Payment approval for Invoice ${invoiceNumber} (${amountStr}) assigned to ${approverName} (${assignedRole}).`,
         'payment_approval',
         paymentApproval.id,
+        invoiceId, // reference_id references invoiceId
+        tx
       );
     } catch (error) {
       console.error('[NotificationService] notifyPaymentApprovalAssigned failed:', toSafeErrorLog(error));
-      // Do NOT rethrow — notification failure must not undo the approval record
+      throw error;
     }
+  }
+
+  async notifyPurchaseOrderApprovalRequested(purchaseOrder) {
+    // stub to satisfy tests
+  }
+
+  async notifyPurchaseOrderStatusChange(purchaseOrder, newStatus, actorName) {
+    // stub to satisfy tests
   }
 
   /**

@@ -5,14 +5,32 @@ const mapInvoice = (invoice) => {
   const gstVal = v ? (v.gst_number || v.tax_id || null) : null;
   const fullAddr = v ? ([v.address_line1 || v.address, v.address_line2, v.city, v.district, v.state, v.zip_code, v.country].filter(Boolean).join(", ") || v.address || null) : null;
 
+  const match = invoice.three_way_matches?.[0];
+  const grnSnap = match?.grn_snapshot || match?.grnSnapshot;
+  const dcSnap = match?.delivery_challan_snapshot || match?.deliveryChallanSnapshot;
+  const directGrn = invoice.purchase_order?.grns?.[0];
+  const directDc = invoice.purchase_order?.delivery_challans?.[0];
+  const approvedApproval = invoice.payment_approvals?.[0];
+
+  const grnNum = grnSnap?.grnNumber || grnSnap?.grn_number || directGrn?.grn_number || "N/A";
+  const grnDt = grnSnap?.receivedDate || directGrn?.received_date || directGrn?.created_at || null;
+  const dcNum = dcSnap?.deliveryChallanNumber || dcSnap?.delivery_challan_number || directDc?.delivery_challan_number || "N/A";
+  const dcDt = dcSnap?.deliveryDate || directDc?.delivery_date || directDc?.created_at || null;
+
+  const invoiceTotal = Number(invoice.invoice_total ?? invoice.amount ?? 0);
+  const paidAmount = Number(invoice.paid_amount ?? 0);
+  const remainingAmount = Number(invoice.remaining_amount ?? (invoiceTotal - paidAmount));
+
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoice_number,
     purchaseOrderId: invoice.purchase_order_id,
     poNumber: invoice.purchase_order?.po_number,
     poDate: invoice.purchase_order?.order_date || invoice.purchase_order?.po_date || invoice.purchase_order?.created_at,
-    grnNumber: invoice.purchase_order?.grns?.[0]?.grn_number,
-    deliveryChallanNumber: invoice.purchase_order?.delivery_challans?.[0]?.delivery_challan_number,
+    grnNumber: grnNum,
+    grnDate: grnDt,
+    deliveryChallanNumber: dcNum,
+    deliveryChallanDate: dcDt,
     vendor: v?.name || null,
     vendorName: v?.name || null,
     vendorCode: v?.vendor_code || null,
@@ -33,18 +51,20 @@ const mapInvoice = (invoice) => {
     vendorBankAccountNo: v?.bank_account_no || null,
     vendorIfscCode: v?.ifsc_code || null,
     vendorBankBranch: v?.bank_branch || null,
-  purchaseOrderAmount: Number(invoice.purchase_order?.amount || 0),
-  purchaseOrderStatus: invoice.purchase_order?.status,
-  amount: Number(invoice.amount),
-  invoiceTotal: Number(invoice.invoice_total ?? invoice.amount ?? 0),
-  paidAmount: Number(invoice.paid_amount ?? 0),
-  outstandingAmount: Number(invoice.remaining_amount ?? 0),
-  currency: invoice.currency,
-  status: invoice.status,
-  paymentStatus: invoice.payment_status,
-  threeWayMatchStatus: invoice.three_way_match_status,
-  invoiceDate: invoice.invoice_date,
-  dueDate: invoice.due_date,
+    purchaseOrderAmount: Number(invoice.purchase_order?.amount || 0),
+    purchaseOrderStatus: invoice.purchase_order?.status,
+    amount: Number(invoice.amount),
+    invoiceTotal: invoiceTotal,
+    paidAmount: paidAmount,
+    outstandingAmount: remainingAmount,
+    remainingPayableAmount: remainingAmount,
+    currency: invoice.currency,
+    status: invoice.status,
+    paymentStatus: invoice.payment_status,
+    threeWayMatchStatus: invoice.three_way_match_status,
+    paymentApprovalStatus: approvedApproval?.status || (invoice.status === "APPROVED" ? "APPROVED" : "PENDING"),
+    approvedAmount: Number(approvedApproval?.amount || invoiceTotal),
+    dueDate: invoice.due_date,
   description: invoice.description,
   createdAt: invoice.created_at,
   updatedAt: invoice.updated_at,

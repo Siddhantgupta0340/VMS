@@ -382,7 +382,7 @@ class MatchingService {
 
     const now = new Date();
 
-    return matchingRepository.transaction(async (tx) => {
+    const txResult = await matchingRepository.transaction(async (tx) => {
       const previousMatch = await tx.threeWayMatch.findFirst({
         where: { invoice_id: invoiceId },
         orderBy: { created_at: 'desc' },
@@ -462,25 +462,95 @@ class MatchingService {
         },
       });
 
-      notificationService.notifyMatchingCompleted(
-        { ...updatedInvoice, created_by_id: invoice.created_by_id },
-        comparison.status,
-        comparison.match_percentage,
-      ).catch(() => {});
+      // ── Payment Approval Auto-Creation on MATCHED ──────────────────────────
+      // When Three-Way Matching is MATCHED, automatically create a PaymentApproval
+      // record INSIDE this transaction. This is the authoritative creation point.
+      // The idempotency guard in createPaymentApprovalForInvoice ensures no duplicate
+      // is ever created even if this function is called multiple times.
+      let createdApproval = null;
+      let assignedApprover = null;
 
-      if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED && nextApprovalLevel) {
-        notificationService.notifyInvoiceNextLevel(updatedInvoice, nextApprovalLevel, {
-          requestedBy: actorName(user),
-          matchingResult: comparison.status,
-        }).catch(() => {});
+      if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED) {
+        const paService = await getPaymentApprovalService();
+        const approvalResult = await paService.createPaymentApprovalForInvoice(
+          updatedInvoice,
+          user,
+          tx,
+          match.id, // Pass the freshly-created match ID directly — no extra DB lookup needed
+        );
+        createdApproval  = approvalResult.approval;
+        assignedApprover = approvalResult.approver;
+
+        // Write a supplementary audit log entry for the approval creation
+        await tx.auditLog.create({
+          data: {
+            entity_type:     'payment_approval',
+            entity_id:       createdApproval.id,
+            action:          approvalResult.alreadyExisted ? 'payment_approval_already_existed' : 'payment_approval_created',
+            from_status:     null,
+            to_status:       'PENDING',
+            performed_by_id: user.id,
+            remarks:         approvalResult.alreadyExisted
+              ? `Idempotency: existing PENDING approval ${createdApproval.id} reused for invoice ${invoiceId}.`
+              : `Payment approval created for invoice ${invoiceId}. Amount: ${updatedInvoice.currency} ${Number(updatedInvoice.invoice_total || updatedInvoice.amount)}. Assigned to: ${assignedApprover?.email} (${createdApproval.required_role}).`,
+            ip_address:      req?.ip || null,
+            user_agent:      req?.headers?.['user-agent'] || null,
+          },
+        });
       }
 
+      // Send notifications inside the transaction!
+      await notificationService.notifyMatchingCompleted(
+        { ...updatedInvoice, created_by_id: updatedInvoice.created_by_id },
+        comparison.status,
+        comparison.match_percentage,
+        tx
+      );
+
+      if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED && nextApprovalLevel) {
+        // Prevent next level notification unless PaymentApproval was successfully created! (Step 5)
+        if (createdApproval) {
+          await notificationService.notifyInvoiceNextLevel(updatedInvoice, nextApprovalLevel, {
+            requestedBy: actorName(user),
+            matchingResult: comparison.status,
+            paymentApprovalId: createdApproval.id,
+            assignedUserId: createdApproval.approver_id,
+          }, tx);
+
+          if (assignedApprover) {
+            const paService = await getPaymentApprovalService();
+            await paService.sendApprovalNotification(createdApproval, assignedApprover, tx);
+          }
+        }
+      }
+
+      // Stash for post-transaction use
       return {
         match,
         comparison,
+        updatedInvoice,
+        nextApprovalLevel,
+        createdApproval,
+        assignedApprover,
         message: `Three-Way Matching ${comparison.status}. Match percentage: ${comparison.match_percentage}%`,
       };
     });
+
+    return {
+      match:      txResult.match,
+      comparison: txResult.comparison,
+      message:    txResult.message,
+      paymentApproval: txResult.createdApproval
+        ? {
+            id:           txResult.createdApproval.id,
+            approverId:   txResult.createdApproval.approver_id,
+            approverEmail: txResult.assignedApprover?.email || null,
+            requiredRole: txResult.createdApproval.required_role,
+            amount:       Number(txResult.createdApproval.amount),
+            status:       txResult.createdApproval.status,
+          }
+        : null,
+    };
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -540,6 +610,7 @@ class MatchingService {
 
     let createdApproval = null;
     let assignedApprover = null;
+    let approvalAlreadyExisted = false;
 
     const result = await matchingRepository.transaction(async (tx) => {
       // Update match record
@@ -586,23 +657,35 @@ class MatchingService {
         },
       });
 
+      // createPaymentApprovalForInvoice is idempotent:
+      // If startMatching already created a PENDING approval for this invoice,
+      // the idempotency guard returns the existing one without creating a duplicate.
       const paService = await getPaymentApprovalService();
-      const approvalResult = await paService.createPaymentApprovalForInvoice(updatedInvoice, user, tx);
-      createdApproval = approvalResult.approval;
-      assignedApprover = approvalResult.approver;
+      const approvalResult = await paService.createPaymentApprovalForInvoice(
+        updatedInvoice,
+        user,
+        tx,
+        match.id, // link to the match record
+      );
+      createdApproval      = approvalResult.approval;
+      assignedApprover     = approvalResult.approver;
+      approvalAlreadyExisted = approvalResult.alreadyExisted;
 
       notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.APPROVED, user.role).catch(() => {});
 
       return { message: 'Matching report approved. Invoice is approved for payment.' };
     });
 
-    if (createdApproval && assignedApprover) {
+    // Only send the approval assignment notification if this is a NEW approval
+    // (not one that was already created by startMatching).
+    if (createdApproval && assignedApprover && !approvalAlreadyExisted) {
       const paService = await getPaymentApprovalService();
       paService.sendApprovalNotification(createdApproval, assignedApprover).catch(() => {});
     }
 
     return result;
   }
+
 
   // ────────────────────────────────────────────────────────────────────────────
   // ADMIN REJECT MATCHING

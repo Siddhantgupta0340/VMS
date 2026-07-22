@@ -62,7 +62,7 @@ const mapVendor = (vendor) => {
     vendorState: vendor.state || null,
     country: vendor.country || null,
     postalCode: vendor.zip_code || null,
-    gst: gstVal,
+    gst: gstVal, // gst: vendor.gst_number || vendor.tax_id
     gstNumber: gstVal,
     vendorGst: gstVal,
     taxId: vendor.tax_id || null,

@@ -16,6 +16,16 @@ const invoiceInclude = {
       },
     },
   },
+  three_way_matches: {
+    where: { status: 'MATCHED' },
+    orderBy: { created_at: 'desc' },
+    take: 1,
+  },
+  payment_approvals: {
+    where: { status: 'APPROVED' },
+    orderBy: { approved_at: 'desc' },
+    take: 1,
+  },
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
@@ -38,7 +48,9 @@ const invoiceInclude = {
     where: { deleted_at: null },
     orderBy: { uploaded_at: 'asc' },
   },
-  payments: true,
+  payments: {
+    select: { id: true, payment_number: true, amount: true, status: true, created_at: true },
+  },
 };
 
 class InvoiceRepository {

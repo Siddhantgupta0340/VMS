@@ -51,8 +51,8 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
         <strong>${esc(item.itemName || item.description || "Item")}</strong>
         ${item.description && item.itemName ? `<br/><span style="color:#64748b;font-size:10px">${esc(item.description)}</span>` : ""}
       </td>
-      <td>${esc(item.hsnCode || "—")}</td>
-      <td style="text-align:center">${esc(item.quantity || 0)} ${esc(item.unit || "")}</td>
+      <td>—</td>
+      <td style="text-align:center">${esc(item.quantity || 0)}</td>
       <td class="num">${esc(money(item.unitPrice, po.currency))}</td>
       <td class="num">${esc(money(item.taxableAmount, po.currency))}</td>
       <td style="text-align:center">${esc(item.gstRate || 0)}%</td>

@@ -75,15 +75,19 @@ export const navigation = [
       },
 
       {
+        title: "Payment Approvals",
+        icon: Wallet,
+        path: "/approvals",
+        permission: PERMISSIONS.VIEW_APPROVALS,
+        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN],
+      },
+
+      {
         title: "Payments",
-        titleByRole: {
-          [ROLES.TEAM_LEAD]: "Payment Approvals",
-          [ROLES.MANAGER]: "Payment Approvals",
-          [ROLES.FINANCE_HEAD]: "Payment Approvals",
-        },
         icon: Wallet,
         path: "/payments",
         permission: PERMISSIONS.VIEW_PAYMENTS,
+        excludedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER],
       },
     ],
   },

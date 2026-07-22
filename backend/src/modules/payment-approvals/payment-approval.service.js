@@ -27,11 +27,15 @@ export const APPROVAL_ACTIONS = {
 
 /**
  * Find the first active user with the given role.
- * Selection strategy: first active user ordered by created_at ASC (deterministic).
- * If no user found with that role, falls back to FINANCE_HEAD.
+ * Accepts an optional Prisma transaction client so the lookup runs inside the
+ * same snapshot as the surrounding transaction — preventing race conditions.
+ *
+ * @param {string} role - The required role string
+ * @param {object|null} tx - Optional Prisma transaction client
  */
-export const findEligibleApprover = async (role) => {
-  const user = await prisma.user.findFirst({
+export const findEligibleApprover = async (role, tx = null) => {
+  const client = tx || prisma;
+  const user = await client.user.findFirst({
     where: { role, status: 'ACTIVE', deleted_at: null },
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
     orderBy: { created_at: 'asc' },
@@ -62,22 +66,54 @@ const decorateApproval = (approval) => {
     ? `${approval.rejected_by.first_name || ''} ${approval.rejected_by.last_name || ''}`.trim() || approval.rejected_by.email
     : null;
 
+  // Extract document snapshots from Three-Way Match if available
+  const match = approval.three_way_match;
+  const grnSnap = match?.grn_snapshot || match?.grnSnapshot;
+  const dcSnap = match?.delivery_challan_snapshot || match?.deliveryChallanSnapshot;
+  const invSnap = match?.invoice_snapshot || match?.invoiceSnapshot;
+
+  const invoiceAmount = Number(approval.invoice?.invoice_total || approval.invoice?.amount || approval.amount || 0);
+  const previouslyPaidAmount = Number(approval.invoice?.paid_amount || 0);
+  const remainingPayableAmount = Math.max(0, invoiceAmount - previouslyPaidAmount);
+
   return {
     id: approval.id,
     paymentId: approval.payment_id,
     paymentNumber: approval.payment?.payment_number || null,
     invoiceId: approval.invoice_id,
     invoiceNumber: approval.invoice?.invoice_number || approval.payment?.invoice?.invoice_number || null,
+    invoiceDate: approval.invoice?.invoice_date || invSnap?.invoiceDate || null,
     purchaseOrderId: approval.purchase_order_id,
     poNumber: approval.purchase_order?.po_number || approval.payment?.purchase_order?.po_number || null,
+    poDate: approval.purchase_order?.order_date || null,
+    poTotal: Number(approval.purchase_order?.amount || 0),
     vendorId: approval.vendor_id,
     vendorName: approval.vendor?.name || approval.payment?.vendor?.name || null,
     vendorCode: approval.vendor?.vendor_code || approval.payment?.vendor?.vendor_code || null,
+    vendorGstin: approval.vendor?.gst_number || approval.vendor?.gstin || null,
+
+    // GRN & Delivery Challan Details
+    grnNumber: grnSnap?.grnNumber || grnSnap?.grn_number || null,
+    grnDate: grnSnap?.receivedDate || grnSnap?.delivery_date || null,
+    deliveryChallanNumber: dcSnap?.deliveryChallanNumber || dcSnap?.delivery_challan_number || null,
+    deliveryChallanDate: dcSnap?.deliveryDate || dcSnap?.delivery_date || null,
+
+    // Three-Way Matching Details
     threeWayMatchId: approval.three_way_match_id,
-    threeWayMatchStatus: approval.three_way_match?.status || null,
-    threeWayMatchPercentage: approval.three_way_match?.match_percentage || null,
+    threeWayMatchStatus: match?.status || 'MATCHED',
+    threeWayMatchPercentage: match?.match_percentage || 100,
+    matchedAmount: invSnap?.summary?.matchedAmount ?? invoiceAmount,
+    varianceAmount: invSnap?.summary?.varianceAmount ?? 0,
+    unmatchedFields: match?.unmatched_fields || [],
+    warnings: match?.warnings || [],
+
+    // Financial Balances
     amount: Number(approval.amount),
-    currency: approval.currency,
+    currency: approval.currency || 'INR',
+    previouslyPaidAmount,
+    remainingPayableAmount,
+
+    // Workflow & Role Details
     approvalLevel: approval.approval_level,
     requiredRole: approval.required_role,
     approverId: approval.approver_id,
@@ -85,6 +121,10 @@ const decorateApproval = (approval) => {
     approverEmail: approval.approver?.email || null,
     approverEmployeeId: approval.approver?.employee_id || null,
     status: approval.status,
+    requestedAmount: Number(approval.amount),
+    approvalStatus: approval.status,
+    assignedRole: approval.required_role,
+    assignedUser: approverName,
     remarks: approval.remarks,
     rejectionReason: approval.rejection_reason,
     requestedById: approval.requested_by_id,
@@ -119,86 +159,128 @@ class PaymentApprovalService {
   /**
    * Create a PaymentApproval record for an invoice (pre-payment approval workflow).
    * Must be called INSIDE a Prisma transaction (tx).
+   *
+   * Idempotent: If a PENDING approval already exists for this invoice, returns
+   * the existing one instead of creating a duplicate.
+   *
+   * @param {object} invoice   - The invoice record (must have id, invoice_total, amount, currency, vendor_id, purchase_order_id)
+   * @param {object} requestedByUser - The user initiating (Case Manager or System)
+   * @param {object} tx        - Prisma transaction client (REQUIRED)
+   * @param {string|null} threeWayMatchId - The ThreeWayMatch ID to link (optional, auto-resolved if null)
+   * @returns {{ approval, approver, alreadyExisted: boolean }}
    */
-  async createPaymentApprovalForInvoice(invoice, requestedByUser, tx) {
+  async createPaymentApprovalForInvoice(invoice, requestedByUser, tx, threeWayMatchId = null) {
+    // ── Idempotency Guard ────────────────────────────────────────────────────
+    // Check if a PENDING approval already exists for this invoice.
+    // This prevents duplicates when matching is re-run or adminApproveMatching
+    // is called after startMatching already created an approval.
+    const existingPending = await paymentApprovalRepository.findPendingByInvoiceId(invoice.id, tx);
+    if (existingPending) {
+      console.log(
+        `[PaymentApprovalService] Idempotency: PENDING approval ${existingPending.id} already exists for invoice ${invoice.id}. Skipping creation.`,
+      );
+      // Resolve the approver from the existing record so the caller can send notification
+      const existingApprover = await (tx || prisma).user.findUnique({
+        where: { id: existingPending.approver_id },
+        select: { id: true, email: true, first_name: true, last_name: true, role: true },
+      });
+      return { approval: existingPending, approver: existingApprover, alreadyExisted: true };
+    }
+
+    // ── Amount & Role Determination ──────────────────────────────────────────
+    // Use invoice_total as the authoritative payable amount (set from line items).
+    // Fall back to invoice.amount (the original amount field) if invoice_total is missing.
     const amount = Number(invoice.invoice_total || invoice.amount || 0);
     const currency = invoice.currency || 'INR';
 
-    // 1. Determine required role based on amount
+    if (amount <= 0) {
+      throw new ApiError(400, `Cannot create payment approval: invoice amount is ${amount}. Invoice ID: ${invoice.id}`);
+    }
+
+    // 1. Determine required role based on amount thresholds (env-driven, not hardcoded)
     const requiredRole = getRequiredPaymentApprovalRole(amount, currency);
 
-    // 2. Find the first active user with that role
-    let approver = await findEligibleApprover(requiredRole);
+    // 2. Find the first active user with that role (within the same tx snapshot)
+    let approver = await findEligibleApprover(requiredRole, tx);
     let usedRole = requiredRole;
 
     if (!approver) {
       // Fallback: try FINANCE_HEAD if primary role not found
-      const fallbackApprover = await findEligibleApprover(ROLES.FINANCE_HEAD);
-      if (!fallbackApprover) {
+      approver = await findEligibleApprover(ROLES.FINANCE_HEAD, tx);
+      if (!approver) {
         throw new ApiError(
           500,
-          `No active ${requiredRole} user found to assign payment approval. Please create an active ${requiredRole} user.`,
+          `No active ${requiredRole} user found to assign payment approval. ` +
+          `Please ensure at least one active ${requiredRole} user exists in the system.`,
         );
       }
-      approver = fallbackApprover;
+      console.warn(
+        `[PaymentApprovalService] No active ${requiredRole} found — falling back to FINANCE_HEAD (${approver.email}) for invoice ${invoice.id}`,
+      );
       usedRole = ROLES.FINANCE_HEAD;
     }
 
-    // Find the ThreeWayMatch for this invoice to link to the approval
-    const latestMatch = await tx.threeWayMatch.findFirst({
-      where: { invoice_id: invoice.id, status: 'MATCHED' },
-      orderBy: { created_at: 'desc' },
-      select: { id: true },
-    });
-    const threeWayMatchId = latestMatch?.id || null;
+    // 3. Resolve ThreeWayMatch ID (use provided value or auto-resolve from DB)
+    const resolvedMatchId = threeWayMatchId || await (async () => {
+      const latestMatch = await (tx || prisma).threeWayMatch.findFirst({
+        where: { invoice_id: invoice.id, status: 'MATCHED' },
+        orderBy: { created_at: 'desc' },
+        select: { id: true },
+      });
+      return latestMatch?.id || null;
+    })();
 
-    // 3. Create PaymentApproval record
+    // 4. Create PaymentApproval record inside the transaction
     const approval = await tx.paymentApproval.create({
       data: {
-        payment_id:        null, // No payment record yet
-        invoice_id:        invoice.id,
-        purchase_order_id: invoice.purchase_order_id,
-        vendor_id:         invoice.vendor_id,
-        three_way_match_id: threeWayMatchId || null,
-        amount:            amount,
-        currency:          currency,
-        approval_level:    1,
-        required_role:     usedRole,
-        approver_id:       approver.id,
-        status:            PAYMENT_APPROVAL_STATUS.PENDING,
-        requested_by_id:   requestedByUser?.id || null,
-        requested_at:      new Date(),
+        payment_id:         null, // No payment record yet — created later when payment is initiated
+        invoice_id:         invoice.id,
+        purchase_order_id:  invoice.purchase_order_id,
+        vendor_id:          invoice.vendor_id,
+        three_way_match_id: resolvedMatchId,
+        amount:             amount,
+        currency:           currency,
+        approval_level:     1,
+        required_role:      usedRole,
+        approver_id:        approver.id,
+        status:             PAYMENT_APPROVAL_STATUS.PENDING,
+        requested_by_id:    requestedByUser?.id || null,
+        requested_at:       new Date(),
       },
     });
 
-    // 4. Create initial history records
-    await tx.paymentApprovalHistory.create({
-      data: {
-        payment_approval_id: approval.id,
-        payment_id:          null,
-        invoice_id:          invoice.id,
-        action:              APPROVAL_ACTIONS.REQUESTED,
-        previous_status:     null,
-        new_status:          PAYMENT_APPROVAL_STATUS.PENDING,
-        performed_by_id:     requestedByUser?.id || null,
-        remarks:             `Payment approval requested. Required role: ${usedRole}. Assigned to: ${approver.email}.`,
-      },
+    // 5. Create history entries (audit trail for REQUESTED + ASSIGNED)
+    await tx.paymentApprovalHistory.createMany({
+      data: [
+        {
+          payment_approval_id: approval.id,
+          payment_id:          null,
+          invoice_id:          invoice.id,
+          action:              APPROVAL_ACTIONS.REQUESTED,
+          previous_status:     null,
+          new_status:          PAYMENT_APPROVAL_STATUS.PENDING,
+          performed_by_id:     requestedByUser?.id || null,
+          remarks:             `Payment approval requested for ${currency} ${amount.toLocaleString('en-IN')}. Required role: ${usedRole}.`,
+        },
+        {
+          payment_approval_id: approval.id,
+          payment_id:          null,
+          invoice_id:          invoice.id,
+          action:              APPROVAL_ACTIONS.ASSIGNED,
+          previous_status:     null,
+          new_status:          PAYMENT_APPROVAL_STATUS.PENDING,
+          performed_by_id:     null,
+          remarks:             `Approval auto-assigned to ${approver.first_name || ''} ${approver.last_name || ''} (${usedRole}) — ${approver.email}`,
+        },
+      ],
     });
 
-    await tx.paymentApprovalHistory.create({
-      data: {
-        payment_approval_id: approval.id,
-        payment_id:          null,
-        invoice_id:          invoice.id,
-        action:              APPROVAL_ACTIONS.ASSIGNED,
-        previous_status:     null,
-        new_status:          PAYMENT_APPROVAL_STATUS.PENDING,
-        performed_by_id:     null,
-        remarks:             `Approval assigned to ${approver.first_name || ''} ${approver.last_name || ''} (${approver.role}) — ${approver.email}`,
-      },
-    });
+    console.log(
+      `[PaymentApprovalService] Created PaymentApproval ${approval.id} for invoice ${invoice.id}. ` +
+      `Amount: ${currency} ${amount}. Role: ${usedRole}. Approver: ${approver.email}`,
+    );
 
-    return { approval, approver };
+    return { approval, approver, alreadyExisted: false };
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -301,14 +383,14 @@ class PaymentApprovalService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Send a notification to the assigned approver AFTER the transaction commits.
-   * If notification fails, logs the error but does NOT roll back the approval.
+   * Send a notification to the assigned approver.
+   * Supports passing an optional transaction client tx.
    */
-  async sendApprovalNotification(approval, approver) {
+  async sendApprovalNotification(approval, approver, tx = null) {
     try {
-      await notificationService.notifyPaymentApprovalAssigned(approval, approver);
+      await notificationService.notifyPaymentApprovalAssigned(approval, approver, tx);
 
-      // Log notification sent in history (outside transaction — best effort)
+      // Log notification sent in history
       await paymentApprovalRepository.createHistory({
         payment_approval_id: approval.id,
         payment_id:          approval.payment_id,
@@ -318,10 +400,10 @@ class PaymentApprovalService {
         new_status:          PAYMENT_APPROVAL_STATUS.PENDING,
         performed_by_id:     null,
         remarks:             `Notification sent to approver ${approver.email}`,
-      }).catch(() => {});
+      }, tx);
     } catch (err) {
       console.error('[PaymentApprovalService] Failed to send approval notification:', err?.message);
-      // Do NOT throw — notification failure must not undo the approval record
+      throw err;
     }
   }
 
@@ -330,8 +412,8 @@ class PaymentApprovalService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Get all PaymentApprovals assigned to the currently logged-in user.
-   * Supports: TEAM_LEAD, MANAGER, FINANCE_HEAD, SUPER_ADMIN
+   * Get all PaymentApprovals assigned to or reviewable by the currently logged-in user.
+   * Supports: TEAM_LEAD, MANAGER, FINANCE_HEAD, SUPER_ADMIN, CASE_MANAGER
    */
   async getMyApprovals(user, query = {}) {
     const page  = Math.max(1, parseInt(query.page  || 1));
@@ -344,13 +426,13 @@ class PaymentApprovalService {
       // SUPER_ADMIN sees all approvals
       where = status ? { status } : {};
     } else if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
-      // Approvers only see their own assigned approvals
+      // Approvers see approvals matching their role
       where = {
-        approver_id: user.id,
+        required_role: user.role,
         ...(status && { status }),
       };
     } else {
-      // Case Manager sees approvals they requested
+      // Case Manager sees approvals requested by them
       where = {
         requested_by_id: user.id,
         ...(status && { status }),
@@ -374,7 +456,7 @@ class PaymentApprovalService {
 
   /**
    * Get a single PaymentApproval by ID.
-   * Access control: approver, requested_by, or SUPER_ADMIN.
+   * Access control: approver, required_role matching, requested_by, or SUPER_ADMIN.
    */
   async getApprovalById(id, user) {
     const approval = await paymentApprovalRepository.findById(id);
@@ -384,8 +466,8 @@ class PaymentApprovalService {
     const canView =
       user.role === ROLES.SUPER_ADMIN ||
       approval.approver_id === user.id ||
-      approval.requested_by_id === user.id ||
-      [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role);
+      approval.required_role === user.role ||
+      approval.requested_by_id === user.id;
 
     if (!canView) throw new ApiError(403, 'You do not have permission to view this approval.');
 
@@ -398,13 +480,9 @@ class PaymentApprovalService {
 
   /**
    * Approve a PaymentApproval.
-   * Verifies: auth → is assigned approver → status PENDING → updates DB.
+   * Verifies: auth → authorized role → status PENDING → 3WM MATCHED → updates DB & Invoice.
    */
   async approvePaymentApproval(approvalId, user, remarks = '') {
-    if (!remarks?.trim()) {
-      throw new ApiError(400, 'Remarks are required to approve a payment approval.');
-    }
-
     const approval = await paymentApprovalRepository.findById(approvalId);
     if (!approval) throw new ApiError(404, 'Payment Approval not found.');
 
@@ -412,26 +490,68 @@ class PaymentApprovalService {
       throw new ApiError(400, `This approval is already ${approval.status}. Only PENDING approvals can be approved.`);
     }
 
-    // Verify the logged-in user IS the assigned approver (or SUPER_ADMIN)
-    if (user.role !== ROLES.SUPER_ADMIN && approval.approver_id !== user.id) {
-      throw new ApiError(403, 'You are not the assigned approver for this payment approval.');
+    // Role-based authorization assertion (Step 8):
+    // CASE_MANAGER cannot approve. TEAM_LEAD can only approve TEAM_LEAD level, etc.
+    if (user.role === ROLES.CASE_MANAGER) {
+      throw new ApiError(403, 'Case Managers are not authorized to approve payment requests.');
+    }
+
+    const isAuthorizedApprover =
+      user.role === ROLES.SUPER_ADMIN ||
+      approval.approver_id === user.id ||
+      approval.required_role === user.role;
+
+    if (!isAuthorizedApprover) {
+      throw new ApiError(403, `You are not authorized to approve this payment request. Required role: ${approval.required_role}, Your role: ${user.role}.`);
+    }
+
+    // Three-Way Matching verification: Must be MATCHED
+    const matchStatus = approval.three_way_match?.status;
+    if (matchStatus && matchStatus !== 'MATCHED') {
+      throw new ApiError(400, `Cannot approve: Three-Way Matching status is ${matchStatus}. Only MATCHED invoices can be approved.`);
+    }
+
+    // Verify Invoice exists and is not CANCELLED or PAID
+    const linkedInvoice = approval.invoice;
+    if (!linkedInvoice) {
+      throw new ApiError(404, 'Linked invoice not found for this approval.');
+    }
+    if (linkedInvoice.status === 'CANCELLED') {
+      throw new ApiError(400, 'Cannot approve payment: linked invoice is CANCELLED.');
+    }
+    if (linkedInvoice.status === 'PAID') {
+      throw new ApiError(400, 'Cannot approve payment: linked invoice is already PAID.');
     }
 
     const now = new Date();
+    const finalRemarks = String(remarks || '').trim() || `Approved by ${user.first_name || ''} ${user.last_name || ''} (${user.role})`;
 
-    const updated = await paymentApprovalRepository.transaction(async (tx) => {
+    await paymentApprovalRepository.transaction(async (tx) => {
       // 1. Update PaymentApproval
-      const updatedApproval = await tx.paymentApproval.update({
+      await tx.paymentApproval.update({
         where: { id: approvalId },
         data: {
           status:        PAYMENT_APPROVAL_STATUS.APPROVED,
           approved_by_id: user.id,
           approved_at:   now,
-          remarks:       remarks.trim(),
+          remarks:       finalRemarks,
         },
       });
 
-      // 2. Update related Payment approval_status (if linked)
+      // 2. Update Invoice status to APPROVED (eligible for payment creation)
+      await tx.invoice.update({
+        where: { id: approval.invoice_id },
+        data: {
+          status:                 'APPROVED',
+          current_approval_level: null,
+          final_approved_at:      now,
+          ...(user.role === ROLES.TEAM_LEAD && { team_lead_approver_id: user.id, team_lead_approved_at: now }),
+          ...(user.role === ROLES.MANAGER && { manager_approver_id: user.id, manager_approved_at: now }),
+          ...(user.role === ROLES.FINANCE_HEAD && { finance_head_approver_id: user.id, finance_head_approved_at: now }),
+        },
+      });
+
+      // 3. Update related Payment approval_status (if linked)
       if (approval.payment_id) {
         await tx.payment.update({
           where: { id: approval.payment_id },
@@ -439,13 +559,12 @@ class PaymentApprovalService {
             approval_status: 'APPROVED',
             approved_by_id:  user.id,
             approved_at:     now,
-            // Move from PENDING_APPROVAL to PENDING (ready for processing)
             ...(approval.payment?.status === 'PENDING_APPROVAL' && { status: 'PENDING' }),
           },
         });
       }
 
-      // 3. Create audit log
+      // 4. Create audit log
       await tx.auditLog.create({
         data: {
           entity_type:     'payment_approval',
@@ -454,11 +573,11 @@ class PaymentApprovalService {
           from_status:     PAYMENT_APPROVAL_STATUS.PENDING,
           to_status:       PAYMENT_APPROVAL_STATUS.APPROVED,
           performed_by_id: user.id,
-          remarks:         remarks.trim(),
+          remarks:         finalRemarks,
         },
       });
 
-      // 4. Create history
+      // 5. Create history
       await tx.paymentApprovalHistory.create({
         data: {
           payment_approval_id: approvalId,
@@ -468,14 +587,12 @@ class PaymentApprovalService {
           previous_status:     PAYMENT_APPROVAL_STATUS.PENDING,
           new_status:          PAYMENT_APPROVAL_STATUS.APPROVED,
           performed_by_id:     user.id,
-          remarks:             remarks.trim(),
+          remarks:             finalRemarks,
         },
       });
-
-      return updatedApproval;
     });
 
-    // 5. Send notification to payment requester (Case Manager) — after transaction
+    // 6. Send notification to stakeholders (Case Manager & original requester) — after transaction
     const fullApproval = await paymentApprovalRepository.findById(approvalId);
     notificationService.notifyPaymentApprovalResult(fullApproval, 'APPROVED', user).catch(() => {});
 
@@ -488,7 +605,7 @@ class PaymentApprovalService {
 
   /**
    * Reject a PaymentApproval.
-   * Rejection reason is required.
+   * Rejection reason is REQUIRED.
    */
   async rejectPaymentApproval(approvalId, user, rejectionReason = '') {
     if (!rejectionReason?.trim()) {
@@ -502,11 +619,22 @@ class PaymentApprovalService {
       throw new ApiError(400, `This approval is already ${approval.status}. Only PENDING approvals can be rejected.`);
     }
 
-    if (user.role !== ROLES.SUPER_ADMIN && approval.approver_id !== user.id) {
-      throw new ApiError(403, 'You are not the assigned approver for this payment approval.');
+    // Role-based authorization assertion
+    if (user.role === ROLES.CASE_MANAGER) {
+      throw new ApiError(403, 'Case Managers are not authorized to reject payment requests.');
+    }
+
+    const isAuthorizedApprover =
+      user.role === ROLES.SUPER_ADMIN ||
+      approval.approver_id === user.id ||
+      approval.required_role === user.role;
+
+    if (!isAuthorizedApprover) {
+      throw new ApiError(403, `You are not authorized to reject this payment request. Required role: ${approval.required_role}, Your role: ${user.role}.`);
     }
 
     const now = new Date();
+    const cleanReason = rejectionReason.trim();
 
     await paymentApprovalRepository.transaction(async (tx) => {
       // 1. Update PaymentApproval
@@ -516,11 +644,20 @@ class PaymentApprovalService {
           status:           PAYMENT_APPROVAL_STATUS.REJECTED,
           rejected_by_id:   user.id,
           rejected_at:      now,
-          rejection_reason: rejectionReason.trim(),
+          rejection_reason: cleanReason,
         },
       });
 
-      // 2. Update related Payment approval_status to REJECTED (if linked)
+      // 2. Update Invoice status to REJECTED
+      await tx.invoice.update({
+        where: { id: approval.invoice_id },
+        data: {
+          status:           'REJECTED',
+          rejection_reason: cleanReason,
+        },
+      });
+
+      // 3. Update related Payment approval_status to REJECTED (if linked)
       if (approval.payment_id) {
         await tx.payment.update({
           where: { id: approval.payment_id },
@@ -531,7 +668,7 @@ class PaymentApprovalService {
         });
       }
 
-      // 3. Create audit log
+      // 4. Create audit log
       await tx.auditLog.create({
         data: {
           entity_type:     'payment_approval',
@@ -540,11 +677,11 @@ class PaymentApprovalService {
           from_status:     PAYMENT_APPROVAL_STATUS.PENDING,
           to_status:       PAYMENT_APPROVAL_STATUS.REJECTED,
           performed_by_id: user.id,
-          remarks:         rejectionReason.trim(),
+          remarks:         `Rejected: ${cleanReason}`,
         },
       });
 
-      // 4. Create history
+      // 5. Create history
       await tx.paymentApprovalHistory.create({
         data: {
           payment_approval_id: approvalId,
@@ -554,12 +691,12 @@ class PaymentApprovalService {
           previous_status:     PAYMENT_APPROVAL_STATUS.PENDING,
           new_status:          PAYMENT_APPROVAL_STATUS.REJECTED,
           performed_by_id:     user.id,
-          remarks:             rejectionReason.trim(),
+          remarks:             cleanReason,
         },
       });
     });
 
-    // 5. Notify Case Manager (payment requester) of rejection — after transaction
+    // 6. Send notification to payment requester — after transaction
     const fullApproval = await paymentApprovalRepository.findById(approvalId);
     notificationService.notifyPaymentApprovalResult(fullApproval, 'REJECTED', user).catch(() => {});
 
@@ -605,6 +742,76 @@ class PaymentApprovalService {
   async getApprovalsByPaymentId(paymentId) {
     const approvals = await paymentApprovalRepository.findByPaymentId(paymentId);
     return approvals.map(decorateApproval);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // GET APPROVALS BY INVOICE ID
+  // Allows frontend to load payment approvals from an invoice detail page
+  // without hardcoding any IDs.
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Get all PaymentApprovals linked to an invoice.
+   * Access: SUPER_ADMIN sees all; approver/requester sees their own; TEAM_LEAD/MANAGER/FINANCE_HEAD see all.
+   */
+  async getApprovalsByInvoiceId(invoiceId, user) {
+    const canViewAll =
+      user.role === ROLES.SUPER_ADMIN ||
+      [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role);
+
+    const where = {
+      invoice_id: invoiceId,
+      ...(!canViewAll && {
+        OR: [
+          { approver_id: user.id },
+          { requested_by_id: user.id },
+        ],
+      }),
+    };
+
+    const result = await paymentApprovalRepository.findAll({ where, skip: 0, take: 50 });
+    return result.approvals.map(decorateApproval);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // GET APPROVAL CONFIGURATION
+  // Returns env-driven thresholds so the frontend never needs to hardcode them.
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Return the current approval routing thresholds from environment config.
+   */
+  getApprovalConfig() {
+    const teamLeadMax = Number(process.env.TEAM_LEAD_PAYMENT_APPROVAL_MAX || 10000);
+    const financeHeadMin = Number(process.env.FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD || 100000);
+    return {
+      currency: 'INR',
+      tiers: [
+        {
+          role: ROLES.TEAM_LEAD,
+          label: 'Team Lead',
+          minAmount: 0,
+          maxAmount: teamLeadMax,
+          description: `Up to ₹${teamLeadMax.toLocaleString('en-IN')}`,
+        },
+        {
+          role: ROLES.MANAGER,
+          label: 'Manager',
+          minAmount: teamLeadMax + 1,
+          maxAmount: financeHeadMin - 1,
+          description: `₹${(teamLeadMax + 1).toLocaleString('en-IN')} – ₹${(financeHeadMin - 1).toLocaleString('en-IN')}`,
+        },
+        {
+          role: ROLES.FINANCE_HEAD,
+          label: 'Finance Head',
+          minAmount: financeHeadMin,
+          maxAmount: null,
+          description: `₹${financeHeadMin.toLocaleString('en-IN')} and above`,
+        },
+      ],
+      teamLeadMax,
+      financeHeadMin,
+    };
   }
 }
 
