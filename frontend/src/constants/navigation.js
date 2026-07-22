@@ -93,19 +93,11 @@ export const navigation = [
       },
 
       {
-        title: "Payment History",
-        icon: History,
-        path: "/payment-history",
-        permission: PERMISSIONS.VIEW_PAYMENTS,
-        allowedRoles: [ROLES.FINANCE_HEAD],
-      },
-
-      {
         title: "Reports",
         icon: FileBarChart2,
         path: "/reports",
         permission: PERMISSIONS.VIEW_REPORTS,
-        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD],
+        allowedRoles: [ROLES.TEAM_LEAD, ROLES.MANAGER],
       },
     ],
   },
@@ -125,7 +117,7 @@ export const navigation = [
         icon: History,
         path: "/audit-logs",
         permission: PERMISSIONS.VIEW_AUDIT_LOGS,
-        allowedRoles: [ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD],
       },
     ],
   },
@@ -145,7 +137,7 @@ export const navigation = [
         icon: Users,
         path: "/users",
         permission: PERMISSIONS.MANAGE_USERS,
-        allowedRoles: [ROLES.SUPER_ADMIN],
+        allowedRoles: [ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD],
       },
     ],
   },
