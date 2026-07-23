@@ -5,6 +5,12 @@ import { USER_MESSAGES } from './user.constants.js';
 import { UserEntity } from '../../zodSchema/index.js';
 import { sanitizeUser } from '../../utils/sanitizeUser.js';
 import notificationService from '../notifications/notification.service.js';
+<<<<<<< HEAD
+
+/**
+ * @class UserService
+ * @description Contains the business logic for user management operations.
+=======
 import prisma from '../../config/prisma.js';
 import { getPermissionsForRole } from '../auth/role-permissions.js';
 import { USER_ACCOUNT_STATUS, isAllowedUserAccountStatus } from './user-status.constants.js';
@@ -183,10 +189,34 @@ const sendTemporaryPasswordEmail = async ({ user, temporaryPassword, expiresAt }
 /**
  * @class UserService
  * @description Handles user profile business rules, encryption, lockout safeguards, and audit logs.
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
  */
 class UserService {
   /**
    * Creates a new user.
+<<<<<<< HEAD
+   * @param {object} userData - Data for the new user.
+   * @returns {object} The created user, excluding sensitive fields.
+   */
+  async createUser(userData) {
+    const { email, password, firstName, lastName, role } = userData;
+
+    const existingUser = await userRepository.findByEmail(email);
+    if (existingUser) {
+      throw new ApiError(409, USER_MESSAGES.EMAIL_ALREADY_EXISTS);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await userRepository.createUser({
+      [UserEntity.columns.EMAIL]: email,
+      [UserEntity.columns.PASSWORD]: hashedPassword,
+      [UserEntity.columns.FIRST_NAME]: firstName,
+      [UserEntity.columns.LAST_NAME]: lastName,
+      [UserEntity.columns.ROLE]: role,
+    });
+
+=======
    */
   async createUser(userData, requester, ipAddress = null, userAgent = null) {
     const {
@@ -335,11 +365,17 @@ class UserService {
       }
     })().catch(() => {});
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return sanitizeUser(newUser);
   }
 
   /**
    * Retrieves a list of users with pagination and filtering.
+<<<<<<< HEAD
+   * @param {object} query - Query parameters for searching and pagination.
+   * @returns {object} A list of users and pagination metadata.
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    */
   async searchUsers(query) {
     return await userRepository.findAll(query);
@@ -347,12 +383,20 @@ class UserService {
 
   /**
    * Retrieves a single user by their ID.
+<<<<<<< HEAD
+   * @param {string} userId - The ID of the user.
+   * @returns {object} The user data, excluding sensitive fields.
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    */
   async getUserById(userId) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new ApiError(404, USER_MESSAGES.USER_NOT_FOUND);
     }
+<<<<<<< HEAD
+    return sanitizeUser(user);
+=======
     
     // Query audit history for user details view
     const auditHistory = await prisma.auditLog.findMany({
@@ -389,10 +433,33 @@ class UserService {
     sanitized.auditHistory = auditHistory;
     sanitized.permissions = getPermissionsForRole(user.role);
     return sanitized;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
    * Updates a user's information.
+<<<<<<< HEAD
+   * @param {string} userId - The ID of the user to update.
+   * @param {object} updateData - The data to update.
+   * @returns {object} The updated user data.
+   */
+  async updateUser(userId, updateData) {
+    await this.getUserById(userId); // Ensures user exists
+    const mappedUpdateData = {};
+
+    if (updateData.email !== undefined) {
+      mappedUpdateData[UserEntity.columns.EMAIL] = updateData.email;
+    }
+
+    if (updateData.firstName !== undefined) {
+      mappedUpdateData[UserEntity.columns.FIRST_NAME] = updateData.firstName;
+    }
+
+    if (updateData.lastName !== undefined) {
+      mappedUpdateData[UserEntity.columns.LAST_NAME] = updateData.lastName;
+    }
+
+=======
    */
   async updateUser(userId, updateData, requester, ipAddress = null, userAgent = null) {
     const targetUser = await userRepository.findById(userId);
@@ -460,11 +527,14 @@ class UserService {
     if (nextPhone && nextAlternatePhone && nextPhone === nextAlternatePhone) {
       throw new ApiError(400, 'Alternate phone must be different from phone.');
     }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (updateData.role !== undefined) {
       mappedUpdateData[UserEntity.columns.ROLE] = updateData.role;
     }
 
     const updatedUser = await userRepository.updateUser(userId, mappedUpdateData);
+<<<<<<< HEAD
+=======
 
     // Write audit log with clean sanitized values
     await prisma.auditLog.create({
@@ -481,11 +551,21 @@ class UserService {
       },
     });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return sanitizeUser(updatedUser);
   }
 
   /**
    * Deletes a user (soft delete).
+<<<<<<< HEAD
+   * @param {string} userId - The ID of the user to delete.
+   * @returns {string} A success message.
+   */
+  async deleteUser(userId) {
+    await this.getUserById(userId); // Ensures user exists
+    await userRepository.softDeleteUser(userId);
+    return USER_MESSAGES.USER_DELETED;
+=======
    */
   async deleteUser(userId, requester, ipAddress = null, userAgent = null) {
     const targetUser = await userRepository.findById(userId);
@@ -592,16 +672,29 @@ class UserService {
     });
 
     return sanitizeUser(restoredUser);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
    * Updates the status of a user.
+<<<<<<< HEAD
+   * @param {string} userId - The ID of the user.
+   * @param {string} newStatus - The new status.
+   * @param {object} updater - The user performing the update.
+   * @param {string} [remarks] - Optional remarks.
+   * @param {string} [ipAddress] - Client IP address.
+   * @param {string} [userAgent] - User agent.
+   * @returns {object} The updated user data.
+   */
+  async updateUserStatus(userId, newStatus, updater, remarks = null, ipAddress = null, userAgent = null) {
+=======
    */
   async updateUserStatus(userId, newStatus, updater, remarks = null, ipAddress = null, userAgent = null) {
     if (!isAllowedUserAccountStatus(newStatus)) {
       throw new ApiError(400, 'User status must be ACTIVE or INACTIVE.');
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new ApiError(404, USER_MESSAGES.USER_NOT_FOUND);
@@ -610,6 +703,9 @@ class UserService {
       throw new ApiError(400, 'Cannot update status of a deleted user.');
     }
 
+<<<<<<< HEAD
+    const oldStatus = user.status || 'ACTIVE';
+=======
     // Hierarchy check
     checkManageAuthority(updater, user, 'change status of');
 
@@ -619,15 +715,19 @@ class UserService {
     }
 
     const oldStatus = user.status || USER_ACCOUNT_STATUS.ACTIVE;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (oldStatus === newStatus) {
       throw new ApiError(400, `User status is already ${newStatus}.`);
     }
 
+<<<<<<< HEAD
+=======
     // Lockout protection check on deactivation
     if (newStatus !== USER_ACCOUNT_STATUS.ACTIVE) {
       await checkLockoutRisk(userId);
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const statusData = {
       [UserEntity.columns.STATUS]: newStatus,
       [UserEntity.columns.STATUS_CHANGED_AT]: new Date(),
@@ -642,7 +742,11 @@ class UserService {
       from_status: oldStatus,
       to_status: newStatus,
       performed_by_id: updater.id,
+<<<<<<< HEAD
+      remarks: remarks || `Status changed from ${oldStatus} to ${newStatus}`,
+=======
       remarks: remarks || `Status changed from ${oldStatus} to ${newStatus} by ${updater.email}`,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       ip_address: ipAddress,
       user_agent: userAgent,
     };
@@ -653,7 +757,11 @@ class UserService {
     await notificationService.createNotification(
       userId,
       'user_status_changed',
+<<<<<<< HEAD
+      '👤 Account Status Updated',
+=======
       'Account Status Updated',
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       `Your account status has been updated to ${newStatus} by ${updater.first_name || ''} ${updater.last_name || ''}`.trim()
     );
 
@@ -662,6 +770,14 @@ class UserService {
 
   /**
    * Resets a user's password by an admin.
+<<<<<<< HEAD
+   * @param {string} userId - The ID of the user.
+   * @param {string} newPassword - The replacement password.
+   * @returns {string} A success message.
+   */
+  async adminResetPassword(userId, newPassword) {
+    await this.getUserById(userId);
+=======
    */
   async adminResetPassword(userId, newPassword, requester, ipAddress = null, userAgent = null) {
     const targetUser = await userRepository.findById(userId);
@@ -671,6 +787,7 @@ class UserService {
 
     // Hierarchy check
     checkManageAuthority(requester, targetUser, 'reset password of');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -680,6 +797,10 @@ class UserService {
       [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: null,
     });
 
+<<<<<<< HEAD
+    return USER_MESSAGES.PASSWORD_RESET_SUCCESS;
+  }
+=======
     // Write audit log
     await prisma.auditLog.create({
       data: {
@@ -789,6 +910,7 @@ class UserService {
       };
     }
   }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new UserService();

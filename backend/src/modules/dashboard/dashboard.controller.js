@@ -2,11 +2,14 @@ import asyncHandler from '../../middleware/asyncHandler.middleware.js';
 import dashboardService from './dashboard.service.js';
 
 class DashboardController {
+<<<<<<< HEAD
+=======
   getAnalytics = asyncHandler(async (req, res) => {
     const data = await dashboardService.getAnalyticsDashboard(req.query);
     res.status(200).json({ success: true, message: 'Dashboard analytics retrieved.', data });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * GET /api/v1/dashboard/overview — SUPER_ADMIN
    * Full system-wide metrics
@@ -21,7 +24,11 @@ class DashboardController {
    * Role-specific dashboard
    */
   getMyDashboard = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    const data = await dashboardService.getRoleDashboard(req.user);
+=======
     const data = await dashboardService.getRoleDashboard(req.user, req.query);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(200).json({ success: true, message: 'Your dashboard loaded.', data });
   });
 
@@ -33,11 +40,14 @@ class DashboardController {
     const data = await dashboardService.getFinanceHeadObservationDashboard();
     res.status(200).json({ success: true, message: 'Finance Head observation dashboard loaded.', data });
   });
+<<<<<<< HEAD
+=======
 
   getFinanceHeadDashboard = asyncHandler(async (req, res) => {
     const data = await dashboardService.getFinanceHeadDashboard(req.query);
     res.status(200).json({ success: true, message: 'Finance Head dashboard loaded.', data });
   });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new DashboardController();

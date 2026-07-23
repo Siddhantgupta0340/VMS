@@ -1,5 +1,7 @@
 import prisma from '../../config/prisma.js';
 import { UserEntity } from '../../zodSchema/index.js';
+<<<<<<< HEAD
+=======
 import { USER_ACCOUNT_STATUS } from './user-status.constants.js';
 
 const AUTH_USER_SELECT = {
@@ -30,6 +32,7 @@ const AUTH_USER_SELECT = {
   [UserEntity.columns.FAILED_LOGIN_ATTEMPTS]: true,
   [UserEntity.columns.LOCKED_UNTIL]: true,
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 class UserRepository {
   /**
@@ -61,6 +64,35 @@ class UserRepository {
   }
 
   /**
+<<<<<<< HEAD
+   * Fetch all users with filters, search, and pagination.
+   */
+  async findAll({ search, role, status, skip = 0, take = 10 }) {
+    const where = {
+      [UserEntity.columns.DELETED_AT]: null, // Exclude soft-deleted users
+      ...(role && { [UserEntity.columns.ROLE]: role }),
+      ...(status && { [UserEntity.columns.STATUS]: status }),
+      ...(search && {
+        OR: [
+          { [UserEntity.columns.FIRST_NAME]: { contains: search, mode: 'insensitive' } },
+          { [UserEntity.columns.LAST_NAME]: { contains: search, mode: 'insensitive' } },
+          { [UserEntity.columns.EMAIL]: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip: parseInt(skip),
+        take: parseInt(take),
+        orderBy: { [UserEntity.columns.CREATED_AT]: 'desc' },
+        select: {
+          [UserEntity.columns.ID]: true,
+          [UserEntity.columns.EMAIL]: true,
+          [UserEntity.columns.FIRST_NAME]: true,
+          [UserEntity.columns.LAST_NAME]: true,
+=======
    * Fetch all users with filters, search, paginated metadata, and column sorting.
    */
   buildListWhere({ search, role, status, branch, region, designation } = {}) {
@@ -142,6 +174,7 @@ class UserRepository {
           [UserEntity.columns.DESIGNATION]: true,
           [UserEntity.columns.BRANCH]: true,
           [UserEntity.columns.REGION]: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           [UserEntity.columns.ROLE]: true,
           [UserEntity.columns.STATUS]: true,
           [UserEntity.columns.STATUS_CHANGED_AT]: true,
@@ -149,15 +182,23 @@ class UserRepository {
           [UserEntity.columns.UPDATED_BY]: true,
           [UserEntity.columns.UPDATED_AT]: true,
           [UserEntity.columns.LAST_LOGIN_AT]: true,
+<<<<<<< HEAD
+=======
           [UserEntity.columns.MUST_CHANGE_PASSWORD]: true,
           [UserEntity.columns.TEMPORARY_PASSWORD_EXPIRES_AT]: true,
           [UserEntity.columns.PASSWORD_CHANGED_AT]: true,
           [UserEntity.columns.CREDENTIALS_EMAIL_STATUS]: true,
           [UserEntity.columns.CREDENTIALS_EMAIL_SENT_AT]: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           [UserEntity.columns.CREATED_AT]: true,
         },
       }),
       prisma.user.count({ where }),
+<<<<<<< HEAD
+    ]);
+
+    return { users, total };
+=======
       this.getAccountStatusSummary({ search, role, branch, region, designation }),
     ]);
 
@@ -173,6 +214,7 @@ class UserRepository {
       },
       summary,
     };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
@@ -186,6 +228,15 @@ class UserRepository {
       },
     });
   }
+<<<<<<< HEAD
+
+  /**
+   * Find a single user by email, including soft-deleted ones for auth checks.
+   */
+  async findByEmail(email) {
+    return await prisma.user.findUnique({
+      where: { [UserEntity.columns.EMAIL]: email },
+=======
   /**
    * Find a single user by ID, including soft-deleted records.
    */
@@ -238,6 +289,7 @@ class UserRepository {
       where: {
         [UserEntity.columns.ACTIVATION_TOKEN_HASH]: tokenHash,
       },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   }
 
@@ -275,6 +327,15 @@ class UserRepository {
   async updateUser(id, updateData) {
     const safeUpdateData = this.sanitizeUpdateData(updateData);
 
+<<<<<<< HEAD
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('UserEntity.columns =', UserEntity.columns);
+      console.debug('Update Data =', safeUpdateData);
+      console.debug('Keys =', Object.keys(safeUpdateData));
+    }
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return await prisma.user.update({
       where: { [UserEntity.columns.ID]: id },
       data: safeUpdateData,
@@ -300,6 +361,17 @@ class UserRepository {
   }
 
   /**
+<<<<<<< HEAD
+   * Soft delete a user by their ID.
+   */
+  async softDeleteUser(id) {
+    return await prisma.user.update({
+      where: { [UserEntity.columns.ID]: id },
+      data: {
+        [UserEntity.columns.DELETED_AT]: new Date(),
+        [UserEntity.columns.STATUS]: 'INACTIVE', // Update status on soft delete
+        [UserEntity.columns.REFRESH_TOKEN]: null, // Invalidate session
+=======
    * Soft delete a user by their ID, suffixing their email to avoid constraint collisions.
    */
   async softDeleteUser(id, { tx = prisma, deletedById = null, deletedAt = new Date() } = {}) {
@@ -329,6 +401,7 @@ class UserRepository {
         [UserEntity.columns.DELETED_BY_ID]: null,
         [UserEntity.columns.STATUS]: USER_ACCOUNT_STATUS.ACTIVE,
         [UserEntity.columns.EMAIL]: originalEmail,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       },
     });
   }

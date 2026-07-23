@@ -4,6 +4,8 @@ const uuidParamSchema = z.object({
   id: z.string().uuid('Invalid vendor ID format'),
 });
 
+<<<<<<< HEAD
+=======
 const emptyStringToUndefined = (value) => (value === '' ? undefined : value);
 const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -23,11 +25,20 @@ const vendorStatusValues = [
   'BLOCKED',
 ];
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 const mapSnakeToCamel = (val) => {
   if (!val || typeof val !== 'object') return val;
   const mapped = { ...val };
   const keysMap = {
     tax_id: 'taxId',
+<<<<<<< HEAD
+    vendor_code: 'vendorCode',
+    zip_code: 'zipCode',
+    contact_person: 'contactPerson',
+    bank_account_no: 'bankAccountNo',
+    ifsc_code: 'ifscCode',
+    payment_terms: 'paymentTerms'
+=======
     pan_number: 'panNumber',
     zip_code: 'zipCode',
     address_line1: 'addressLine1',
@@ -44,6 +55,7 @@ const mapSnakeToCamel = (val) => {
     ifsc_code: 'ifscCode',
     bank_branch: 'bankBranch',
     payment_terms: 'paymentTerms',
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   };
   for (const [snake, camel] of Object.entries(keysMap)) {
     if (snake in val && !(camel in val)) {
@@ -53,6 +65,25 @@ const mapSnakeToCamel = (val) => {
   return mapped;
 };
 
+<<<<<<< HEAD
+export const createVendorSchema = z.object({
+  body: z.preprocess(mapSnakeToCamel, z.object({
+    name: z.string().min(1, 'Vendor name is required').trim(),
+    vendorCode: z.string().min(1, 'Vendor code cannot be empty').trim().optional(),
+    email: z.string().email('Invalid vendor email').trim().lowercase(),
+    phone: z.string().min(5, 'Phone is required').trim(),
+    address: z.string().min(1, 'Address is required').trim(),
+    city: z.string().trim().optional(),
+    state: z.string().trim().optional(),
+    zipCode: z.string().trim().optional(),
+    taxId: z.string().min(1, 'Tax ID is required').trim(),
+    category: z.string().min(1, 'Category is required').trim(),
+    contactPerson: z.string().trim().optional(),
+    bankAccountNo: z.string().trim().optional(),
+    ifscCode: z.string().trim().optional(),
+    paymentTerms: z.string().trim().optional(),
+  })),
+=======
 const vendorBodySchema = z.object({
   name: z.string().min(1, 'Vendor name is required').trim(),
   email: z.string().email('Invalid vendor email').trim().lowercase(),
@@ -86,10 +117,25 @@ const vendorBodySchema = z.object({
 
 export const createVendorSchema = z.object({
   body: z.preprocess(mapSnakeToCamel, vendorBodySchema),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 });
 
 export const updateVendorSchema = z.object({
   params: uuidParamSchema,
+<<<<<<< HEAD
+  body: z.preprocess(mapSnakeToCamel, z.object({
+    name: z.string().min(2, 'Vendor name must be at least 2 characters').trim().optional(),
+    email: z.string().email('Invalid email address').trim().lowercase().optional(),
+    phone: z.string().min(10, 'Phone number must be at least 10 digits').trim().optional(),
+    address: z.string().min(5, 'Address is required').trim().optional(),
+    taxId: z.string().min(1, 'Tax ID/GSTIN is required').trim().optional(),
+    category: z.string().min(1, 'Category is required').trim().optional(),
+    isActive: z.boolean().optional(),
+  }).refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update',
+    path: ['body'],
+  })),
+=======
   body: z.preprocess(
     mapSnakeToCamel,
     vendorBodySchema.partial().extend({
@@ -100,12 +146,16 @@ export const updateVendorSchema = z.object({
       path: ['body'],
     }),
   ),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 });
 
 export const vendorIdSchema = z.object({
   params: uuidParamSchema,
 });
 
+<<<<<<< HEAD
+export const deleteVendorSchema = z.object({ 
+=======
 export const vendorDocumentSchema = z.object({
   params: uuidParamSchema,
   body: z.object({
@@ -129,6 +179,7 @@ export const vendorDocumentIdSchema = z.object({
 });
 
 export const deleteVendorSchema = z.object({
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   params: uuidParamSchema,
 });
 
@@ -136,16 +187,25 @@ export const vendorActionSchema = z.object({
   params: uuidParamSchema,
   body: z.object({
     remarks: z.string().trim().optional(),
+<<<<<<< HEAD
+=======
     reason: z.string().trim().optional(),
     correctiveAction: z.string().trim().optional(),
     blockCategory: z.string().trim().optional(),
     action: z.enum(['approve', 'reject', 'hold', 'block', 'return_to_pending', 'unblock']).optional(),
     followUpDate: z.coerce.date().optional(),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }).optional().default({}),
 });
 
 export const searchVendorsSchema = z.object({
   query: z.object({
+<<<<<<< HEAD
+    status: z.enum(['pending', 'approved', 'rejected', 'blocked']).optional(),
+    search: z.string().trim().optional(),
+    page: z.coerce.number().int().positive().optional().default(1),
+    limit: z.coerce.number().int().positive().max(100).optional().default(10),
+=======
     status: z.preprocess(emptyStringToUndefined, z.enum(vendorStatusValues).optional()),
     search: z.preprocess(emptyStringToUndefined, z.string().trim().optional()),
     category: z.preprocess(emptyStringToUndefined, z.string().trim().optional()),
@@ -155,6 +215,7 @@ export const searchVendorsSchema = z.object({
     limit: z.coerce.number().int().positive().max(100).optional().default(10),
     sortField: z.enum(['created_at', 'updated_at', 'vendor_code', 'name', 'status', 'category']).optional().default('created_at'),
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }),
 });
 
@@ -164,7 +225,10 @@ export default {
   deleteVendorSchema,
   searchVendorsSchema,
   vendorIdSchema,
+<<<<<<< HEAD
+=======
   vendorDocumentSchema,
   vendorDocumentIdSchema,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   vendorActionSchema,
 };

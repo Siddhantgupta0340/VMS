@@ -1,6 +1,11 @@
 import prisma from '../../config/prisma.js';
 
 const paymentInclude = {
+<<<<<<< HEAD
+  invoice: true,
+  vendor: true,
+  purchase_order: true,
+=======
   invoice: {
     select: {
       id: true,
@@ -32,6 +37,7 @@ const paymentInclude = {
       amount: true,
     },
   },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },

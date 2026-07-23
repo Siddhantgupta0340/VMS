@@ -9,11 +9,17 @@ class MatchingRepository {
       where: { id },
       include: {
         invoice:       { include: { vendor: true, purchase_order: true } },
+<<<<<<< HEAD
+        purchase_order: true,
+        grn:           true,
+        completed_by:  { select: { id: true, first_name: true, last_name: true, role: true } },
+=======
         purchase_order: { include: { vendor: true } },
         grn:           true,
         delivery_challan: true,
         completed_by:  { select: { id: true, first_name: true, last_name: true, role: true } },
         admin_reviewed_by: { select: { id: true, first_name: true, last_name: true, role: true } },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       },
     });
   }
@@ -28,7 +34,10 @@ class MatchingRepository {
       include: {
         completed_by: { select: { id: true, first_name: true, last_name: true } },
         grn:          true,
+<<<<<<< HEAD
+=======
         delivery_challan: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       },
     });
   }
@@ -43,7 +52,10 @@ class MatchingRepository {
         invoice:        { include: { vendor: true, purchase_order: true } },
         purchase_order: true,
         grn:            true,
+<<<<<<< HEAD
+=======
         delivery_challan: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       },
     });
   }
@@ -59,7 +71,10 @@ class MatchingRepository {
         invoice:        { include: { vendor: true, purchase_order: true } },
         purchase_order: true,
         grn:            true,
+<<<<<<< HEAD
+=======
         delivery_challan: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       },
     });
   }
@@ -73,7 +88,10 @@ class MatchingRepository {
       orderBy: { created_at: 'desc' },
       include: {
         grn:          true,
+<<<<<<< HEAD
+=======
         delivery_challan: true,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         completed_by: { select: { id: true, first_name: true, last_name: true } },
       },
     });
@@ -90,10 +108,16 @@ class MatchingRepository {
         take,
         orderBy: { created_at: 'desc' },
         include: {
+<<<<<<< HEAD
+          invoice:        { select: { id: true, invoice_number: true, amount: true, status: true } },
+          purchase_order: { select: { id: true, po_number: true } },
+          grn:            { select: { id: true, grn_number: true } },
+=======
           invoice:        { select: { id: true, invoice_number: true, amount: true, invoice_total: true, status: true, vendor: { select: { id: true, name: true, vendor_code: true } } } },
           purchase_order: { select: { id: true, po_number: true, amount: true } },
           grn:            { select: { id: true, grn_number: true } },
           delivery_challan: { select: { id: true, delivery_challan_number: true } },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           completed_by:   { select: { id: true, first_name: true, last_name: true } },
         },
       }),

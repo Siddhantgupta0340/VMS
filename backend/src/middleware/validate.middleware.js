@@ -1,5 +1,8 @@
 import ApiError from '../utils/ApiError.js';
+<<<<<<< HEAD
+=======
 import sanitizeObject from '../utils/logSanitizer.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 /**
  * Express middleware factory that validates the request against a Zod schema.
@@ -17,6 +20,10 @@ const validate = (schema) => (req, res, next) => {
 
   const isDev = process.env.NODE_ENV !== 'production';
 
+<<<<<<< HEAD
+  // ── Always log incoming payload in development ──────────────────────────────
+  if (isDev) {
+=======
   // ── Always log incoming payload in development (Sanitized) ───────────────────
   if (isDev) {
     const sanitizedHeaders = sanitizeObject(req.headers) ?? {};
@@ -25,10 +32,19 @@ const validate = (schema) => (req, res, next) => {
     const sanitizedQuery = sanitizeObject(req.query) ?? {};
     const sanitizedUser = sanitizeObject(req.user);
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[Validate] Incoming Request (Before Validation)');
     console.log(`  Method      : ${req.method}`);
     console.log(`  URL         : ${req.originalUrl}`);
+<<<<<<< HEAD
+    console.log(`  Headers     : ${JSON.stringify(req.headers, null, 2)}`);
+    console.log(`  Content-Type: ${req.headers['content-type'] || 'NOT SET'}`);
+    console.log(`  Body        : ${JSON.stringify(req.body, null, 2)}`);
+    console.log(`  Params      : ${JSON.stringify(req.params, null, 2)}`);
+    console.log(`  Query       : ${JSON.stringify(req.query, null, 2)}`);
+    console.log(`  User        : ${JSON.stringify(req.user, null, 2)}`);
+=======
     console.log(`  Headers     : ${JSON.stringify(sanitizedHeaders, null, 2)}`);
     console.log(`  Content-Type: ${req.headers['content-type'] || 'NOT SET'}`);
     if (req.method !== 'GET' && Object.keys(sanitizedBody).length > 0) {
@@ -43,6 +59,7 @@ const validate = (schema) => (req, res, next) => {
     if (sanitizedUser) {
       console.log(`  User        : ${JSON.stringify(sanitizedUser, null, 2)}`);
     }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
@@ -58,6 +75,10 @@ const validate = (schema) => (req, res, next) => {
       req.body = result.data.body;
     }
     if (result.data.query !== undefined) {
+<<<<<<< HEAD
+      // req.query is read-only in some versions; assign each key instead.
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       for (const key of Object.keys(result.data.query)) {
         req.query[key] = result.data.query[key];
       }
@@ -74,6 +95,34 @@ const validate = (schema) => (req, res, next) => {
     return next();
   }
 
+<<<<<<< HEAD
+  // ── Validation failed ───────────────────────────────────────────────────────
+  // Zod v4 uses `issues`; older versions used `errors`.
+  const issues = result?.error?.issues ?? result?.error?.errors ?? [];
+
+  // Build structured errors array: [{ field: "body.amount", message: "..." }]
+  const errors = issues.map((issue) => {
+    const field = Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? '');
+    return { field, message: issue.message };
+  });
+
+  // Build a human-readable summary for the top-level message.
+  const summary = errors.length > 0
+    ? errors.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message)).join(' | ')
+    : 'Invalid request payload';
+
+  if (isDev) {
+    console.log('[Validate] ❌ Validation failed:');
+    errors.forEach((e) => console.log(`  - ${e.field || '(root)'}: ${e.message}`));
+  }
+
+  const apiError = new ApiError(400, summary);
+  apiError.errors = errors;
+  next(apiError);
+};
+
+export default validate;
+=======
   // ── Validation failed (Standardized structure) ──────────────────────────────
   const issues = result.error.issues ?? result.error.errors ?? [];
 
@@ -110,3 +159,4 @@ const validate = (schema) => (req, res, next) => {
 };
 
 export default validate;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

@@ -13,6 +13,18 @@ class AuthController {
    * @access  Public
    */
   login = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    console.log("login", req.body);
+    const { email, password } = req.body;
+    const { user, accessToken, refreshToken } = await authService.login(
+      email,
+      password,
+    );
+    res.status(200).json({
+      success: true,
+      message: AUTH_MESSAGES.LOGIN_SUCCESS,
+      data: { user, accessToken, refreshToken },
+=======
     const { email, password } = req.body;
     const result = await authService.login(
       email,
@@ -47,6 +59,7 @@ class AuthController {
       success: true,
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
       data: result,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   });
 
@@ -56,9 +69,14 @@ class AuthController {
    * @access  Private
    */
   logout = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    // Assuming userId is available from an authentication middleware (e.g., req.user.id)
+    const message = await authService.logout(req.user.id);
+=======
     const message = await authService.logout(req.user.id);
     res.clearCookie('vms_access_token', { path: '/' });
     res.clearCookie('vms_refresh_token', { path: '/' });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(200).json({ success: true, message });
   });
 
@@ -68,6 +86,12 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    console.log("token received");
+    const { refreshToken: oldRefreshToken } = req.body;
+    const { accessToken, refreshToken } =
+      await authService.refreshToken(oldRefreshToken);
+=======
     const oldRefreshToken = req.cookies?.vms_refresh_token || req.body.refreshToken;
     const { accessToken, refreshToken } =
       await authService.refreshToken(oldRefreshToken);
@@ -89,6 +113,7 @@ class AuthController {
       res.cookie('vms_refresh_token', refreshToken, cookieOptions);
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.REFRESH_SUCCESS,
@@ -134,9 +159,23 @@ class AuthController {
    * @access  Public
    */
   forgotPassword = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    console.log("\n================ FORGOT PASSWORD =================");
+    console.log("[Controller] Forgot Password API Hit");
+    console.log("[Controller] Request Body:", req.body);
+
+    const { email } = req.body;
+
+    console.log("[Controller] Email Received:", email);
+    const message = await authService.forgotPassword(email);
+
+    console.log("[Controller] Service Response:", message);
+
+=======
     const { email } = req.body;
     const message = await authService.forgotPassword(email);
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     // Required response format
     return res.status(200).json({
       success: true,
@@ -172,6 +211,8 @@ class AuthController {
 
     res.status(200).json({ success: true, message });
   });
+<<<<<<< HEAD
+=======
 
   completeTemporaryPasswordChange = asyncHandler(async (req, res) => {
     const { passwordChangeToken, newPassword } = req.body;
@@ -208,6 +249,7 @@ class AuthController {
     res.status(200).json({ success: true, message });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new AuthController();

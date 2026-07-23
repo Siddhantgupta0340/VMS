@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+import pg from 'pg';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+=======
 import 'dotenv/config';
 import pg from 'pg';
 import prismaPkg from '@prisma/client';
@@ -10,11 +15,30 @@ import {
 
 const { PrismaClient } = prismaPkg;
 const { Pool } = pg;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 /**
  * PrismaClient Singleton (Prisma v7 pattern)
  * Database connection is configured via adapter, not datasource url in schema.
  */
+<<<<<<< HEAD
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({
+  adapter,
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+});
+
+export default prisma;
+=======
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -152,3 +176,4 @@ export {
 
 
 export default prisma;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

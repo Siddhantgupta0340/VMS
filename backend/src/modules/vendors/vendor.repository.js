@@ -7,6 +7,8 @@ const vendorInclude = {
   approved_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
+<<<<<<< HEAD
+=======
   documents: {
     where: { deleted_at: null, status: 'ACTIVE' },
     orderBy: { uploaded_at: 'desc' },
@@ -16,6 +18,7 @@ const vendorInclude = {
       },
     },
   },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 };
 
 class VendorRepository {
@@ -23,13 +26,21 @@ class VendorRepository {
     return prisma.vendor.create({ data, include: vendorInclude });
   }
 
+<<<<<<< HEAD
+  async findAll({ where, skip, take }) {
+=======
   async findAll({ where, skip, take, orderBy = { created_at: 'desc' } }) {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const [vendors, total] = await Promise.all([
       prisma.vendor.findMany({
         where,
         skip,
         take,
+<<<<<<< HEAD
+        orderBy: { created_at: 'desc' },
+=======
         orderBy,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         include: vendorInclude,
       }),
       prisma.vendor.count({ where }),
@@ -60,10 +71,13 @@ class VendorRepository {
       include: vendorInclude,
     });
   }
+<<<<<<< HEAD
+=======
 
   async transaction(callback) {
     return prisma.$transaction(callback);
   }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new VendorRepository();

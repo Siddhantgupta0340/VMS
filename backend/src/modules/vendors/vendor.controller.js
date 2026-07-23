@@ -18,16 +18,23 @@ class VendorController {
     res.status(200).json({ success: true, data: vendor });
   });
 
+<<<<<<< HEAD
+=======
   getVendorHistory = asyncHandler(async (req, res) => {
     const result = await vendorService.getVendorReviewHistory(req.params.id, req.user);
     res.status(200).json({ success: true, ...result });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   updateVendor = asyncHandler(async (req, res) => {
     const vendor = await vendorService.updateVendor(req.params.id, req.body, req.user);
     res.status(200).json({ success: true, message: VENDOR_MESSAGES.UPDATED, data: vendor });
   });
 
+<<<<<<< HEAD
+  approveVendor = asyncHandler(async (req, res) => {
+    const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.APPROVED, req.user, req.body?.remarks);
+=======
   listVendorDocuments = asyncHandler(async (req, res) => {
     const documents = await vendorService.listVendorDocuments(req.params.id, req.user);
     res.status(200).json({ success: true, documents });
@@ -55,15 +62,26 @@ class VendorController {
 
   approveVendor = asyncHandler(async (req, res) => {
     const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.APPROVED, req.user, req.body);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(200).json({ success: true, message: VENDOR_MESSAGES.APPROVED, data: vendor });
   });
 
   rejectVendor = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.REJECTED, req.user, req.body?.remarks);
+=======
     const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.REJECTED, req.user, req.body);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(200).json({ success: true, message: VENDOR_MESSAGES.REJECTED, data: vendor });
   });
 
   blockVendor = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.BLOCKED, req.user, req.body?.remarks);
+    res.status(200).json({ success: true, message: VENDOR_MESSAGES.BLOCKED, data: vendor });
+  });
+
+=======
     const vendor = await vendorService.changeVendorStatus(req.params.id, VENDOR_STATUS.BLOCKED, req.user, {
       ...req.body,
       action: 'block',
@@ -79,15 +97,19 @@ class VendorController {
     res.status(200).json({ success: true, message: 'Vendor placed on hold.', data: vendor });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   unblockVendor = asyncHandler(async (req, res) => {
     const vendor = await vendorService.unblockVendor(req.params.id, req.user, req.body?.remarks);
     res.status(200).json({ success: true, message: VENDOR_MESSAGES.UNBLOCKED, data: vendor });
   });
+<<<<<<< HEAD
+=======
 
   returnVendorToPending = asyncHandler(async (req, res) => {
     const vendor = await vendorService.returnVendorToPending(req.params.id, req.user, req.body);
     res.status(200).json({ success: true, message: 'Vendor returned to pending review.', data: vendor });
   });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new VendorController();

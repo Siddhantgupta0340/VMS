@@ -1,6 +1,10 @@
 import 'dotenv/config'; 
 import http from 'http';
 import app from './app.js';
+<<<<<<< HEAD
+import seedAdmin from './utils/seedAdmin.js';
+import prisma from './config/prisma.js';
+=======
 import seedDevUsers from './utils/seedDevUsers.js';
 
 import {
@@ -11,10 +15,13 @@ import {
   validateDatabaseUrl,
 } from './config/prisma.js';
 import { classifyDatabaseError, isTransientDatabaseError, toSafeErrorLog } from './utils/dbRetry.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 const PORT = process.env.PORT || 5000;
 let server;
 
+<<<<<<< HEAD
+=======
 const STARTUP_DATABASE_ERROR_CATEGORIES = new Set([
   'DATABASE_AUTHENTICATION_FAILED',
   'DATABASE_CONNECTION_TIMEOUT',
@@ -75,12 +82,36 @@ const canStartWithoutDatabase = (startupError) => (
   STARTUP_DATABASE_ERROR_CATEGORIES.has(startupError.category)
 );
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 /**
  * Entry point to start the backend server. 
  */
 const startServer = async () => {
   const shutdown = async (signal) => {
     console.log(`\n${signal} received. Shutting down gracefully...`);
+<<<<<<< HEAD
+    if (server) {
+      server.close(async () => {
+        await prisma.$disconnect();
+        console.log('PostgreSQL connection closed.');
+        process.exit(0);
+      });
+    } else {
+      await prisma.$disconnect();
+      process.exit(0);
+    }
+  };
+
+  try {
+    // 1. Database Connection Check
+    await prisma.$connect();
+    console.log('Successfully connected to PostgreSQL database.');
+
+    // 2. Run Automatic Seeders
+    await seedAdmin();
+
+    // 3. Create HTTP Server
+=======
 
     const finishShutdown = async () => {
       try {
@@ -102,6 +133,7 @@ const startServer = async () => {
   };
 
   const listen = (startupMode = 'ready') => {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     server = http.createServer(app);
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -109,6 +141,13 @@ const startServer = async () => {
 
     server.listen(PORT, () => {
       console.log(`VMS Backend Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+<<<<<<< HEAD
+    });
+
+    // 4. Handle Unhandled Rejections (e.g., failed promises)
+    process.on('unhandledRejection', (err) => {
+      console.error('UNHANDLED REJECTION! 💥 Shutting down...');
+=======
       if (startupMode === 'degraded') {
         console.warn('[startup] Running in degraded mode. Database-backed routes will return service-unavailable responses until PostgreSQL is reachable.');
         console.warn('[startup] Set ALLOW_DEGRADED_STARTUP=false to make local development fail fast like production.');
@@ -117,10 +156,23 @@ const startServer = async () => {
 
     process.on('unhandledRejection', (err) => {
       console.error('UNHANDLED REJECTION! Shutting down...');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       console.error(err.name, err.message);
       shutdown('UNHANDLED_REJECTION');
     });
 
+<<<<<<< HEAD
+    // 5. Handle Uncaught Exceptions
+    process.on('uncaughtException', (err) => {
+      console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
+      console.error(err.name, err.message);
+      shutdown('UNCAUGHT_EXCEPTION');
+    });
+
+  } catch (error) {
+    console.error('Failed to start server due to database connection error:', error);
+    await prisma.$disconnect();
+=======
     process.on('uncaughtException', (err) => {
       console.error('UNCAUGHT EXCEPTION! Shutting down...');
       console.error(err.name, err.message);
@@ -196,8 +248,13 @@ const startServer = async () => {
 
     // Fatal error: safely close the pool before exiting.
     await disconnectDatabase();
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     process.exit(1);
   }
 };
 
+<<<<<<< HEAD
 startServer();
+=======
+startServer();
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

@@ -1,14 +1,20 @@
 import jwt from 'jsonwebtoken';
 import { UserEntity } from '../zodSchema/index.js';
+<<<<<<< HEAD
+=======
 import { getPermissionsForRole } from '../modules/auth/role-permissions.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // These would typically be loaded from process.env in a production environment
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'vms_access_secret_key_2024';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'vms_refresh_secret_key_2024';
 const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || '1h';
 const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+<<<<<<< HEAD
+=======
 const PASSWORD_CHANGE_TOKEN_EXPIRY = process.env.PASSWORD_CHANGE_TOKEN_EXPIRY || '15m';
 const PASSWORD_CHANGE_PURPOSE = 'PASSWORD_CHANGE_REQUIRED';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 /**
  * Generates both Access and Refresh tokens for a user.
@@ -19,6 +25,12 @@ const PASSWORD_CHANGE_PURPOSE = 'PASSWORD_CHANGE_REQUIRED';
 export const generateAuthTokens = (userId, role) => {
   const idField = UserEntity.columns.ID;
   const roleField = UserEntity.columns.ROLE;
+<<<<<<< HEAD
+
+  const accessToken = jwt.sign({ [idField]: userId, [roleField]: role }, ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
+  });
+=======
   const permissions = getPermissionsForRole(role);
 
   const accessToken = jwt.sign(
@@ -26,6 +38,7 @@ export const generateAuthTokens = (userId, role) => {
     ACCESS_TOKEN_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
   const refreshToken = jwt.sign({ [idField]: userId }, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRY,
@@ -58,6 +71,9 @@ export const verifyRefreshToken = (token) => {
   } catch (error) {
     return null;
   }
+<<<<<<< HEAD
+};
+=======
 };
 
 export const generatePasswordChangeToken = (userId) => {
@@ -77,3 +93,4 @@ export const verifyPasswordChangeToken = (token) => {
     return null;
   }
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

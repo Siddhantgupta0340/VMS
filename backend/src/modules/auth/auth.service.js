@@ -1,16 +1,22 @@
 import bcrypt from "bcryptjs";
 import userRepository from "../users/user.repository.js";
+<<<<<<< HEAD
+import { generateAuthTokens, verifyRefreshToken } from "../../utils/jwt.js";
+=======
 import {
   generateAuthTokens,
   generatePasswordChangeToken,
   verifyPasswordChangeToken,
   verifyRefreshToken,
 } from "../../utils/jwt.js";
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 import { AUTH_MESSAGES } from "./auth.constants.js";
 import ApiError from "../../utils/ApiError.js";
 import { UserEntity } from "../../zodSchema/index.js";
 import sendEmail from "../../utils/email.js";
 import { sanitizeUser } from "../../utils/sanitizeUser.js";
+<<<<<<< HEAD
+=======
 import { attachPermissions } from "./role-permissions.js";
 import prisma from "../../config/prisma.js";
 import { USER_ACCOUNT_STATUS } from "../users/user-status.constants.js";
@@ -42,19 +48,26 @@ const isActivationValid = (user) => {
   if (!isActiveAccount(user)) return { valid: false, reason: 'inactive' };
   return { valid: true, reason: 'valid' };
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 class AuthService {
   /**
    * LOGIN
    */
   async login(email, password) {
+<<<<<<< HEAD
+    const user = await userRepository.findByEmail(email);
+=======
     const normalizedEmail = email.toLowerCase().trim();
     const user = await userRepository.findByEmail(normalizedEmail);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     if (!user) {
       throw new ApiError(401, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
 
+<<<<<<< HEAD
+=======
     if (!isActiveAccount(user)) {
       throw new ApiError(401, AUTH_MESSAGES.INVALID_CREDENTIALS);
     }
@@ -71,11 +84,17 @@ class AuthService {
       throw new ApiError(403, 'Account activation is required before login.');
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const passwordField = UserEntity.columns.PASSWORD;
 
     const isMatch = await bcrypt.compare(password, user[passwordField]);
 
     if (!isMatch) {
+<<<<<<< HEAD
+      throw new ApiError(401, AUTH_MESSAGES.INVALID_CREDENTIALS);
+    }
+
+=======
       const failedAttempts = (user.failed_login_attempts || 0) + 1;
       const lockData = failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS
         ? { [UserEntity.columns.LOCKED_UNTIL]: new Date(Date.now() + LOGIN_LOCK_MINUTES * 60 * 1000) }
@@ -108,6 +127,7 @@ class AuthService {
       throw new ApiError(403, 'Account activation is required before login.');
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const idField = UserEntity.columns.ID;
     const roleField = UserEntity.columns.ROLE;
 
@@ -119,6 +139,12 @@ class AuthService {
     await userRepository.updateUser(user[idField], {
       [UserEntity.columns.REFRESH_TOKEN]: refreshToken,
       [UserEntity.columns.LAST_LOGIN_AT]: new Date(),
+<<<<<<< HEAD
+    });
+
+    return {
+      user: sanitizeUser(user),
+=======
       [UserEntity.columns.FAILED_LOGIN_ATTEMPTS]: 0,
       [UserEntity.columns.LOCKED_UNTIL]: null,
     });
@@ -135,11 +161,14 @@ class AuthService {
 
     return {
       user: attachPermissions(sanitizeUser(user)),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       accessToken,
       refreshToken,
     };
   }
 
+<<<<<<< HEAD
+=======
   async validateActivationToken(token) {
     const tokenHash = hashActivationToken(token);
     const user = await userRepository.findByActivationTokenHash(tokenHash);
@@ -242,6 +271,7 @@ class AuthService {
     return GENERIC_ACTIVATION_MESSAGE;
   }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * LOGOUT
    */
@@ -301,7 +331,11 @@ class AuthService {
       throw new ApiError(404, AUTH_MESSAGES.USER_NOT_FOUND);
     }
 
+<<<<<<< HEAD
+    return sanitizeUser(user);
+=======
     return attachPermissions(sanitizeUser(user));
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
@@ -324,6 +358,10 @@ class AuthService {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+<<<<<<< HEAD
+    await userRepository.updateUser(userId, {
+      [UserEntity.columns.PASSWORD]: hashedPassword,
+=======
     const now = new Date();
     await userRepository.updateUser(userId, {
       [UserEntity.columns.PASSWORD]: hashedPassword,
@@ -331,11 +369,14 @@ class AuthService {
       [UserEntity.columns.TEMPORARY_PASSWORD_EXPIRES_AT]: null,
       [UserEntity.columns.PASSWORD_CHANGED_AT]: now,
       [UserEntity.columns.PASSWORD_SET_AT]: user.password_set_at || now,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
 
     return AUTH_MESSAGES.PASSWORD_CHANGED;
   }
 
+<<<<<<< HEAD
+=======
   async completeTemporaryPasswordChange(passwordChangeToken, newPassword) {
     const decoded = verifyPasswordChangeToken(passwordChangeToken);
     if (!decoded?.[UserEntity.columns.ID]) {
@@ -404,6 +445,7 @@ class AuthService {
     };
   }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * FORGOT PASSWORD
    * - Generates OTP
@@ -411,6 +453,11 @@ class AuthService {
    * - Emails OTP + expiry time + security warning
    */
   async forgotPassword(payload) {
+<<<<<<< HEAD
+    console.log("\n========== FORGOT PASSWORD ==========");
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     // Accept either string email or { email }
     const email =
       typeof payload === "string" ? payload : payload?.email;
@@ -423,12 +470,22 @@ class AuthService {
 
     // Do NOT reveal existence
     if (!user) {
+<<<<<<< HEAD
+      console.log("[AuthService] User not found. Returning generic success.");
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       return AUTH_MESSAGES.FORGOT_PASSWORD_SENT;
     }
 
     const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const resetExpires = new Date(Date.now() + 10 * 60 * 1000);
 
+<<<<<<< HEAD
+    console.log("Generated OTP :", resetOtp);
+    console.log("OTP Expiry :", resetExpires);
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     await userRepository.updateUser(user[UserEntity.columns.ID], {
       [UserEntity.columns.PASSWORD_RESET_OTP]: resetOtp,
       [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: resetExpires,
@@ -473,6 +530,12 @@ class AuthService {
       text: `Vendor Management System - Password Reset OTP\nOTP: ${resetOtp}\nExpiry: ${resetExpires.toISOString()}\nSecurity Warning: Do not share OTP with anyone.`,
     });
 
+<<<<<<< HEAD
+    console.log("OTP Email Sent Successfully.");
+    console.log("==============================");
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return AUTH_MESSAGES.FORGOT_PASSWORD_SENT;
   }
 
@@ -480,6 +543,11 @@ class AuthService {
    * verify-otp support
    */
   async verifyOtp(email, otp) {
+<<<<<<< HEAD
+    console.log("\n========== VERIFY OTP ==========");
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (!email || typeof email !== "string") {
       throw new ApiError(400, "Email is required.");
     }
@@ -507,6 +575,11 @@ class AuthService {
    * RESET PASSWORD USING OTP
    */
   async resetPassword(email, otp, newPassword) {
+<<<<<<< HEAD
+    console.log("\n========== RESET PASSWORD ==========");
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (!email || typeof email !== "string") {
       throw new ApiError(400, "Email is required.");
     }
@@ -539,6 +612,11 @@ class AuthService {
       [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: null,
     });
 
+<<<<<<< HEAD
+    console.log("Password Updated Successfully.");
+
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return AUTH_MESSAGES.PASSWORD_RESET_SUCCESS;
   }
 

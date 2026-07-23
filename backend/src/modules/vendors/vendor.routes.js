@@ -8,12 +8,18 @@ import {
   createVendorSchema,
   searchVendorsSchema,
   vendorActionSchema,
+<<<<<<< HEAD
+  vendorIdSchema,
+} from './vendor.validation.js';
+import { updateVendorSchema } from '../../zodSchema/vendor.schema.js';
+=======
   vendorDocumentIdSchema,
   vendorDocumentSchema,
   vendorIdSchema,
 } from './vendor.validation.js';
 import { updateVendorSchema } from '../../zodSchema/vendor.schema.js';
 import { uploadVendorDocument } from './vendor-document.upload.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 const router = express.Router();
 
@@ -29,6 +35,12 @@ router
   .get(authorize(VENDOR_PERMISSIONS.READ), validate(vendorIdSchema), vendorController.getVendorById)
   .put(authorize([...VENDOR_PERMISSIONS.CREATE, ...VENDOR_PERMISSIONS.REVIEW]), validate(updateVendorSchema), vendorController.updateVendor);
 
+<<<<<<< HEAD
+router.patch('/:id/approve', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.approveVendor);
+router.patch('/:id/reject', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.rejectVendor);
+router.patch('/:id/block', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.blockVendor);
+router.patch('/:id/unblock', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.unblockVendor);
+=======
 router
   .route('/:id/documents')
   .get(authorize(VENDOR_PERMISSIONS.READ), validate(vendorIdSchema), vendorController.listVendorDocuments)
@@ -48,6 +60,7 @@ router.patch('/:id/hold', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorA
 router.patch('/:id/block', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.blockVendor);
 router.patch('/:id/unblock', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.unblockVendor);
 router.patch('/:id/pending', authorize(VENDOR_PERMISSIONS.REVIEW), validate(vendorActionSchema), vendorController.returnVendorToPending);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 export default router;
 

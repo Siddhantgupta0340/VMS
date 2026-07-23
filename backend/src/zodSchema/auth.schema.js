@@ -30,6 +30,8 @@ export const resetPasswordSchema = z.object({
     newPassword: passwordSchema,
   }),
 });
+<<<<<<< HEAD
+=======
 export const activationTokenSchema = z.object({
   query: z.object({
     token: z.string().min(32, 'Activation token is required'),
@@ -47,6 +49,7 @@ export const resendActivationSchema = z.object({
     email: z.string().email('Invalid email address').trim().lowercase(),
   }),
 });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 export const logoutSchema = z.object({ body: z.object({ refreshToken: z.string().optional() }) }); 
 export const changePasswordSchema = z.object({
   body: z.object({
@@ -54,6 +57,8 @@ export const changePasswordSchema = z.object({
     newPassword: passwordSchema,
   }),
 });
+<<<<<<< HEAD
+=======
 
 export const completeTemporaryPasswordSchema = z.object({
   body: z.object({
@@ -65,3 +70,4 @@ export const completeTemporaryPasswordSchema = z.object({
     path: ['confirmPassword'],
   }),
 });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

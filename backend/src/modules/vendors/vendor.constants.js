@@ -1,4 +1,6 @@
 export const VENDOR_STATUS = {
+<<<<<<< HEAD
+=======
   PENDING: 'PENDING',
   ACTIVE: 'ACTIVE',
   APPROVED: 'ACTIVE',
@@ -28,12 +30,15 @@ export const VENDOR_PENDING_CHANGE_STATUS = {
 };
 
 export const LEGACY_VENDOR_STATUS = {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   PENDING: 'pending',
   APPROVED: 'approved',
   REJECTED: 'rejected',
   BLOCKED: 'blocked',
 };
 
+<<<<<<< HEAD
+=======
 export const VENDOR_REVIEW_ACTION = {
   APPROVE: 'approve',
   REJECT: 'reject',
@@ -125,6 +130,7 @@ export const isVendorApprovedAndActive = (vendor) => {
   );
 };
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 export const VENDOR_MESSAGES = {
   CREATED: 'Vendor created successfully.',
   UPDATED: 'Vendor updated successfully.',
@@ -136,6 +142,8 @@ export const VENDOR_MESSAGES = {
   ONLY_APPROVED_FOR_PO: 'Only approved vendors can be used to create purchase orders.',
   DUPLICATE: 'Vendor with the same code, email, or tax ID already exists.',
 };
+<<<<<<< HEAD
+=======
 
 export const VENDOR_REQUIRED_APPROVAL_FIELDS = [
   { key: 'name', label: 'legal name' },
@@ -154,3 +162,4 @@ export const VENDOR_REQUIRED_DOCUMENT_TYPES = [
   { type: 'PAN_CARD', label: 'PAN Card' },
   { type: 'VENDOR_AGREEMENT', label: 'Vendor Agreement' },
 ];
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

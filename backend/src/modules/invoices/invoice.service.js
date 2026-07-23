@@ -4,7 +4,10 @@ import vendorRepository from '../vendors/vendor.repository.js';
 import purchaseOrderRepository from '../purchase-orders/po.repository.js';
 import approvalRepository from '../approvals/approval.repository.js';
 import notificationService from '../notifications/notification.service.js';
+<<<<<<< HEAD
+=======
 import matchingService from '../three-way-matching/matching.service.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 import { ROLES } from '../../zodSchema/index.js';
 import {
   INVOICE_STATUS,
@@ -14,13 +17,18 @@ import {
   getNextApprovalStatus,
   isValidStatusTransition,
   getCurrentApprovalLevel,
+<<<<<<< HEAD
+=======
   getPendingQueueStatuses,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 } from '../../utils/approval-helper.js';
 import { VENDOR_MESSAGES, VENDOR_STATUS } from '../vendors/vendor.constants.js';
 import prisma from '../../config/prisma.js';
 
 export { INVOICE_STATUS, THREE_WAY_MATCH_STATUS, ADMIN_REVIEW_STATUS } from '../../utils/approval-helper.js';
 
+<<<<<<< HEAD
+=======
 // Lazy-loaded to avoid circular dependency
 let _paymentApprovalService = null;
 const getPaymentApprovalService = async () => {
@@ -31,6 +39,7 @@ const getPaymentApprovalService = async () => {
   return _paymentApprovalService;
 };
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -57,16 +66,42 @@ const writeAuditLog = async (tx, { entityId, action, fromStatus, toStatus, userI
 class InvoiceService {
   // ────────────────────────────────────────────────────────────────────────────
   // CREATE INVOICE
+<<<<<<< HEAD
+  // Default entry point: Case Manager creates → PENDING_THREE_WAY_MATCH
+  // ────────────────────────────────────────────────────────────────────────────
+  async createInvoice(payload, user, req = null) {
+    // 1. Validate vendor
+    const vendor = await vendorRepository.findById(payload.vendorId);
+    if (!vendor) throw new ApiError(404, VENDOR_MESSAGES.NOT_FOUND);
+    if (vendor.status !== VENDOR_STATUS.APPROVED) {
+      throw new ApiError(400, 'Invoice can only be created for an approved vendor.');
+    }
+    if (user.role === ROLES.CASE_MANAGER && vendor.created_by_id !== user.id) {
+      throw new ApiError(403, 'You can only create invoices for vendors created by you.');
+    }
+
+    // 2. Validate purchase order
+    const purchaseOrder = await purchaseOrderRepository.findById(payload.purchaseOrderId);
+    if (!purchaseOrder) throw new ApiError(404, 'Purchase order not found.');
+    if (purchaseOrder.vendor_id !== payload.vendorId) {
+      throw new ApiError(400, 'Purchase order does not belong to the selected vendor.');
+    }
+=======
   // Default entry point: Case Manager creates → role-based approval queue
   // ────────────────────────────────────────────────────────────────────────────
   async createInvoice(payload, user, req = null) {
     // 1. Validate purchase order
     const purchaseOrder = await purchaseOrderRepository.findById(payload.purchaseOrderId);
     if (!purchaseOrder) throw new ApiError(404, 'Purchase order not found.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (purchaseOrder.status === 'cancelled') {
       throw new ApiError(400, 'Invoice cannot be created for a cancelled purchase order.');
     }
 
+<<<<<<< HEAD
+    // 3. Determine highest approval role required
+    const requiredApprovalRole = getRequiredInvoiceApprovalRole(payload.amount);
+=======
     const vendorId = payload.vendorId || purchaseOrder.vendor_id;
     const amount = payload.amount !== undefined && payload.amount !== null && !isNaN(Number(payload.amount))
       ? Number(payload.amount)
@@ -110,10 +145,32 @@ class InvoiceService {
 
     const timestamp = Date.now().toString().slice(-6);
     const invoiceNum = payload.invoiceNumber || `INV-${new Date().getFullYear()}-${timestamp}`;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     return invoiceRepository.transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
+<<<<<<< HEAD
+          invoice_number:        payload.invoiceNumber || `INV-${Date.now()}`,
+          vendor_id:             payload.vendorId,
+          purchase_order_id:     payload.purchaseOrderId,
+          created_by_id:         user.id,
+          updated_by_id:         user.id,
+          amount:                payload.amount,
+          currency:              payload.currency || 'INR',
+          status:                INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
+          required_approval_role: requiredApprovalRole,
+          current_approval_level: null,
+          three_way_match_status: THREE_WAY_MATCH_STATUS.PENDING,
+          admin_review_status:    ADMIN_REVIEW_STATUS.APPROVED, // Default to approved as review is removed
+          invoice_date:          payload.invoiceDate || new Date(),
+          due_date:              payload.dueDate ? new Date(payload.dueDate) : null,
+          description:           payload.description || null,
+          invoice_total:         payload.amount,
+          paid_amount:           0.00,
+          remaining_amount:      payload.amount,
+          payment_status:        'UNPAID',
+=======
           invoice_number:        invoiceNum,
           vendor_id:             vendorId,
           purchase_order_id:     payload.purchaseOrderId,
@@ -138,6 +195,7 @@ class InvoiceService {
           invoice_creation_method: payload.invoiceCreationMethod || 'MANUAL',
           invoice_source:        payload.invoiceSource || 'MANUAL_ENTRY',
           invoice_category:      payload.invoiceCategory || 'TAX_INVOICE',
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         },
         include: { vendor: true, purchase_order: true },
       });
@@ -146,6 +204,16 @@ class InvoiceService {
         entityId:   invoice.id,
         action:     'created',
         fromStatus: null,
+<<<<<<< HEAD
+        toStatus:   INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
+        userId:     user.id,
+        remarks:    `Invoice submitted. Requires Three-Way Matching before approval. Required approval level: ${requiredApprovalRole}.`,
+        req,
+      });
+
+      // Notify Case Manager that matching can now begin
+      notificationService.notifyInvoiceStatusChange(invoice, INVOICE_STATUS.PENDING_THREE_WAY_MATCH, user.first_name || 'System').catch(() => {});
+=======
         toStatus:   initialStatus,
         userId:     user.id,
         remarks:    `Invoice created for PO ${purchaseOrder.po_number}. Approval level: ${currentApprovalLevel}.`,
@@ -159,12 +227,15 @@ class InvoiceService {
 
       // Notify approvers
       notificationService.notifyInvoiceNextLevel(invoice, currentApprovalLevel).catch(() => {});
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
       return invoice;
     });
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+=======
   // GET APPROVED PURCHASE ORDERS FOR INVOICE SELECTION
   // ────────────────────────────────────────────────────────────────────────────
   async getApprovedPurchaseOrdersForInvoice(query, user) {
@@ -195,6 +266,7 @@ class InvoiceService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   // LIST INVOICES
   // ────────────────────────────────────────────────────────────────────────────
   async listInvoices(query, user) {
@@ -207,6 +279,13 @@ class InvoiceService {
       ...(query.purchaseOrderId   && { purchase_order_id:     query.purchaseOrderId }),
       ...(query.requiredApprovalRole && { required_approval_role: query.requiredApprovalRole }),
       ...(query.paymentStatus     && { payment_status:        query.paymentStatus }),
+<<<<<<< HEAD
+      // Case Managers can only see their own created invoices
+      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+    };
+
+    if (query.status) {
+=======
       ...(query.createdById       && { created_by_id:         query.createdById }),
     };
 
@@ -221,6 +300,7 @@ class InvoiceService {
         }
       };
     } else if (query.status) {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       where.status = query.status;
     }
 
@@ -228,6 +308,8 @@ class InvoiceService {
       where.current_approval_level = query.currentApprovalLevel;
     }
 
+<<<<<<< HEAD
+=======
     if (query.search && typeof query.search === 'string' && query.search.trim()) {
       const s = query.search.trim();
       where.OR = [
@@ -238,6 +320,7 @@ class InvoiceService {
       ];
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const result = await invoiceRepository.findAll({
       where,
       skip:  (page - 1) * limit,
@@ -253,7 +336,10 @@ class InvoiceService {
     };
   }
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   // ────────────────────────────────────────────────────────────────────────────
   // GET INVOICE BY ID
   // ────────────────────────────────────────────────────────────────────────────
@@ -263,10 +349,19 @@ class InvoiceService {
     if (invoice.deleted_at && user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
       throw new ApiError(404, 'Invoice not found.');
     }
+<<<<<<< HEAD
+    if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
+      throw new ApiError(403, 'You can only access invoices created by you.');
+    }
+    return invoice;
+  }
+
+=======
     return invoice;
   }
 
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   // ────────────────────────────────────────────────────────────────────────────
   // APPROVE INVOICE (Team Lead / Manager / Finance Head)
   // Routes through the 3-level approval hierarchy
@@ -276,11 +371,17 @@ class InvoiceService {
     if (!invoice) throw new ApiError(404, 'Invoice not found.');
     if (invoice.deleted_at) throw new ApiError(400, 'Cannot approve a deleted invoice.');
 
+<<<<<<< HEAD
+    const currentLevel = getCurrentApprovalLevel(invoice.status);
+
+    console.log(currentLevel)
+=======
     const currentLevel = invoice.current_approval_level || getCurrentApprovalLevel(invoice.status);
 
     console.log("Invoice Status =", invoice.status);
 
     console.log("Current Level =", currentLevel);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     if (!currentLevel || !['TEAM_LEAD', 'MANAGER', 'FINANCE_HEAD'].includes(currentLevel)) {
       throw new ApiError(400, 'This invoice is not in a state that requires role-level approval.');
@@ -297,6 +398,12 @@ class InvoiceService {
     if (currentLevel === 'FINANCE_HEAD' && invoice.finance_head_approver_id) throw new ApiError(400, 'Invoice has already been approved at Finance Head level.');
 
     const currentStatus = invoice.status;
+<<<<<<< HEAD
+    const nextStatus    = getNextApprovalStatus(invoice.amount, currentStatus);
+
+    if (!isValidStatusTransition(currentStatus, nextStatus)) {
+      throw new ApiError(400, `Invalid workflow transition: ${currentStatus} → ${nextStatus}`);
+=======
     const normalizedCurrentStatus = currentStatus === INVOICE_STATUS.PENDING_THREE_WAY_MATCH
       ? (currentLevel === 'MANAGER'
           ? INVOICE_STATUS.PENDING_MANAGER
@@ -316,6 +423,7 @@ class InvoiceService {
 
     if (!isValidStatusTransition(normalizedCurrentStatus, nextStatus)) {
       throw new ApiError(400, `Invalid workflow transition: ${normalizedCurrentStatus} → ${nextStatus}`);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     const now        = new Date();
@@ -342,10 +450,14 @@ class InvoiceService {
       updateData.final_approved_at = now;
     }
 
+<<<<<<< HEAD
+    return invoiceRepository.transaction(async (tx) => {
+=======
     let createdApproval = null;
     let assignedApprover = null;
 
     const resultInvoice = await invoiceRepository.transaction(async (tx) => {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       const updatedInvoice = await tx.invoice.update({
         where:   { id },
         data:    updateData,
@@ -362,15 +474,25 @@ class InvoiceService {
         req,
       });
 
+<<<<<<< HEAD
+      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+      if (nextStatus === INVOICE_STATUS.APPROVED) {
+        notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.APPROVED, actorName).catch(() => {});
+      } else {
+        notificationService.notifyInvoiceNextLevel(updatedInvoice, updatedInvoice.current_approval_level).catch(() => {});
+=======
       if (nextStatus === INVOICE_STATUS.APPROVED) {
         const paService = await getPaymentApprovalService();
         const approvalResult = await paService.createPaymentApprovalForInvoice(updatedInvoice, user, tx);
         createdApproval = approvalResult.approval;
         assignedApprover = approvalResult.approver;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       }
 
       return updatedInvoice;
     });
+<<<<<<< HEAD
+=======
 
     const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
     if (nextStatus === INVOICE_STATUS.APPROVED) {
@@ -384,122 +506,13 @@ class InvoiceService {
     }
 
     return resultInvoice;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   // ────────────────────────────────────────────────────────────────────────────
   // ADMIN REVIEW — Approve (after Three-Way Matching)
   // ────────────────────────────────────────────────────────────────────────────
-  async adminApproveInvoice(id, user, remarks, req = null) {
-    const invoice = await invoiceRepository.findById(id);
-    if (!invoice) throw new ApiError(404, 'Invoice not found.');
-    if (invoice.deleted_at) throw new ApiError(400, 'Cannot review a deleted invoice.');
-
-    if (invoice.status !== INVOICE_STATUS.PENDING_ADMIN_REVIEW) {
-      throw new ApiError(400, 'Invoice is not pending Admin Review.');
-    }
-
-    if (![ROLES.SUPER_ADMIN].includes(user.role)) {
-      throw new ApiError(403, 'Only Admins can perform Admin Review.');
-    }
-
-    // Three-Way Match must have been completed before Admin can review
-    if (invoice.three_way_match_status === THREE_WAY_MATCH_STATUS.PENDING) {
-      throw new ApiError(400, 'Three-Way Matching must be completed before Admin Review.');
-    }
-
-    const currentStatus = invoice.status;
-    const nextStatus    = INVOICE_STATUS.PENDING_TEAM_LEAD;
-    const now           = new Date();
-
-    return invoiceRepository.transaction(async (tx) => {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
-        data: {
-          status:                INVOICE_STATUS.PENDING_TEAM_LEAD,
-          current_approval_level: 'TEAM_LEAD',
-          admin_review_status:   ADMIN_REVIEW_STATUS.APPROVED,
-          admin_reviewed_by_id:  user.id,
-          admin_reviewed_at:     now,
-          admin_remarks:         remarks || '',
-          updated_by_id:         user.id,
-        },
-        include: { vendor: true, purchase_order: true },
-      });
-
-      await writeAuditLog(tx, {
-        entityId:   id,
-        action:     'admin_review_approved',
-        fromStatus: currentStatus,
-        toStatus:   nextStatus,
-        userId:     user.id,
-        remarks:    `Admin Review approved. Invoice forwarded to Team Lead. Remarks: ${remarks || 'None'}`,
-        req,
-      });
-
-      // Notify Team Lead users
-      notificationService.notifyInvoiceNextLevel(updatedInvoice, 'TEAM_LEAD').catch(() => {});
-
-      return updatedInvoice;
-    });
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // ADMIN REVIEW — Reject (send back)
-  // ────────────────────────────────────────────────────────────────────────────
-  async adminRejectInvoice(id, user, remarks, req = null) {
-    const invoice = await invoiceRepository.findById(id);
-    if (!invoice) throw new ApiError(404, 'Invoice not found.');
-    if (invoice.deleted_at) throw new ApiError(400, 'Cannot review a deleted invoice.');
-
-    if (invoice.status !== INVOICE_STATUS.PENDING_ADMIN_REVIEW) {
-      throw new ApiError(400, 'Invoice is not pending Admin Review.');
-    }
-
-    if (![ROLES.SUPER_ADMIN].includes(user.role)) {
-      throw new ApiError(403, 'Only Admins can perform Admin Review.');
-    }
-
-    if (!remarks?.trim()) {
-      throw new ApiError(400, 'Remarks are required when rejecting at Admin Review stage.');
-    }
-
-    const currentStatus = invoice.status;
-    const now           = new Date();
-
-    return invoiceRepository.transaction(async (tx) => {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
-        data: {
-          status:               INVOICE_STATUS.REJECTED,
-          current_approval_level: null,
-          admin_review_status:  ADMIN_REVIEW_STATUS.REJECTED,
-          admin_reviewed_by_id: user.id,
-          admin_reviewed_at:    now,
-          admin_remarks:        remarks,
-          rejected_by_id:       user.id,
-          rejected_at:          now,
-          rejection_reason:     remarks,
-          updated_by_id:        user.id,
-        },
-        include: { vendor: true, purchase_order: true },
-      });
-
-      await writeAuditLog(tx, {
-        entityId:   id,
-        action:     'admin_review_rejected',
-        fromStatus: currentStatus,
-        toStatus:   INVOICE_STATUS.REJECTED,
-        userId:     user.id,
-        remarks:    `Admin Review rejected. Mismatch report returned. Remarks: ${remarks}`,
-        req,
-      });
-
-      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Admin';
-      notificationService.notifyInvoiceStatusChange(updatedInvoice, INVOICE_STATUS.REJECTED, actorName).catch(() => {});
-
-      return updatedInvoice;
-    });
-  }
+  // adminApproveInvoice and adminRejectInvoice removed as admin review stage is eliminated.
 
   // ────────────────────────────────────────────────────────────────────────────
   // REJECT INVOICE (Team Lead / Manager / Finance Head)
@@ -509,7 +522,11 @@ class InvoiceService {
     if (!invoice) throw new ApiError(404, 'Invoice not found.');
     if (invoice.deleted_at) throw new ApiError(400, 'Cannot reject a deleted invoice.');
 
+<<<<<<< HEAD
+    const currentLevel = getCurrentApprovalLevel(invoice.status);
+=======
     const currentLevel = invoice.current_approval_level || getCurrentApprovalLevel(invoice.status);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     if (!currentLevel || !['TEAM_LEAD', 'MANAGER', 'FINANCE_HEAD'].includes(currentLevel)) {
       throw new ApiError(400, 'Only pending invoices can be rejected.');
@@ -520,6 +537,12 @@ class InvoiceService {
     if (currentLevel === 'FINANCE_HEAD' && user.role !== ROLES.FINANCE_HEAD) throw new ApiError(403, 'Only Finance Heads can reject at this level.');
 
     const currentStatus = invoice.status;
+<<<<<<< HEAD
+    const nextStatus    = INVOICE_STATUS.REJECTED;
+
+    if (!isValidStatusTransition(currentStatus, nextStatus)) {
+      throw new ApiError(400, `Invalid workflow transition: ${currentStatus} → ${nextStatus}`);
+=======
     const normalizedCurrentStatus = currentStatus === INVOICE_STATUS.PENDING_THREE_WAY_MATCH
       ? (currentLevel === 'MANAGER'
           ? INVOICE_STATUS.PENDING_MANAGER
@@ -531,6 +554,7 @@ class InvoiceService {
 
     if (!isValidStatusTransition(normalizedCurrentStatus, nextStatus)) {
       throw new ApiError(400, `Invalid workflow transition: ${normalizedCurrentStatus} → ${nextStatus}`);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     const now = new Date();
@@ -574,7 +598,7 @@ class InvoiceService {
     if (!invoice) throw new ApiError(404, 'Invoice not found.');
     if (invoice.deleted_at) throw new ApiError(400, 'Cannot cancel a deleted invoice.');
 
-    if (invoice.created_by_id !== user.id && user.role !== ROLES.SUPER_ADMIN) {
+    if (invoice.created_by_id !== user.id) {
       throw new ApiError(403, 'You do not have permission to cancel this invoice.');
     }
 
@@ -673,7 +697,11 @@ class InvoiceService {
 
       // Notify stakeholders
       const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+<<<<<<< HEAD
+      notificationService.notifyTicketDeleted(invoice, actorName, deleteReason).catch(() => {});
+=======
       notificationService.notifyInvoiceDeleted(invoice, actorName, deleteReason).catch(() => {});
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
       return { message: 'Invoice deleted successfully.', invoice: updatedInvoice };
     });
@@ -721,6 +749,9 @@ class InvoiceService {
   // PENDING QUERIES — Role-specific queues
   // ────────────────────────────────────────────────────────────────────────────
   async getPendingThreeWayMatch(query) {
+<<<<<<< HEAD
+    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_THREE_WAY_MATCH }, { role: ROLES.CASE_MANAGER });
+=======
     return this.listInvoices(
       {
         ...query,
@@ -728,13 +759,25 @@ class InvoiceService {
       },
       { role: ROLES.CASE_MANAGER }
     );
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   async getPendingAdminReview(query) {
-    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_ADMIN_REVIEW }, { role: ROLES.SUPER_ADMIN });
+    throw new ApiError(404, 'Admin Review queue is no longer available.');
   }
 
   async getPendingTeamLead(query) {
+<<<<<<< HEAD
+    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_TEAM_LEAD, currentApprovalLevel: 'TEAM_LEAD' }, { role: ROLES.TEAM_LEAD });
+  }
+
+  async getPendingManager(query) {
+    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_MANAGER, currentApprovalLevel: 'MANAGER' }, { role: ROLES.MANAGER });
+  }
+
+  async getPendingFinanceHead(query) {
+    return this.listInvoices({ ...query, status: INVOICE_STATUS.PENDING_FINANCE_HEAD, currentApprovalLevel: 'FINANCE_HEAD' }, { role: ROLES.FINANCE_HEAD });
+=======
     const pendingStatuses = getPendingQueueStatuses(ROLES.TEAM_LEAD);
     return this.listInvoices({ ...query, status: { in: pendingStatuses } }, { role: ROLES.TEAM_LEAD });
   }
@@ -747,6 +790,7 @@ class InvoiceService {
   async getPendingFinanceHead(query) {
     const pendingStatuses = getPendingQueueStatuses(ROLES.FINANCE_HEAD);
     return this.listInvoices({ ...query, status: { in: pendingStatuses } }, { role: ROLES.FINANCE_HEAD });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -803,7 +847,6 @@ class InvoiceService {
 
     const pendingStatuses = [
       INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
-      INVOICE_STATUS.PENDING_ADMIN_REVIEW,
       INVOICE_STATUS.PENDING_TEAM_LEAD,
       INVOICE_STATUS.PENDING_MANAGER,
       INVOICE_STATUS.PENDING_FINANCE_HEAD,
@@ -903,6 +946,11 @@ class InvoiceService {
 
     return { message: 'Observation remark added successfully.' };
   }
+<<<<<<< HEAD
+}
+
+export default new InvoiceService();
+=======
 
   async downloadInvoicePdf(id, user, req = null) {
     const invoice = await this.getInvoiceById(id, user);
@@ -961,3 +1009,4 @@ export default new InvoiceService();
 
 
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

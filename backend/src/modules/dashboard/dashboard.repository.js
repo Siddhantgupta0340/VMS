@@ -1,4 +1,8 @@
 import prisma from '../../config/prisma.js';
+<<<<<<< HEAD
+
+class DashboardRepository {
+=======
 import { INVOICE_APPROVAL_LIMITS, INVOICE_STATUS } from '../../utils/approval-helper.js';
 import { VENDOR_APPROVAL_STATUS, VENDOR_STATUS } from '../vendors/vendor.constants.js';
 
@@ -1033,16 +1037,24 @@ class DashboardRepository {
     return users.map((user) => user.id);
   }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * Get vendor counts grouped by status.
    */
   async getVendorStats() {
     const [total, pending, approved, rejected, blocked] = await Promise.all([
       prisma.vendor.count({ where: { deleted_at: null } }),
+<<<<<<< HEAD
+      prisma.vendor.count({ where: { deleted_at: null, status: 'pending'  } }),
+      prisma.vendor.count({ where: { deleted_at: null, status: 'approved' } }),
+      prisma.vendor.count({ where: { deleted_at: null, status: 'rejected' } }),
+      prisma.vendor.count({ where: { deleted_at: null, status: 'blocked'  } }),
+=======
       prisma.vendor.count({ where: { deleted_at: null, status: VENDOR_STATUS.PENDING } }),
       prisma.vendor.count({ where: { deleted_at: null, ...approvedActiveVendorWhere } }),
       prisma.vendor.count({ where: { deleted_at: null, status: VENDOR_STATUS.INACTIVE, approval_status: VENDOR_APPROVAL_STATUS.REJECTED } }),
       prisma.vendor.count({ where: { deleted_at: null, status: VENDOR_STATUS.BLOCKED } }),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     ]);
     return { total, pending, approved, rejected, blocked };
   }
@@ -1069,7 +1081,6 @@ class DashboardRepository {
     const [
       total,
       pendingThreeWayMatch,
-      pendingAdminReview,
       pendingTeamLead,
       pendingManager,
       pendingFinanceHead,
@@ -1085,7 +1096,6 @@ class DashboardRepository {
     ] = await Promise.all([
       prisma.invoice.count({ where: { deleted_at: null } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_THREE_WAY_MATCH' } }),
-      prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW'    } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_TEAM_LEAD'       } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_MANAGER'         } }),
       prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_FINANCE_HEAD'    } }),
@@ -1104,7 +1114,6 @@ class DashboardRepository {
       total,
       byWorkflowStage: {
         pendingThreeWayMatch,
-        pendingAdminReview,
         pendingTeamLead,
         pendingManager,
         pendingFinanceHead,
@@ -1113,7 +1122,7 @@ class DashboardRepository {
         cancelled,
       },
       // Legacy compat
-      pending: pendingTeamLead + pendingManager + pendingFinanceHead + pendingThreeWayMatch + pendingAdminReview,
+      pending: pendingTeamLead + pendingManager + pendingFinanceHead + pendingThreeWayMatch,
       approved,
       rejected,
       totalInvoiceAmount:    Number(totalInvoiceAmount._sum.invoice_total   || 0),
@@ -1146,14 +1155,13 @@ class DashboardRepository {
    * Get Three-Way Matching statistics.
    */
   async getThreeWayMatchStats() {
-    const [total, matched, unmatched, pending, adminPending] = await Promise.all([
+    const [total, matched, unmatched, pending] = await Promise.all([
       prisma.threeWayMatch.count(),
       prisma.threeWayMatch.count({ where: { status: 'MATCHED'   } }),
       prisma.threeWayMatch.count({ where: { status: 'UNMATCHED' } }),
       prisma.threeWayMatch.count({ where: { status: 'PENDING'   } }),
-      prisma.threeWayMatch.count({ where: { admin_review_status: 'PENDING' } }),
     ]);
-    return { total, matched, unmatched, pending, adminPending };
+    return { total, matched, unmatched, pending };
   }
 
   /**
@@ -1193,7 +1201,11 @@ class DashboardRepository {
 
     if (role === 'CASE_MANAGER') {
       const [myVendors, myPOs, myInvoices, myPayments, myPendingMatching] = await Promise.all([
+<<<<<<< HEAD
+        prisma.vendor.count({ where: { created_by_id: userId, status: 'pending', deleted_at: null } }),
+=======
         prisma.vendor.count({ where: { created_by_id: userId, status: VENDOR_STATUS.PENDING, deleted_at: null } }),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         prisma.purchaseOrder.count({ where: { created_by_id: userId, status: 'pending' } }),
         prisma.invoice.count({ where: { created_by_id: userId, deleted_at: null, status: { in: ['PENDING_THREE_WAY_MATCH', 'pending', 'PENDING'] } } }),
         prisma.payment.count({ where: { created_by_id: userId, status: 'pending' } }),
@@ -1206,6 +1218,22 @@ class DashboardRepository {
       counts.myPendingMatching  = myPendingMatching;
     }
 
+<<<<<<< HEAD
+    // Finance Head gets vendor approvals, payment approvals, and all pending invoices
+    if (role === 'FINANCE_HEAD') {
+      const [pendingVendors, pendingPayments, pendingFinanceHeadInvoices, totalInvoices, matchingStats] = await Promise.all([
+        prisma.vendor.count({ where: { status: 'pending', deleted_at: null } }),
+        prisma.payment.count({ where: { status: 'pending' } }),
+        prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_FINANCE_HEAD' } }),
+        prisma.invoice.count({ where: { deleted_at: null } }),
+        prisma.threeWayMatch.count({ where: { status: 'UNMATCHED' } }),
+      ]);
+      counts.pendingVendorApprovals       = pendingVendors;
+      counts.pendingPaymentApprovals      = pendingPayments;
+      counts.pendingFinanceHeadInvoices   = pendingFinanceHeadInvoices;
+      counts.totalInvoices                = totalInvoices;
+      counts.unmatchedThreeWayMatches     = matchingStats;
+=======
     // Finance Head gets vendor approvals and payment approvals.
     if (role === 'FINANCE_HEAD') {
       const [pendingVendors, pendingPayments] = await Promise.all([
@@ -1214,6 +1242,7 @@ class DashboardRepository {
       ]);
       counts.pendingVendorApprovals       = pendingVendors;
       counts.pendingPaymentApprovals      = pendingPayments;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     // Team Lead (formerly L1)
@@ -1226,6 +1255,12 @@ class DashboardRepository {
 
     // Manager (formerly L2)
     if (role === 'MANAGER') {
+<<<<<<< HEAD
+      const pendingInvoices = await prisma.invoice.count({
+        where: { deleted_at: null, status: 'PENDING_MANAGER' },
+      });
+      counts.pendingInvoiceApprovals = pendingInvoices;
+=======
       const [pendingInvoices, pendingPayments] = await Promise.all([
         prisma.invoice.count({
         where: { deleted_at: null, status: 'PENDING_MANAGER' },
@@ -1234,16 +1269,24 @@ class DashboardRepository {
       ]);
       counts.pendingInvoiceApprovals = pendingInvoices;
       counts.pendingPaymentApprovals = pendingPayments;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     // Super Admin gets all pending items
     if (role === 'SUPER_ADMIN') {
+<<<<<<< HEAD
       const [pendingAdminReview, pendingVendors, pendingPayments] = await Promise.all([
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW' } }),
+<<<<<<< HEAD
+=======
+      const [pendingVendors, pendingPayments] = await Promise.all([
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
+        prisma.vendor.count({ where: { status: 'pending', deleted_at: null } }),
+=======
         prisma.vendor.count({ where: { status: VENDOR_STATUS.PENDING, deleted_at: null } }),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         prisma.payment.count({ where: { status: 'pending' } }),
       ]);
-      counts.pendingAdminReviewInvoices = pendingAdminReview;
       counts.pendingVendorApprovals     = pendingVendors;
       counts.pendingPaymentApprovals    = pendingPayments;
     }
@@ -1268,7 +1311,6 @@ class DashboardRepository {
       // Pending by each stage
       Promise.all([
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_THREE_WAY_MATCH' } }),
-        prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_ADMIN_REVIEW'    } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_TEAM_LEAD'       } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_MANAGER'         } }),
         prisma.invoice.count({ where: { deleted_at: null, status: 'PENDING_FINANCE_HEAD'    } }),
@@ -1296,10 +1338,9 @@ class DashboardRepository {
       totalInvoices,
       byStage: {
         pendingThreeWayMatch: pendingByStage[0],
-        pendingAdminReview:   pendingByStage[1],
-        pendingTeamLead:      pendingByStage[2],
-        pendingManager:       pendingByStage[3],
-        pendingFinanceHead:   pendingByStage[4],
+        pendingTeamLead:      pendingByStage[1],
+        pendingManager:       pendingByStage[2],
+        pendingFinanceHead:   pendingByStage[3],
         approved,
         rejected,
       },

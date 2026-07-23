@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { UserEntity } from '../src/zodSchema/index.js';
+<<<<<<< HEAD
+=======
 import {
   INVOICE_STATUS,
   getCurrentApprovalLevel,
@@ -8,6 +10,7 @@ import {
   getRequiredInvoiceApprovalRole,
   getPendingQueueStatuses,
 } from '../src/utils/approval-helper.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 test('UserEntity exposes Prisma-compatible password reset columns', () => {
   assert.equal(UserEntity.columns.PASSWORD_RESET_OTP, 'password_reset_otp');
@@ -15,6 +18,8 @@ test('UserEntity exposes Prisma-compatible password reset columns', () => {
   assert.ok(Object.values(UserEntity.columns).includes('password_reset_otp'));
   assert.ok(Object.values(UserEntity.columns).includes('password_reset_otp_expires'));
 });
+<<<<<<< HEAD
+=======
 
 test('invoice approval helper exposes the role-based workflow states', () => {
   assert.equal(getCurrentApprovalLevel(INVOICE_STATUS.PENDING_TEAM_LEAD), 'TEAM_LEAD');
@@ -36,3 +41,4 @@ test('pending approval queues include the role-specific statuses used by approve
   assert.deepEqual(getPendingQueueStatuses('MANAGER'), [INVOICE_STATUS.PENDING_MANAGER, 'PENDING_L2']);
   assert.deepEqual(getPendingQueueStatuses('FINANCE_HEAD'), [INVOICE_STATUS.PENDING_FINANCE_HEAD, 'PENDING_L3']);
 });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

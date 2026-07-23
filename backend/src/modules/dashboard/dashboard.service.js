@@ -1,4 +1,8 @@
 import dashboardRepository from './dashboard.repository.js';
+<<<<<<< HEAD
+
+class DashboardService {
+=======
 import ApiError from '../../utils/ApiError.js';
 
 const PRESETS = new Set([
@@ -153,6 +157,7 @@ class DashboardService {
     };
   }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * Get full system-wide dashboard metrics (SUPER_ADMIN only).
    */
@@ -167,11 +172,11 @@ class DashboardService {
     ]);
 
     return {
-      vendors,
-      purchaseOrders,
-      invoices,
-      payments,
-      threeWayMatching,
+      vendorStats: vendors,
+      purchaseOrderStats: purchaseOrders,
+      invoiceStats: invoices,
+      paymentStats: payments,
+      threeWayMatchingStats: threeWayMatching,
       recentActivity,
     };
   }
@@ -180,6 +185,9 @@ class DashboardService {
    * Get role-specific dashboard for logged-in user.
    * Returns role-relevant metrics + overall summary.
    */
+<<<<<<< HEAD
+  async getRoleDashboard(user) {
+=======
   async getRoleDashboard(user, query = {}) {
     if (user.role === 'CASE_MANAGER') {
       const filters = this.parseAnalyticsFilters(query);
@@ -191,6 +199,7 @@ class DashboardService {
       return dashboardRepository.getManagerDashboard(user.id, filters);
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const [vendors, purchaseOrders, invoices, payments, threeWayMatching, recentActivity, pendingCounts] =
       await Promise.all([
         dashboardRepository.getVendorStats(),
@@ -203,26 +212,30 @@ class DashboardService {
       ]);
 
     return {
-      summary: {
-        vendors,
-        purchaseOrders,
-        invoices,
-        payments,
-        threeWayMatching,
-      },
-      pendingActions: pendingCounts,
+      vendorStats: vendors,
+      purchaseOrderStats: purchaseOrders,
+      invoiceStats: invoices,
+      paymentStats: payments,
+      threeWayMatchingStats: threeWayMatching,
+      pendingCounts,
       recentActivity,
     };
   }
 
   /**
    * Finance Head Observation Dashboard.
+<<<<<<< HEAD
+   * Comprehensive view of all tickets with workflow tracking.
+=======
    * Comprehensive view of invoice observations with workflow tracking.
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    */
   async getFinanceHeadObservationDashboard() {
     const stats = await dashboardRepository.getFinanceHeadObservationStats();
     return stats;
   }
+<<<<<<< HEAD
+=======
 
   async getFinanceHeadDashboard(query = {}) {
     const filters = this.parseAnalyticsFilters(query);
@@ -263,6 +276,7 @@ class DashboardService {
       recentActivity,
     };
   }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new DashboardService();

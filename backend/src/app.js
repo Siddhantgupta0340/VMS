@@ -3,9 +3,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+<<<<<<< HEAD
+=======
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // Module Routes
 import authRoutes from './modules/auth/auth.routes.js';
@@ -15,11 +18,25 @@ import purchaseOrderRoutes from './modules/purchase-orders/po.routes.js';
 import invoiceRoutes from './modules/invoices/invoice.routes.js';
 import paymentRoutes from './modules/payments/payment.routes.js';
 import approvalRoutes from './modules/approvals/approval.routes.js';
+<<<<<<< HEAD
+=======
 import paymentApprovalRoutes from './modules/payment-approvals/payment-approval.routes.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import auditRoutes from './modules/audit-logs/audit.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import matchingRoutes from './modules/three-way-matching/matching.routes.js';
+<<<<<<< HEAD
+
+import ApiError from './utils/ApiError.js';
+
+const app = express();
+
+// ─── 1. Security & Global Middleware ─────────────────────────────────────────
+app.use(helmet());
+app.use(cors({
+  origin:          process.env.FRONTEND_URL || 'http://localhost:3000',
+=======
 import reportRoutes from './modules/reports/report.routes.js';
 import lookupRoutes from './modules/lookups/lookup.routes.js';
 
@@ -64,6 +81,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error(`CORS origin not allowed: ${origin}`), false);
   },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   credentials:     true,
   methods:         ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders:  ['Content-Type', 'Authorization'],
@@ -73,8 +91,12 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ─── 2. Body Parsers ─────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
   const contentType = req.headers['content-type'] || '';
+<<<<<<< HEAD
+  if (contentType.includes('text/plain') || !contentType) {
+=======
   const methodCanCarryBody = ['POST', 'PUT', 'PATCH'].includes(req.method);
   if (contentType.includes('text/plain') || (!contentType && methodCanCarryBody)) {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     req.headers['content-type'] = 'application/json';
   }
   next();
@@ -82,6 +104,8 @@ app.use((req, _res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+<<<<<<< HEAD
+=======
 app.use('/uploads/vendor-documents', express.static(path.resolve(__dirname, '../uploads/vendor-documents')));
 app.use('/uploads/invoices', express.static(path.resolve(__dirname, '../uploads/invoices')));
 
@@ -92,10 +116,25 @@ app.use('/api/v1', (_req, res, next) => {
   res.set('Surrogate-Control', 'no-store');
   next();
 });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── 3. Request Logger (development only) ─────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, _res, next) => {
+<<<<<<< HEAD
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`[Request] ${req.method} ${req.originalUrl}`);
+    console.log(`  Content-Type : ${req.headers['content-type'] || 'NOT SET'}`);
+    console.log(`  Authorization: ${req.headers['authorization'] ? 'Bearer ***' : 'NOT SET'}`);
+    if (req.method !== 'GET' && Object.keys(req.body || {}).length > 0) {
+      console.log('  Body         :', JSON.stringify(req.body, null, 2));
+    }
+    if (Object.keys(req.query || {}).length > 0) {
+      console.log('  Query        :', req.query);
+    }
+    if (Object.keys(req.params || {}).length > 0) {
+      console.log('  Params       :', req.params);
+=======
     const sanitizedBody = sanitizeObject(req.body) ?? {};
     const sanitizedQuery = sanitizeObject(req.query) ?? {};
     const sanitizedParams = sanitizeObject(req.params) ?? {};
@@ -113,6 +152,7 @@ if (process.env.NODE_ENV !== 'production') {
     }
     if (Object.keys(sanitizedParams).length > 0) {
       console.log('  Params       :', sanitizedParams);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     next();
@@ -120,6 +160,15 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ─── 4. Health Check ──────────────────────────────────────────────────────────
+<<<<<<< HEAD
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    success:     true,
+    message:     'VMS API is running.',
+    timestamp:   new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version:     '2.0.0',
+=======
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -129,10 +178,13 @@ app.get('/health', (req, res) => {
     uptimeSeconds: Math.floor((Date.now() - APPLICATION_STARTED_AT) / 1000),
     timestamp: new Date().toISOString(),
     requestId: getRequestId(req),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   });
 });
 
 // ─── 5. API Routes ────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+=======
 app.get('/health/ready', async (req, res) => {
   const requestId = getRequestId(req);
   try {
@@ -167,6 +219,7 @@ app.get('/health/ready', async (req, res) => {
   }
 });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 app.use('/api/v1/auth',               authRoutes);
 app.use('/api/v1/users',              userRoutes);
 app.use('/api/v1/vendors',            vendorRoutes);
@@ -174,13 +227,19 @@ app.use('/api/v1/purchase-orders',    purchaseOrderRoutes);
 app.use('/api/v1/invoices',           invoiceRoutes);
 app.use('/api/v1/payments',           paymentRoutes);
 app.use('/api/v1/approvals',          approvalRoutes);
+<<<<<<< HEAD
+=======
 app.use('/api/v1/payment-approvals',  paymentApprovalRoutes);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 app.use('/api/v1/dashboard',          dashboardRoutes);
 app.use('/api/v1/audit-logs',         auditRoutes);
 app.use('/api/v1/notifications',      notificationRoutes);
 app.use('/api/v1/three-way-matching', matchingRoutes);
+<<<<<<< HEAD
+=======
 app.use('/api/v1/reports',           reportRoutes);
 app.use('/api/v1/lookups',           lookupRoutes);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── 6. 404 Handler ───────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
@@ -188,6 +247,39 @@ app.use((req, _res, next) => {
 });
 
 // ─── 7. Centralized Error Handler ─────────────────────────────────────────────
+<<<<<<< HEAD
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  const statusCode = err.statusCode || 500;
+  const message    = err.message    || 'Internal Server Error';
+  const isDev      = process.env.NODE_ENV !== 'production';
+
+  console.error(`\n[Error] ${statusCode} - ${req.method} ${req.originalUrl}`);
+  console.error(`  Message: ${message}`);
+  if (isDev && err.stack) {
+    console.error(`  Stack  : ${err.stack}`);
+  }
+
+  // Parse Prisma errors
+  let prismaMessage = null;
+  if (err.code === 'P2002') {
+    prismaMessage = `Duplicate entry: a record with that value already exists.`;
+  } else if (err.code === 'P2025') {
+    prismaMessage = `Record not found.`;
+  } else if (err.code === 'P2003') {
+    prismaMessage = `Invalid reference: related record does not exist.`;
+  }
+
+  res.status(statusCode).json({
+    success:  false,
+    status:   statusCode,
+    message:  prismaMessage || message,
+    errors:   err.errors || [],
+    ...(isDev && { stack: err.stack }),
+  });
+});
+=======
 app.use(errorHandler);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 export default app;

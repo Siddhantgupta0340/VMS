@@ -5,8 +5,13 @@ class MatchingController {
   // ─── Three-Way Matching ────────────────────────────────────────────────────
 
   startMatching = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
+    const { invoiceId, grnId } = req.body;
+    const result = await matchingService.startMatching(invoiceId, grnId, req.user, req);
+=======
     const { invoiceId, grnId, deliveryChallanId } = req.body;
     const result = await matchingService.startMatching(invoiceId, grnId, req.user, req, deliveryChallanId);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     res.status(201).json({
       success: true,
       message: result.message,
@@ -32,24 +37,17 @@ class MatchingController {
     res.status(200).json({ success: true, ...result });
   });
 
-  adminApproveMatch = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const result = await matchingService.adminApproveMatching(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, ...result });
-  });
+  // Admin review methods removed.
 
-  adminRejectMatch = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const result = await matchingService.adminRejectMatching(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, ...result });
-  });
-
+<<<<<<< HEAD
+=======
   returnMatchForCorrection = asyncHandler(async (req, res) => {
     const { remarks } = req.body || {};
     const result = await matchingService.returnMatchingForCorrection(req.params.id, req.user, remarks, req);
     res.status(200).json({ success: true, ...result });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   // ─── GRN ──────────────────────────────────────────────────────────────────
 
   createGRN = asyncHandler(async (req, res) => {
@@ -62,11 +60,14 @@ class MatchingController {
     res.status(200).json({ success: true, message: 'GRN updated successfully.', data: grn });
   });
 
+<<<<<<< HEAD
+=======
   deleteGRN = asyncHandler(async (req, res) => {
     const grn = await matchingService.deleteGRN(req.params.id, req.user, req.body?.reason);
     res.status(200).json({ success: true, message: 'GRN deleted successfully.', data: grn });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   getGRNById = asyncHandler(async (req, res) => {
     const grn = await matchingService.getGRNById(req.params.id);
     res.status(200).json({ success: true, data: grn });
@@ -76,6 +77,8 @@ class MatchingController {
     const grns = await matchingService.getGRNsByPurchaseOrder(req.params.poId);
     res.status(200).json({ success: true, data: grns });
   });
+<<<<<<< HEAD
+=======
 
   createDeliveryChallan = asyncHandler(async (req, res) => {
     const challan = await matchingService.createDeliveryChallan(req.body, req.user);
@@ -101,6 +104,7 @@ class MatchingController {
     const challans = await matchingService.getDeliveryChallansByPurchaseOrder(req.params.poId);
     res.status(200).json({ success: true, data: challans });
   });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new MatchingController();

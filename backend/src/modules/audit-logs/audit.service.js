@@ -1,5 +1,7 @@
 import ApiError from '../../utils/ApiError.js';
 import auditRepository from './audit.repository.js';
+<<<<<<< HEAD
+=======
 import prisma from '../../config/prisma.js';
 import { ROLES } from '../../zodSchema/index.js';
 
@@ -98,12 +100,20 @@ const buildUserFilters = async (query) => {
 
   return users.map((user) => user.id);
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 class AuditService {
   /**
    * Get paginated audit logs with optional filters.
    * @param {object} query - { entityType, entityId, action, performedById, dateFrom, dateTo, page, limit }
    */
+<<<<<<< HEAD
+  async getAuditLogs(query) {
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 50);
+
+    const where = {
+=======
   async getAuditLogs(query, actor) {
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 50);
@@ -135,6 +145,7 @@ class AuditService {
 
     const where = {
       ...(andFilters.length ? { AND: andFilters } : {}),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       ...(query.entityType && { entity_type: query.entityType }),
       ...(query.entityId && { entity_id: query.entityId }),
       ...(query.action && { action: query.action }),
@@ -157,7 +168,10 @@ class AuditService {
 
     return {
       ...result,
+<<<<<<< HEAD
+=======
       logs: result.logs.map(sanitizeAuditLog),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       page,
       limit,
       totalPages: Math.ceil(result.total / limit),
@@ -167,6 +181,14 @@ class AuditService {
   /**
    * Get a single audit log by ID.
    */
+<<<<<<< HEAD
+  async getAuditLogById(id) {
+    const log = await auditRepository.findById(id);
+    if (!log) {
+      throw new ApiError(404, 'Audit log entry not found.');
+    }
+    return log;
+=======
   async getAuditLogById(id, actor) {
     const financeHeadScope = actor?.role === ROLES.FINANCE_HEAD
       ? await buildFinanceHeadAuditScope(actor)
@@ -178,6 +200,7 @@ class AuditService {
       throw new ApiError(404, 'Audit log entry not found.');
     }
     return sanitizeAuditLog(log);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 }
 

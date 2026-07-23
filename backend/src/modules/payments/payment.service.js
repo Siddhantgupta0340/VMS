@@ -6,6 +6,8 @@ import notificationService from '../notifications/notification.service.js';
 import { providerRegistry } from './providers/payment-provider.factory.js';
 import { ROLES } from '../../zodSchema/index.js';
 import { INVOICE_STATUS } from '../invoices/invoice.service.js';
+<<<<<<< HEAD
+=======
 import prisma from '../../config/prisma.js';
 // Lazy-loaded to avoid circular dependency
 let _paymentApprovalService = null;
@@ -16,6 +18,7 @@ const getPaymentApprovalService = async () => {
   }
   return _paymentApprovalService;
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 export const PAYMENT_STATUS = {
   PENDING: 'PENDING',
@@ -24,12 +27,21 @@ export const PAYMENT_STATUS = {
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
+<<<<<<< HEAD
+=======
   RETURNED: 'RETURNED',
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   REFUNDED: 'REFUNDED',
   PARTIALLY_PAID: 'PARTIALLY_PAID',
   COMPLETED: 'COMPLETED',
 };
 
+<<<<<<< HEAD
+// Define valid status transitions
+export const isValidPaymentStatusTransition = (from, to) => {
+  const transitions = {
+    [PAYMENT_STATUS.PENDING]: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.FAILED],
+=======
 export const THREE_WAY_MATCH_STATUS = {
   PENDING: 'PENDING',
   MATCHED: 'MATCHED',
@@ -190,11 +202,15 @@ export const isValidPaymentStatusTransition = (from, to) => {
       PAYMENT_STATUS.FAILED,
       PAYMENT_STATUS.RETURNED,
     ],
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     [PAYMENT_STATUS.INITIATED]: [PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.FAILED],
     [PAYMENT_STATUS.PROCESSING]: [PAYMENT_STATUS.SUCCESS, PAYMENT_STATUS.FAILED, PAYMENT_STATUS.CANCELLED],
     [PAYMENT_STATUS.SUCCESS]: [PAYMENT_STATUS.REFUNDED],
     [PAYMENT_STATUS.FAILED]: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.CANCELLED],
+<<<<<<< HEAD
+=======
     [PAYMENT_STATUS.RETURNED]: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED],
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     [PAYMENT_STATUS.CANCELLED]: [],
     [PAYMENT_STATUS.REFUNDED]: [],
   };
@@ -204,6 +220,10 @@ export const isValidPaymentStatusTransition = (from, to) => {
 
 const buildPaymentNumber = () => `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+<<<<<<< HEAD
+class PaymentService {
+  /**
+=======
 const VENDOR_BANK_FIELDS_REQUIRED_FOR_PAYMENT = [
   ['bank_name', 'Bank Name'],
   ['account_holder', 'Account Holder'],
@@ -340,6 +360,7 @@ class PaymentService {
   }
 
   /**
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    * Create a new payment request against an approved invoice.
    */
   async createPayment(payload, user) {
@@ -348,14 +369,24 @@ class PaymentService {
       throw new ApiError(404, 'Invoice not found.');
     }
 
+<<<<<<< HEAD
+    // Business Rule: Only approved invoices can be paid
+    if (invoice.status.toUpperCase() !== INVOICE_STATUS.APPROVED) {
+      throw new ApiError(400, 'Payment can only be requested for an APPROVED invoice.');
+=======
     if (invoice.status.toUpperCase() !== INVOICE_STATUS.APPROVED) {
       throw new ApiError(400, 'Payment can only be recorded for an APPROVED invoice.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
       throw new ApiError(403, 'You can only create payments for invoices created by you.');
     }
 
+<<<<<<< HEAD
+    // Calculate outstanding/allocated balance to check for overpayments
+    const existingPayments = await paymentRepository.findAll({
+=======
     assertVendorBankReadyForPayment(invoice.vendor);
 
     // Mandate Three-Way Matching MATCHED status
@@ -374,14 +405,22 @@ class PaymentService {
 
     // Calculate unallocated balance to check for overpayments
     const existingPayments = await prisma.payment.findMany({
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       where: {
         invoice_id: payload.invoiceId,
         status: { in: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.SUCCESS] },
       },
+<<<<<<< HEAD
+      take: 100,
+    });
+
+    const totalAllocated = existingPayments.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+=======
       select: { id: true, amount: true },
     });
 
     const totalAllocated = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const remainingAllocated = Number(invoice.invoice_total) - totalAllocated;
     const paymentAmount = Number(payload.amount);
 
@@ -390,6 +429,66 @@ class PaymentService {
     }
 
     if (paymentAmount > remainingAllocated + 0.01) {
+<<<<<<< HEAD
+      throw new ApiError(400, `Overpayment blocked. Remaining unallocated invoice balance: INR ${remainingAllocated.toFixed(2)}`);
+    }
+
+    const paymentNumber = buildPaymentNumber();
+
+    return paymentRepository.transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          payment_number: paymentNumber,
+          invoice_id: payload.invoiceId,
+          vendor_id: invoice.vendor_id,
+          purchase_order_id: invoice.purchase_order_id,
+          amount: paymentAmount,
+          currency: payload.currency || invoice.currency || 'INR',
+          status: PAYMENT_STATUS.PENDING,
+          payment_method: payload.paymentMethod || 'NEFT',
+          payment_type: payload.paymentType || 'FULL',
+          payment_provider: payload.paymentProvider || 'MANUAL',
+          remarks: payload.remarks || '',
+          due_date: payload.dueDate ? new Date(payload.dueDate) : null,
+          created_by_id: user.id,
+          updated_by_id: user.id,
+        },
+      });
+
+      // Update the invoice payment_status to PAYMENT_PENDING if it was UNPAID
+      if (invoice.payment_status === 'UNPAID') {
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: { payment_status: 'PAYMENT_PENDING' }
+        });
+      }
+
+      // Log payment creation
+      await tx.approvalLog.create({
+        data: {
+          entity_type: 'payment',
+          entity_id: payment.id,
+          action: 'created',
+          from_status: null,
+          to_status: PAYMENT_STATUS.PENDING,
+          performed_by_id: user.id,
+          remarks: `Payment request initialized for amount ${payment.currency} ${payment.amount}`,
+        },
+      });
+
+      // Notify Finance Team
+      notificationService.createNotification(
+        user.id,
+        'payment_created',
+        ' Payment Requested',
+        `Payment request ${payment.payment_number} created for amount ${payment.currency} ${payment.amount}.`,
+        'payment',
+        payment.id
+      ).catch(() => {});
+
+      return payment;
+    });
+=======
       throw new ApiError(
         400,
         `Overpayment blocked. Remaining unallocated invoice balance: INR ${remainingAllocated.toFixed(2)}`,
@@ -510,6 +609,7 @@ class PaymentService {
     });
 
     return decoratePayment(createdPayment);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
@@ -521,8 +621,13 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
+<<<<<<< HEAD
+    if (payment.status !== PAYMENT_STATUS.PENDING) {
+      throw new ApiError(400, 'Only pending payment requests can be modified.');
+=======
     if (payment.status !== PAYMENT_STATUS.PENDING && payment.status !== PAYMENT_STATUS.RETURNED) {
       throw new ApiError(400, 'Only pending or returned payment requests can be modified.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     if (user.role === ROLES.CASE_MANAGER && payment.created_by_id !== user.id) {
@@ -539,10 +644,16 @@ class PaymentService {
       due_date: payload.dueDate ? new Date(payload.dueDate) : payment.due_date,
       payment_date: payload.paymentDate ? new Date(payload.paymentDate) : payment.payment_date,
       updated_by_id: user.id,
+<<<<<<< HEAD
+    };
+
+    // Re-verify overpayment if amount changed
+=======
       // If payment was RETURNED, resubmitting moves status back to PENDING
       ...(payment.status === PAYMENT_STATUS.RETURNED && { status: PAYMENT_STATUS.PENDING }),
     };
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (payload.amount && Number(payload.amount) !== Number(payment.amount)) {
       const invoice = await invoiceRepository.findById(payment.invoice_id);
       const existingPayments = await paymentRepository.findAll({
@@ -559,14 +670,21 @@ class PaymentService {
       const newAmount = Number(payload.amount);
 
       if (newAmount > remainingAllocated + 0.01) {
+<<<<<<< HEAD
+        throw new ApiError(400, `Updated amount exceeds remaining invoice balance. Max allowed: INR ${remainingAllocated.toFixed(2)}`);
+=======
         throw new ApiError(
           400,
           `Updated amount exceeds remaining invoice balance. Max allowed: INR ${remainingAllocated.toFixed(2)}`,
         );
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       }
       updateData.amount = newAmount;
     }
 
+<<<<<<< HEAD
+    return paymentRepository.update(id, updateData);
+=======
     const updatedPayment = await paymentRepository.update(id, updateData);
 
     await prisma.auditLog.create({
@@ -582,6 +700,7 @@ class PaymentService {
     });
 
     return decoratePayment(updatedPayment);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   /**
@@ -593,24 +712,47 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
+<<<<<<< HEAD
+    const allowedDeleteStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED];
+    if (!allowedDeleteStatuses.includes(payment.status)) {
+      throw new ApiError(400, 'Only pending or cancelled payments can be deleted.');
+=======
     const allowedDeleteStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.RETURNED];
     if (!allowedDeleteStatuses.includes(payment.status)) {
       throw new ApiError(400, 'Only pending, returned, or cancelled payments can be deleted.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
-    if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
-      throw new ApiError(403, 'Unauthorized access.');
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can delete payment requests.');
     }
 
     return paymentRepository.delete(id);
   }
 
   /**
+<<<<<<< HEAD
+   * Get payments with optional queries.
+=======
    * List payments with role-based filtering (Task 2 & Task 6).
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    */
   async listPayments(query, user) {
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
+<<<<<<< HEAD
+
+    const where = {
+      ...(query.status && { status: query.status }),
+      ...(query.invoiceId && { invoice_id: query.invoiceId }),
+      ...(query.vendorId && { vendor_id: query.vendorId }),
+      ...(query.purchaseOrderId && { purchase_order_id: query.purchaseOrderId }),
+      ...(query.paymentMethod && { payment_method: query.paymentMethod }),
+      ...(query.paymentType && { payment_type: query.paymentType }),
+      ...(query.paymentProvider && { payment_provider: query.paymentProvider }),
+      ...(user.role === ROLES.CASE_MANAGER && { created_by_id: user.id }),
+    };
+=======
     const search = (query.search || '').trim();
 
     // Construct role-specific where filter
@@ -667,6 +809,7 @@ class PaymentService {
     }
 
     const where = conditions.length > 0 ? { AND: conditions } : {};
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     const result = await paymentRepository.findAll({
       where,
@@ -675,7 +818,11 @@ class PaymentService {
     });
 
     return {
+<<<<<<< HEAD
+      payments: result.payments,
+=======
       payments: result.payments.map(decoratePayment),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       total: result.total,
       page,
       limit,
@@ -683,6 +830,8 @@ class PaymentService {
     };
   }
 
+<<<<<<< HEAD
+=======
   /**
    * Get pending payments for current user role's approval queue (Task 2).
    */
@@ -697,6 +846,7 @@ class PaymentService {
     return this.listPayments({ ...query, status: PAYMENT_STATUS.SUCCESS }, user);
   }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   async getPaymentById(id, user) {
     const payment = await paymentRepository.findById(id);
     if (!payment) {
@@ -707,6 +857,16 @@ class PaymentService {
       throw new ApiError(403, 'You do not have permission to view this payment details.');
     }
 
+<<<<<<< HEAD
+    return payment;
+  }
+
+  /**
+   * Finance Manager reviews and approves the payment request.
+   * This transitions status to INITIATED and fires background gateway execution.
+   */
+  async approvePayment(id, user, remarks) {
+=======
     return decoratePayment(payment);
   }
 
@@ -717,6 +877,7 @@ class PaymentService {
   async approvePayment(id, user, remarks) {
     assertRemarks(remarks, 'approve');
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -726,6 +887,17 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payment requests can be approved.');
     }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+      throw new ApiError(403, 'Only Finance Managers or Admins can approve payments.');
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can approve payments.');
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
+    }
+
+=======
     if (![ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Approval permission denied.');
     }
@@ -733,12 +905,41 @@ class PaymentService {
     assertPaymentAssignedToRole(payment, user);
     assertVendorBankReadyForPayment(payment.vendor);
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const updatedPayment = await paymentRepository.transaction(async (tx) => {
       const updated = await tx.payment.update({
         where: { id },
         data: {
           status: PAYMENT_STATUS.INITIATED,
           approved_by_id: user.id,
+<<<<<<< HEAD
+          processed_by_id: user.id,
+          remarks: remarks || payment.remarks,
+        },
+      });
+
+      // Log approval
+      await tx.approvalLog.create({
+        data: {
+          entity_type: 'payment',
+          entity_id: id,
+          action: 'approved',
+          from_status: PAYMENT_STATUS.PENDING,
+          to_status: PAYMENT_STATUS.INITIATED,
+          performed_by_id: user.id,
+          remarks: remarks || 'Payment approved and initiated.',
+        },
+      });
+
+      // Notify next step
+      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+      notificationService.notifyPaymentStatusChange(updated, PAYMENT_STATUS.INITIATED, actorName).catch(() => {});
+
+      return updated;
+    });
+
+    // Fire background async processor for provider gateway execution AFTER transaction commits
+=======
           approved_at: new Date(),
           processed_by_id: user.id,
           remarks: remarks.trim(),
@@ -779,18 +980,25 @@ class PaymentService {
     });
 
     // Asynchronously process gateway transaction after database commit
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     this.processGatewayPayment(id).catch(console.error);
 
     return updatedPayment;
   }
 
   /**
+<<<<<<< HEAD
+   * Reject a payment request.
+   */
+  async rejectPayment(id, user, remarks) {
+=======
    * TASK 3 — Reject Payment Request.
    * Mandates remarks and enforces amount-based RBAC assignment.
    */
   async rejectPayment(id, user, remarks) {
     assertRemarks(remarks, 'reject');
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -800,17 +1008,51 @@ class PaymentService {
       throw new ApiError(400, 'Only pending payments can be rejected.');
     }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+      throw new ApiError(403, 'Only Finance Managers can reject payments.');
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can reject payments.');
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
+    }
+
+=======
     if (![ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Approval permission denied.');
     }
 
     assertPaymentAssignedToRole(payment, user);
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return paymentRepository.transaction(async (tx) => {
       const updatedPayment = await tx.payment.update({
         where: { id },
         data: {
           status: PAYMENT_STATUS.FAILED,
+<<<<<<< HEAD
+          remarks: remarks || 'Rejected by finance.',
+        },
+      });
+
+      await tx.approvalLog.create({
+        data: {
+          entity_type: 'payment',
+          entity_id: id,
+          action: 'rejected',
+          from_status: PAYMENT_STATUS.PENDING,
+          to_status: PAYMENT_STATUS.FAILED,
+          performed_by_id: user.id,
+          remarks: remarks || 'Rejected by finance.',
+        },
+      });
+
+      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.FAILED, actorName).catch(() => {});
+
+      return updatedPayment;
+=======
           remarks: remarks.trim(),
           approved_by_id: user.id,
           updated_by_id: user.id,
@@ -846,10 +1088,14 @@ class PaymentService {
       notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.FAILED, actorName, remarks).catch(() => {});
 
       return decoratePayment(updatedPayment);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   }
 
   /**
+<<<<<<< HEAD
+   * Cancel a payment (only if pending or initiated).
+=======
    * TASK 3 — Return Payment Request for Correction.
    * Mandates remarks and enforces amount-based RBAC assignment.
    */
@@ -915,6 +1161,7 @@ class PaymentService {
 
   /**
    * Cancel a payment request.
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
    */
   async cancelPayment(id, user, remarks) {
     const payment = await paymentRepository.findById(id);
@@ -922,21 +1169,49 @@ class PaymentService {
       throw new ApiError(404, 'Payment not found.');
     }
 
+<<<<<<< HEAD
+    const allowedCancel = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED];
+=======
     const allowedCancel = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.RETURNED];
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (!allowedCancel.includes(payment.status)) {
       throw new ApiError(400, 'Cannot cancel payment after processing has started.');
     }
 
+<<<<<<< HEAD
+=======
     if (user.role === ROLES.CASE_MANAGER && payment.created_by_id !== user.id) {
       throw new ApiError(403, 'You can only cancel payment requests created by you.');
     }
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     return paymentRepository.transaction(async (tx) => {
       const updatedPayment = await tx.payment.update({
         where: { id },
         data: {
           status: PAYMENT_STATUS.CANCELLED,
           remarks: remarks || 'Cancelled by user.',
+<<<<<<< HEAD
+        },
+      });
+
+      await tx.approvalLog.create({
+        data: {
+          entity_type: 'payment',
+          entity_id: id,
+          action: 'cancelled',
+          from_status: payment.status,
+          to_status: PAYMENT_STATUS.CANCELLED,
+          performed_by_id: user.id,
+          remarks: remarks || 'Cancelled by user.',
+        },
+      });
+
+      const actorName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.role;
+      notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.CANCELLED, actorName).catch(() => {});
+
+      return updatedPayment;
+=======
           updated_by_id: user.id,
         },
       });
@@ -970,6 +1245,7 @@ class PaymentService {
       notificationService.notifyPaymentStatusChange(updatedPayment, PAYMENT_STATUS.CANCELLED, actorName, remarks).catch(() => {});
 
       return decoratePayment(updatedPayment);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   }
 
@@ -977,7 +1253,10 @@ class PaymentService {
    * Refund a successful payment.
    */
   async refundPayment(id, user, remarks) {
+<<<<<<< HEAD
+=======
     assertRemarks(remarks, 'refund');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const payment = await paymentRepository.findById(id);
     if (!payment) {
       throw new ApiError(404, 'Payment not found.');
@@ -987,7 +1266,15 @@ class PaymentService {
       throw new ApiError(400, 'Only successful payments can be refunded.');
     }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+    if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+=======
     if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
       throw new ApiError(403, 'Unauthorized refund access.');
     }
 
@@ -996,6 +1283,25 @@ class PaymentService {
         where: { id },
         data: {
           status: PAYMENT_STATUS.REFUNDED,
+<<<<<<< HEAD
+          remarks: remarks || 'Refund processed.',
+        },
+      });
+
+      await tx.approvalLog.create({
+        data: {
+          entity_type: 'payment',
+          entity_id: id,
+          action: 'refunded',
+          from_status: PAYMENT_STATUS.SUCCESS,
+          to_status: PAYMENT_STATUS.REFUNDED,
+          performed_by_id: user.id,
+          remarks: remarks || 'Refund processed.',
+        },
+      });
+
+      // Adjust invoice remaining and paid amounts
+=======
           remarks: remarks.trim(),
           updated_by_id: user.id,
         },
@@ -1026,6 +1332,7 @@ class PaymentService {
         }),
       ]);
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       const invoice = await tx.invoice.findUnique({ where: { id: payment.invoice_id } });
       const refundAmount = Number(payment.amount);
       const newPaid = Math.max(0, Number(invoice.paid_amount) - refundAmount);
@@ -1049,12 +1356,21 @@ class PaymentService {
         payment.created_by_id,
         'payment_refunded',
         '🔄 Payment Refunded',
+<<<<<<< HEAD
+        `Payment ${payment.payment_number} of ${payment.currency} ${payment.amount} has been refunded by ${actorName}.`,
+        'payment',
+        payment.id
+      ).catch(() => {});
+
+      return updatedPayment;
+=======
         `Payment ${payment.payment_number} of ${payment.currency} ${payment.amount} has been refunded by ${actorName}. Remarks: ${remarks}`,
         'payment',
         payment.id,
       ).catch(() => {});
 
       return decoratePayment(updatedPayment);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   }
 
@@ -1080,11 +1396,18 @@ class PaymentService {
           response_message: 'Retrying payment...',
           provider_transaction_id: null,
           gateway_reference: null,
+<<<<<<< HEAD
+        },
+      });
+
+      await tx.approvalLog.create({
+=======
           updated_by_id: user.id,
         },
       });
 
       await tx.auditLog.create({
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         data: {
           entity_type: 'payment',
           entity_id: id,
@@ -1099,6 +1422,47 @@ class PaymentService {
       return updated;
     });
 
+<<<<<<< HEAD
+    // Fire background async processor for provider gateway execution AFTER transaction commits
+    this.processGatewayPayment(id).catch(console.error);
+
+    return updatedPayment;
+  }
+
+  /**
+   * Process payment through the configured provider gateway (Razorpay, Stripe, UPI, IMPS, Cash, etc.)
+   */
+  async processGatewayPayment(paymentId, paymentObj = null) {
+    const payment = paymentObj || await paymentRepository.findById(paymentId);
+    if (!payment) {
+      console.log(`[processGatewayPayment] Payment ${paymentId} not found.`);
+      return;
+    }
+    if (payment.status !== PAYMENT_STATUS.INITIATED) {
+      console.log(`[processGatewayPayment] Payment ${paymentId} status is not INITIATED (status: ${payment.status}). Returning.`);
+      return;
+    }
+
+    console.log(`[processGatewayPayment] Starting gateway transaction processing for Payment: ${payment.payment_number}`);
+
+    try {
+      // 1. Mark as PROCESSING in DB
+      await paymentRepository.update(paymentId, { status: PAYMENT_STATUS.PROCESSING });
+
+      // 2. Fetch the corresponding Provider from registry
+      const provider = providerRegistry.get(payment.payment_provider);
+
+      // 3. Process execution
+      const gatewayResponse = await provider.process(
+        Number(payment.amount),
+        payment.currency,
+        payment.payment_number
+      );
+
+      console.log(`[processGatewayPayment] Gateway responded with status: ${gatewayResponse.status} for Payment: ${payment.payment_number}`);
+
+      // 4. Update the DB with responses
+=======
     this.processGatewayPayment(id).catch(console.error);
     return decoratePayment(updatedPayment);
   }
@@ -1121,6 +1485,7 @@ class PaymentService {
         payment.payment_number,
       );
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       await paymentRepository.transaction(async (tx) => {
         const statusMap = {
           SUCCESS: PAYMENT_STATUS.SUCCESS,
@@ -1142,7 +1507,12 @@ class PaymentService {
           },
         });
 
+<<<<<<< HEAD
+        // Log the results
+        await tx.approvalLog.create({
+=======
         await tx.auditLog.create({
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           data: {
             entity_type: 'payment',
             entity_id: paymentId,
@@ -1153,6 +1523,10 @@ class PaymentService {
           },
         });
 
+<<<<<<< HEAD
+        // 5. Update invoice financial tracking fields
+=======
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         const invoice = await tx.invoice.findUnique({ where: { id: payment.invoice_id } });
         const successfulPayments = await tx.payment.findMany({
           where: { invoice_id: payment.invoice_id, status: PAYMENT_STATUS.SUCCESS },
@@ -1169,7 +1543,11 @@ class PaymentService {
         } else if (finalStatus === PAYMENT_STATUS.FAILED && Number(invoice.paid_amount) === 0) {
           paymentStatus = 'PAYMENT_FAILED';
         } else {
+<<<<<<< HEAD
+          paymentStatus = invoice.payment_status; // preserve previous
+=======
           paymentStatus = invoice.payment_status;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         }
 
         await tx.invoice.update({
@@ -1183,6 +1561,42 @@ class PaymentService {
           },
         });
 
+<<<<<<< HEAD
+        // Log the status transitions
+        if (finalStatus === PAYMENT_STATUS.SUCCESS) {
+          await tx.approvalLog.create({
+            data: {
+              entity_type: 'invoice',
+              entity_id: payment.invoice_id,
+              action: paymentStatus === 'PAID' ? 'paid' : 'partial_payment',
+              from_status: invoice.payment_status,
+              to_status: paymentStatus,
+              remarks: paymentStatus === 'PAID'
+                ? `Invoice fully paid. Total paid amount: INR ${totalPaid.toFixed(2)}`
+                : `Invoice partially paid. Total paid: INR ${totalPaid.toFixed(2)}, Remaining: INR ${remainingAmount.toFixed(2)}`,
+            },
+          });
+        }
+
+        // Send notifications
+        notificationService.createNotification(
+          payment.created_by_id,
+          finalStatus === PAYMENT_STATUS.SUCCESS ? 'payment_completed' : 'payment_failed',
+          finalStatus === PAYMENT_STATUS.SUCCESS ? ' Payment Success' : ' Payment Failed',
+          `Payment request ${payment.payment_number} for amount ${payment.currency} ${payment.amount} has ${finalStatus.toLowerCase()}.`,
+          'payment',
+          paymentId
+        ).catch(() => {});
+      });
+
+    } catch (error) {
+      console.error(`[PaymentService] Gateway process crash for payment ID ${paymentId}:`, error.message);
+      // Revert/mark as FAILED if crash
+      await paymentRepository.update(paymentId, {
+        status: PAYMENT_STATUS.FAILED,
+        response_message: `Gateway execution failed: ${error.message}`,
+      }).catch(console.error);
+=======
         notificationService
           .createNotification(
             payment.created_by_id,
@@ -1202,10 +1616,31 @@ class PaymentService {
           response_message: `Gateway execution failed: ${error.message}`,
         })
         .catch(console.error);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
   }
 
   /**
+<<<<<<< HEAD
+   * Get payment details/logs history
+   */
+  async getPaymentHistory(paymentId) {
+    return approvalRepository.findByEntity('payment', paymentId);
+  }
+
+  /**
+   * Pending list queue
+   */
+  async getPendingPayments(query) {
+    return this.listPayments({ ...query, status: PAYMENT_STATUS.PENDING });
+  }
+
+  /**
+   * Completed list queue
+   */
+  async getCompletedPayments(query) {
+    return this.listPayments({ ...query, status: PAYMENT_STATUS.SUCCESS });
+=======
    * TASK 3 — Get Approval & Audit History for a Payment.
    * Merges audit_logs and approval_logs and returns complete timeline.
    */
@@ -1378,12 +1813,16 @@ class PaymentService {
       alreadyPaid: alreadyPaid,
       eligibleForPayment: eligible,
     };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 }
 
 export default new PaymentService();
+<<<<<<< HEAD
+=======
 
 // approved_at: new Date()
 // notifyPaymentApprovalRequested
 
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

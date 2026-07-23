@@ -6,6 +6,10 @@ import {
   INVOICE_STATUS,
   THREE_WAY_MATCH_STATUS,
   ADMIN_REVIEW_STATUS,
+<<<<<<< HEAD
+} from '../../utils/approval-helper.js';
+import prisma from '../../config/prisma.js';
+=======
   getNextApprovalStatus,
   getCurrentApprovalLevel,
   getRequiredInvoiceApprovalRole,
@@ -99,6 +103,7 @@ const normalizeReceiptItem = (item, quantityKey) => {
     line_total: lineTotal,
   };
 };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── Field Comparison Engine ───────────────────────────────────────────────────
 
@@ -321,8 +326,16 @@ class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
   // START MATCHING — Case Manager triggers
   // ────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+  async startMatching(invoiceId, grnId, user, req = null) {
+<<<<<<< HEAD
+=======
   async startMatching(invoiceId, grnId, user, req = null, deliveryChallanId = null) {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (user.role !== ROLES.CASE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+=======
+    if (user.role !== ROLES.CASE_MANAGER) {
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
       throw new ApiError(403, 'Only Case Managers can initiate Three-Way Matching.');
     }
 
@@ -343,6 +356,34 @@ class MatchingService {
       throw new ApiError(400, `Invoice must be in PENDING_THREE_WAY_MATCH status. Current: ${invoice.status}`);
     }
 
+<<<<<<< HEAD
+    // Load GRN if provided
+    let grn = null;
+    if (grnId) {
+      grn = await prisma.goodsReceiptNote.findUnique({
+        where: { id: grnId },
+      });
+      if (!grn) throw new ApiError(404, 'GRN not found.');
+      if (grn.purchase_order_id !== invoice.purchase_order_id) {
+        throw new ApiError(400, 'GRN does not belong to the same Purchase Order as this Invoice.');
+      }
+    }
+
+    // Extract data
+    const po      = invoice.purchase_order;
+    const vendor  = invoice.vendor;
+    const poData  = extractPOData(po, vendor);
+    const grnData = grn ? extractGRNData(grn) : extractGRNData(null);
+    const invoiceData = extractInvoiceData(invoice, vendor);
+
+    // Run comparison
+    const comparison = runComparison(poData, grnData, invoiceData);
+
+    const now = new Date();
+
+    return matchingRepository.transaction(async (tx) => {
+      // Create ThreeWayMatch record
+=======
     let grn = null;
     if (grnId) {
       grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
@@ -388,13 +429,19 @@ class MatchingService {
         orderBy: { created_at: 'desc' },
       });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       const match = await tx.threeWayMatch.create({
         data: {
           invoice_id:              invoiceId,
           purchase_order_id:       invoice.purchase_order_id,
+<<<<<<< HEAD
+          grn_id:                  grnId || null,
+          status:                  comparison.overall_status,
+=======
           grn_id:                  grn?.id || null,
           delivery_challan_id:     deliveryChallan?.id || null,
           status:                  comparison.status,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           match_percentage:        comparison.match_percentage,
           matched_fields_count:    comparison.matched_fields_count,
           total_fields_count:      comparison.total_fields_count,
@@ -402,6 +449,46 @@ class MatchingService {
           unmatched_fields:        comparison.unmatched_fields,
           warnings:                comparison.warnings,
           approval_recommendation: comparison.approval_recommendation,
+<<<<<<< HEAD
+          po_snapshot:             poData,
+          grn_snapshot:            grnData,
+          invoice_snapshot:        invoiceData,
+          completed_by_id:         user.id,
+          completed_at:            now,
+          admin_review_status:     ADMIN_REVIEW_STATUS.APPROVED, // Auto-approve since admin review is removed
+        },
+      });
+
+      // Update invoice with match result
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          three_way_match_status:      comparison.overall_status,
+          three_way_match_percentage:  comparison.match_percentage,
+          matching_completed_by_id:    user.id,
+          matching_completed_at:       now,
+          matching_remarks:            comparison.overall_status === THREE_WAY_MATCH_STATUS.MATCHED
+            ? `Matched ${comparison.matched_fields_count}/${comparison.total_fields_count} fields.`
+            : `${comparison.unmatched_fields.length} field(s) failed. Match: ${comparison.match_percentage}%`,
+          // Move to Team Lead
+          status:                      INVOICE_STATUS.PENDING_TEAM_LEAD,
+          current_approval_level:      'TEAM_LEAD',
+          admin_review_status:         ADMIN_REVIEW_STATUS.APPROVED,
+        },
+      });
+
+      // Write audit log
+      await tx.auditLog.create({
+        data: {
+          entity_type:     'invoice',
+          entity_id:       invoiceId,
+          action:          'three_way_match_completed',
+          from_status:     INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
+          to_status:       INVOICE_STATUS.PENDING_TEAM_LEAD,
+          performed_by_id: user.id,
+<<<<<<< HEAD
+          remarks:         `Three-Way Matching: ${comparison.overall_status}. Match: ${comparison.match_percentage}%. Unmatched fields: ${comparison.unmatched_fields.map(f => f.label).join(', ') || 'None'}`,
+=======
           po_snapshot:             comparison.snapshots.purchaseOrder,
           grn_snapshot:            comparison.snapshots.goodsReceiptNote,
           delivery_challan_snapshot: comparison.snapshots.deliveryChallan,
@@ -457,11 +544,31 @@ class MatchingService {
           remarks:         `Three-Way Matching: ${comparison.status}. Match: ${comparison.match_percentage}%. ${comparison.unmatched_fields.map(f => f.reason).join(' ') || 'No mismatches.'}`,
           old_value:       previousMatch ? { status: previousMatch.status, unmatched_fields: previousMatch.unmatched_fields } : null,
           new_value:       { status: comparison.status, summary: comparison.summary, unmatched_fields: comparison.unmatched_fields },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
+=======
+          remarks:         `Three-Way Matching: ${comparison.overall_status}. Match: ${comparison.match_percentage}%. Forwarded to Team Lead.`,
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
           ip_address:      req?.ip || null,
           user_agent:      req?.headers?.['user-agent'] || null,
         },
       });
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+      // Notify Admin
+      notificationService.notifyMatchingCompleted(invoice, comparison.overall_status, comparison.match_percentage).catch(() => {});
+=======
+      // Notify Team Lead
+      notificationService.notifyInvoiceNextLevel(invoice, 'TEAM_LEAD').catch(() => {});
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
+
+      return {
+        match,
+        comparison,
+        message: `Three-Way Matching ${comparison.overall_status}. Match percentage: ${comparison.match_percentage}%`,
+      };
+    });
+=======
       // ── Payment Approval Auto-Creation on MATCHED ──────────────────────────
       // When Three-Way Matching is MATCHED, automatically create a PaymentApproval
       // record INSIDE this transaction. This is the authoritative creation point.
@@ -551,6 +658,7 @@ class MatchingService {
           }
         : null,
     };
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -573,6 +681,12 @@ class MatchingService {
   async listMatches(query, user) {
     const page  = Number(query.page  || 1);
     const limit = Number(query.limit || 20);
+<<<<<<< HEAD
+
+    const where = {
+      ...(query.status     && { status:     query.status }),
+      ...(query.invoiceId  && { invoice_id: query.invoiceId }),
+=======
     const status = query.status === THREE_WAY_MATCH_STATUS.MISMATCH
       ? { in: [THREE_WAY_MATCH_STATUS.MISMATCH, THREE_WAY_MATCH_STATUS.UNMATCHED] }
       : query.status;
@@ -581,6 +695,7 @@ class MatchingService {
       ...(query.status     && { status }),
       ...(query.invoiceId  && { invoice_id: query.invoiceId }),
       ...(user.role === ROLES.CASE_MANAGER && { invoice: { created_by_id: user.id } }),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     };
 
     const result = await matchingRepository.findAll({ where, skip: (page - 1) * limit, take: limit });
@@ -592,8 +707,13 @@ class MatchingService {
   // Admin reviews the match report and approves it → Invoice moves to PENDING_TEAM_LEAD
   // ────────────────────────────────────────────────────────────────────────────
   async adminApproveMatching(matchId, user, remarks, req = null) {
+<<<<<<< HEAD
+    if (user.role !== ROLES.SUPER_ADMIN) {
+      throw new ApiError(403, 'Only Admins can approve matching reports.');
+=======
     if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Only Finance Head can approve matching reports.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     const match = await matchingRepository.findById(matchId);
@@ -602,6 +722,12 @@ class MatchingService {
     if (match.admin_review_status !== ADMIN_REVIEW_STATUS.PENDING) {
       throw new ApiError(400, 'This matching report has already been reviewed.');
     }
+<<<<<<< HEAD
+
+    const now = new Date();
+
+    return matchingRepository.transaction(async (tx) => {
+=======
     if (match.status !== THREE_WAY_MATCH_STATUS.MATCHED) {
       throw new ApiError(400, 'Finance approval is blocked until three-way matching is fully matched.');
     }
@@ -613,6 +739,7 @@ class MatchingService {
     let approvalAlreadyExisted = false;
 
     const result = await matchingRepository.transaction(async (tx) => {
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       // Update match record
       await tx.threeWayMatch.update({
         where: { id: matchId },
@@ -624,25 +751,47 @@ class MatchingService {
         },
       });
 
+<<<<<<< HEAD
+      // Move invoice to Team Lead
+      await tx.invoice.update({
+        where: { id: match.invoice_id },
+        data: {
+          status:                INVOICE_STATUS.PENDING_TEAM_LEAD,
+          current_approval_level: 'TEAM_LEAD',
+=======
       const updatedInvoice = await tx.invoice.update({
         where: { id: match.invoice_id },
         data: {
           status:                INVOICE_STATUS.APPROVED,
           current_approval_level: null,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           admin_review_status:   ADMIN_REVIEW_STATUS.APPROVED,
           admin_reviewed_by_id:  user.id,
           admin_reviewed_at:     now,
           admin_remarks:         remarks || '',
+<<<<<<< HEAD
+        },
+=======
           finance_head_approver_id: user.id,
           finance_head_approved_at: now,
           final_approved_at: now,
         },
         include: { vendor: true },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       });
 
       // Write audit log
       await tx.auditLog.create({
         data: {
+<<<<<<< HEAD
+          entity_type:     'invoice',
+          entity_id:       match.invoice_id,
+          action:          'admin_review_approved_from_match',
+          from_status:     INVOICE_STATUS.PENDING_ADMIN_REVIEW,
+          to_status:       INVOICE_STATUS.PENDING_TEAM_LEAD,
+          performed_by_id: user.id,
+          remarks:         `Admin approved matching report. Remarks: ${remarks || 'None'}`,
+=======
           entity_type:     'three_way_match',
           entity_id:       match.invoice_id,
           action:          'finance_head_match_approved',
@@ -652,11 +801,22 @@ class MatchingService {
           remarks:         `Finance Head approved three-way matching. Remarks: ${remarks || 'None'}`,
           old_value:       { match_status: match.status, invoice_status: match.invoice?.status },
           new_value:       { match_review_status: ADMIN_REVIEW_STATUS.APPROVED, invoice_status: INVOICE_STATUS.APPROVED },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           ip_address:      req?.ip || null,
           user_agent:      req?.headers?.['user-agent'] || null,
         },
       });
 
+<<<<<<< HEAD
+      // Notify Team Lead
+      const invoice = await tx.invoice.findUnique({ where: { id: match.invoice_id }, include: { vendor: true } });
+      notificationService.notifyInvoiceNextLevel(invoice, 'TEAM_LEAD').catch(() => {});
+
+      return { message: 'Matching report approved. Invoice forwarded to Team Lead.' };
+    });
+  }
+
+=======
       // createPaymentApprovalForInvoice is idempotent:
       // If startMatching already created a PENDING approval for this invoice,
       // the idempotency guard returns the existing one without creating a duplicate.
@@ -687,13 +847,19 @@ class MatchingService {
   }
 
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   // ────────────────────────────────────────────────────────────────────────────
   // ADMIN REJECT MATCHING
   // Admin rejects the match → Invoice returned to REJECTED with mismatch report
   // ────────────────────────────────────────────────────────────────────────────
   async adminRejectMatching(matchId, user, remarks, req = null) {
+<<<<<<< HEAD
+    if (user.role !== ROLES.SUPER_ADMIN) {
+      throw new ApiError(403, 'Only Admins can reject matching reports.');
+=======
     if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Only Finance Head can reject matching reports.');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
     if (!remarks?.trim()) {
@@ -737,6 +903,15 @@ class MatchingService {
 
       await tx.auditLog.create({
         data: {
+<<<<<<< HEAD
+          entity_type:     'invoice',
+          entity_id:       match.invoice_id,
+          action:          'admin_review_rejected_from_match',
+          from_status:     INVOICE_STATUS.PENDING_ADMIN_REVIEW,
+          to_status:       INVOICE_STATUS.REJECTED,
+          performed_by_id: user.id,
+          remarks:         `Admin rejected matching report. Reason: ${remarks}`,
+=======
           entity_type:     'three_way_match',
           entity_id:       match.invoice_id,
           action:          'finance_head_match_rejected',
@@ -746,13 +921,18 @@ class MatchingService {
           remarks:         `Finance Head rejected matching report. Reason: ${remarks}`,
           old_value:       { match_status: match.status, invoice_status: match.invoice?.status },
           new_value:       { match_review_status: ADMIN_REVIEW_STATUS.REJECTED, invoice_status: INVOICE_STATUS.REJECTED, reason: remarks },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           ip_address:      req?.ip || null,
           user_agent:      req?.headers?.['user-agent'] || null,
         },
       });
 
       const invoice = await tx.invoice.findUnique({ where: { id: match.invoice_id }, include: { vendor: true } });
+<<<<<<< HEAD
+      notificationService.notifyInvoiceStatusChange(invoice, INVOICE_STATUS.REJECTED, 'Admin').catch(() => {});
+=======
       notificationService.notifyInvoiceStatusChange(invoice, INVOICE_STATUS.REJECTED, user.role).catch(() => {});
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
       return {
         message: 'Matching report rejected. Invoice returned with mismatch report.',
@@ -764,6 +944,12 @@ class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
   // GET GRNs for a Purchase Order (for Case Manager to select when starting match)
   // ────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+  async getGRNsByPurchaseOrder(purchaseOrderId) {
+    return prisma.goodsReceiptNote.findMany({
+      where:   { purchase_order_id: purchaseOrderId },
+      orderBy: { created_at: 'desc' },
+=======
   async returnMatchingForCorrection(matchId, user, remarks, req = null) {
     if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
       throw new ApiError(403, 'Only Finance Head can return matching reports for correction.');
@@ -832,6 +1018,7 @@ class MatchingService {
       where:   { purchase_order_id: purchaseOrderId, deleted_at: null },
       orderBy: { created_at: 'desc' },
       include: { items: true, delivery_challan: { select: { id: true, delivery_challan_number: true } } },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     });
   }
 
@@ -839,39 +1026,60 @@ class MatchingService {
   // CREATE GRN (for when goods are received)
   // ────────────────────────────────────────────────────────────────────────────
   async createGRN(payload, user) {
-    if (![ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN].includes(user.role)) {
+    if (user.role !== ROLES.CASE_MANAGER) {
       throw new ApiError(403, 'Only Case Managers can create GRNs.');
     }
 
     const po = await prisma.purchaseOrder.findUnique({ where: { id: payload.purchaseOrderId }, include: { vendor: true } });
     if (!po) throw new ApiError(404, 'Purchase order not found.');
+<<<<<<< HEAD
+
+    const grnNumber = payload.grnNumber || `GRN-${Date.now()}`;
+
+    return prisma.goodsReceiptNote.create({
+=======
     const lineItems = resolvePurchaseOrderLineItems(po, payload.lineItems, 'GRN');
     const itemTotals = sumLineItems(lineItems);
 
     return prisma.$transaction(async (tx) => {
       const grnNumber = await nextNumber(tx, 'grn_number_seq', 'GRN');
       return tx.goodsReceiptNote.create({
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
       data: {
         grn_number:         grnNumber,
         vendor_id:          po.vendor_id,
         purchase_order_id:  payload.purchaseOrderId,
+<<<<<<< HEAD
+=======
         delivery_challan_id: payload.deliveryChallanId || null,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         created_by_id:      user.id,
         vendor_name:        po.vendor?.name        || '',
         vendor_code:        po.vendor?.vendor_code || '',
         gst_number:         po.vendor?.gst_number  || '',
         delivery_date:      payload.deliveryDate ? new Date(payload.deliveryDate) : null,
+<<<<<<< HEAD
+        delivery_challan_no: payload.deliveryChallanNo || null,
+=======
         receipt_date:       payload.receiptDate ? new Date(payload.receiptDate) : payload.deliveryDate ? new Date(payload.deliveryDate) : null,
         delivery_challan_no: payload.deliveryChallanNo || null,
         receiver_name:      payload.receiverName || null,
         received_by:        payload.receivedBy || payload.receiverName || null,
         attachment_url:     payload.attachmentUrl || null,
         attachment_name:    payload.attachmentName || null,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         delivery_address:   payload.deliveryAddress || po.delivery_address || '',
         billing_address:    payload.billingAddress  || po.billing_address  || '',
         delivery_terms:     payload.deliveryTerms   || po.delivery_terms   || '',
         payment_terms:      payload.paymentTerms    || po.payment_terms    || '',
         currency:           payload.currency        || 'INR',
+<<<<<<< HEAD
+        subtotal:           payload.subtotal        || 0,
+        gst_amount:         payload.gstAmount       || 0,
+        discount:           payload.discount        || 0,
+        total_amount:       payload.totalAmount     || 0,
+        line_items:         payload.lineItems       || null,
+=======
         subtotal:           payload.subtotal        || itemTotals.subtotal,
         gst_amount:         payload.gstAmount       || itemTotals.gstAmount,
         discount:           payload.discount        || 0,
@@ -893,26 +1101,41 @@ class MatchingService {
             };
           }),
         },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
         remarks:            payload.remarks         || null,
         status:             'draft',
       },
     });
+<<<<<<< HEAD
+=======
     });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   async updateGRN(grnId, payload, user) {
     const grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
+<<<<<<< HEAD
+    if (!grn) throw new ApiError(404, 'GRN not found.');
+
+    if (grn.created_by_id !== user.id) {
+      throw new ApiError(403, 'You can only update GRNs you created.');
+    }
+=======
     assertEditableByCreator(grn, user, 'GRN');
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
     const updateData = {};
     if (payload.deliveryDate    !== undefined) updateData.delivery_date      = new Date(payload.deliveryDate);
     if (payload.deliveryChallanNo !== undefined) updateData.delivery_challan_no = payload.deliveryChallanNo;
+<<<<<<< HEAD
+=======
     if (payload.deliveryChallanId !== undefined) updateData.delivery_challan_id = payload.deliveryChallanId || null;
     if (payload.receiverName    !== undefined) updateData.receiver_name      = payload.receiverName;
     if (payload.receivedBy       !== undefined) updateData.received_by        = payload.receivedBy;
     if (payload.receiptDate      !== undefined) updateData.receipt_date       = new Date(payload.receiptDate);
     if (payload.attachmentUrl    !== undefined) updateData.attachment_url     = payload.attachmentUrl;
     if (payload.attachmentName   !== undefined) updateData.attachment_name    = payload.attachmentName;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (payload.deliveryAddress !== undefined) updateData.delivery_address   = payload.deliveryAddress;
     if (payload.billingAddress  !== undefined) updateData.billing_address    = payload.billingAddress;
     if (payload.deliveryTerms   !== undefined) updateData.delivery_terms     = payload.deliveryTerms;
@@ -925,6 +1148,9 @@ class MatchingService {
     if (payload.remarks         !== undefined) updateData.remarks            = payload.remarks;
     if (payload.status          !== undefined) updateData.status             = payload.status;
 
+<<<<<<< HEAD
+    return prisma.goodsReceiptNote.update({ where: { id: grnId }, data: updateData });
+=======
     return prisma.$transaction(async (tx) => {
       await assertNotMatched(tx, { grn_id: grnId }, 'GRN');
       if (payload.lineItems !== undefined) {
@@ -965,6 +1191,7 @@ class MatchingService {
         },
       });
     });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 
   async getGRNById(grnId) {
@@ -977,6 +1204,10 @@ class MatchingService {
       },
     });
     if (!grn) throw new ApiError(404, 'GRN not found.');
+<<<<<<< HEAD
+    return grn;
+  }
+=======
     if (grn.deleted_at) throw new ApiError(404, 'GRN not found.');
     return grn;
   }
@@ -1111,6 +1342,7 @@ class MatchingService {
     if (!challan || challan.deleted_at) throw new ApiError(404, 'Delivery Challan not found.');
     return challan;
   }
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new MatchingService();

@@ -9,6 +9,8 @@ class InvoiceController {
   });
 
   // ─── List & Get ────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+=======
   getApprovedPurchaseOrdersForInvoice = asyncHandler(async (req, res) => {
     console.debug("[InvoiceController] getApprovedPurchaseOrdersForInvoice request received", {
       jwtUser: req.user ? { id: req.user.id, role: req.user.role } : null,
@@ -19,6 +21,7 @@ class InvoiceController {
     res.status(200).json({ success: true, purchaseOrders });
   });
 
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   getInvoices = asyncHandler(async (req, res) => {
     const result = await invoiceService.listInvoices(req.query, req.user);
     res.status(200).json({ success: true, ...result });
@@ -48,18 +51,7 @@ class InvoiceController {
     res.status(200).json({ success: true, message: 'Invoice cancelled.', data: invoice });
   });
 
-  // ─── Admin Review ──────────────────────────────────────────────────────────
-  adminApproveInvoice = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const invoice = await invoiceService.adminApproveInvoice(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, message: 'Admin Review approved. Invoice forwarded to Team Lead.', data: invoice });
-  });
-
-  adminRejectInvoice = asyncHandler(async (req, res) => {
-    const { remarks } = req.body || {};
-    const invoice = await invoiceService.adminRejectInvoice(req.params.id, req.user, remarks, req);
-    res.status(200).json({ success: true, message: 'Admin Review rejected. Invoice returned.', data: invoice });
-  });
+  // Admin Review methods removed.
 
   // ─── Soft Delete & Restore ─────────────────────────────────────────────────
   softDeleteInvoice = asyncHandler(async (req, res) => {
@@ -127,6 +119,8 @@ class InvoiceController {
     const result = await invoiceService.addFinanceHeadRemark(req.params.id, req.user, remark, req);
     res.status(200).json({ success: true, ...result });
   });
+<<<<<<< HEAD
+=======
 
   downloadInvoicePdf = asyncHandler(async (req, res) => {
     const invoice = await invoiceService.downloadInvoicePdf(req.params.id, req.user, req);
@@ -136,6 +130,7 @@ class InvoiceController {
       data: invoice,
     });
   });
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new InvoiceController();

@@ -11,12 +11,30 @@ import {
   searchUsersSchema,
   updateUserStatusSchema,
   adminResetPasswordSchema,
+<<<<<<< HEAD
+=======
   resendCredentialsSchema,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 } from '../../zodSchema/index.js';
 import { PERMISSIONS } from '../auth/auth.permissions.js';
 
 const router = express.Router();
 
+<<<<<<< HEAD
+/**
+ * All routes below are protected and require admin privileges
+ */
+router.use(protect, authorize(PERMISSIONS.USER.MANAGE));
+
+router.route('/').post(validate(createUserSchema), userController.createUser).get(validate(searchUsersSchema), userController.getUsers);
+
+router.route('/:id').get(userController.getUserById).put(validate(updateUserSchema), userController.updateUser).delete(validate(deleteUserSchema), userController.deleteUser);
+
+router.patch('/:id/status', validate(updateUserStatusSchema), userController.updateUserStatus);
+router.post('/:id/reset-password', validate(adminResetPasswordSchema), userController.adminResetPassword);
+
+export default router;
+=======
 const noCache = (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
@@ -43,3 +61,4 @@ router.post('/:id/resend-credentials', authorize(PERMISSIONS.USER.MANAGE), valid
 router.post('/:id/restore', authorize(PERMISSIONS.USER.RESTORE), validate(deleteUserSchema), userController.restoreUser);
 
 export default router;
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
