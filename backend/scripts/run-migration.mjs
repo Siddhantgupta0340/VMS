@@ -35,7 +35,7 @@ try {
   await pool.query('BEGIN');
   await pool.query(sql);
   await pool.query('COMMIT');
-  console.log('✅ Migration completed successfully!');
+  console.log('Migration completed successfully!');
   console.log('   Tables created: payment_approvals, payment_approval_history');
   console.log('   Columns added: payments.three_way_match_id, payments.approval_status');
 } catch (err) {

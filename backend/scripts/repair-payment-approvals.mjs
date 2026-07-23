@@ -139,7 +139,7 @@ async function run() {
         [approvalId, payment.id]
       );
 
-      console.log(`✅ Repaired payment ${payment.payment_number} -> Created PaymentApproval ${approvalId} assigned to ${approver.email} (Linked ${notifyUpdateRes.rowCount} notifications).`);
+      console.log(`Repaired payment ${payment.payment_number} -> Created PaymentApproval ${approvalId} assigned to ${approver.email} (Linked ${notifyUpdateRes.rowCount} notifications).`);
     }
 
     // 3. Scan for PaymentApproval records with NULL approver_id (safety check)
@@ -157,7 +157,7 @@ async function run() {
           `UPDATE payment_approvals SET approver_id = $1, required_role = $2 WHERE id = $3`,
           [approver.id, requiredRole, pa.id]
         );
-        console.log(`✅ Reassigned PaymentApproval ${pa.id} to ${approver.email} (${requiredRole}).`);
+        console.log(`Reassigned PaymentApproval ${pa.id} to ${approver.email} (${requiredRole}).`);
       }
     }
 
@@ -177,7 +177,7 @@ async function run() {
         `UPDATE notifications SET user_id = $1 WHERE id = $2`,
         [m.approval_approver, m.notification_id]
       );
-      console.log(`✅ Re-routed notification ${m.notification_id} to correct approver: ${m.correct_email}.`);
+      console.log(`Re-routed notification ${m.notification_id} to correct approver: ${m.correct_email}.`);
     }
 
     await client.query('COMMIT');

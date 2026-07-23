@@ -831,7 +831,7 @@ class NotificationService {
       await this.createNotification(
         requestedById,
         isApproved ? NOTIFICATION_TYPES.PAYMENT_APPROVAL_APPROVED : NOTIFICATION_TYPES.PAYMENT_APPROVAL_REJECTED,
-        isApproved ? '✅ Payment Approval Granted' : '❌ Payment Approval Rejected',
+        isApproved ? 'Payment Approval Granted' : ' Payment Approval Rejected',
         isApproved
           ? `Your payment request of ${amountStr} has been approved by ${actorName}.`
           : `Your payment request of ${amountStr} was rejected by ${actorName}. Reason: ${paymentApproval.rejection_reason || 'No reason provided'}.`,
