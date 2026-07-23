@@ -28,7 +28,7 @@ class PaymentController {
   });
 
   approvePayment = asyncHandler(async (req, res) => {
-    const payment = await paymentService.approvePayment(req.params.id, req.user, req.body?.remarks);
+    const payment = await paymentService.approvePayment(req.params.id, req.user, req.body?.remarks, req.body?.referenceNo);
     res.status(200).json({ success: true, message: 'Payment approved successfully.', data: payment });
   });
 

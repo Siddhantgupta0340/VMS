@@ -1,24 +1,19 @@
-import { Download, Eye, Plus, Printer, Trash2, X } from "lucide-react";
+import { Download, Eye, Plus, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { COMPANY_CONFIG } from "../../config/company";
 
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import StatusBadge from "../../components/common/StatusBadge";
-import { deletePurchaseOrder, getPurchaseOrderById, getPurchaseOrders, downloadPurchaseOrderPdf } from "../../services/purchaseOrderServices";
+import { deletePurchaseOrder, getPurchaseOrders, downloadPurchaseOrderPdf } from "../../services/purchaseOrderServices";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { useAuth } from "../../context/AuthContext";
 import { canDownloadDocument } from "../../config/permissions";
 import { downloadHtmlAsPdf } from "../../utils/pdfGenerator";
 
-const companyName = import.meta.env.VITE_COMPANY_NAME || "Vendor Management System";
-const companyGst  = import.meta.env.VITE_COMPANY_GST  || "";
-const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || "";
-const companyLogo    = import.meta.env.VITE_COMPANY_LOGO_URL || "";
-const companyPan     = import.meta.env.VITE_COMPANY_PAN || "";
-const companyPhone   = import.meta.env.VITE_COMPANY_PHONE || "";
-const companyEmail   = import.meta.env.VITE_COMPANY_EMAIL || "";
+// Company constants loaded dynamically from COMPANY_CONFIG
 
 const money = (value, cur = "INR") =>
   `${cur} ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -51,7 +46,6 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
         <strong>${esc(item.itemName || item.description || "Item")}</strong>
         ${item.description && item.itemName ? `<br/><span style="color:#64748b;font-size:10px">${esc(item.description)}</span>` : ""}
       </td>
-      <td>${esc(item.hsnCode || "—")}</td>
       <td style="text-align:center">${esc(item.quantity || 0)}</td>
       <td class="num">${esc(money(item.unitPrice, po.currency))}</td>
       <td class="num">${esc(money(item.taxableAmount, po.currency))}</td>
@@ -111,15 +105,15 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
       <!-- Header -->
       <section class="header">
         <div class="brand-row">
-          ${companyLogo ? `<img class="logo" src="${esc(companyLogo)}" alt="logo" />` : ""}
+          ${COMPANY_CONFIG.logo ? `<img class="logo" src="${esc(COMPANY_CONFIG.logo)}" alt="logo" />` : ""}
           <div>
-            <div class="brand-name">${esc(companyName)}</div>
+            <div class="brand-name">${esc(COMPANY_CONFIG.name)}</div>
             <div class="brand-sub">
-              ${companyAddress ? esc(companyAddress) + "<br/>" : ""}
-              ${companyGst ? "GST: " + esc(companyGst) : ""}
-              ${companyPan ? " | PAN: " + esc(companyPan) : ""}
-              ${companyPhone ? "<br/>Tel: " + esc(companyPhone) : ""}
-              ${companyEmail ? " | " + esc(companyEmail) : ""}
+              ${COMPANY_CONFIG.address ? esc(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city}, ${COMPANY_CONFIG.state}, ${COMPANY_CONFIG.country} - ${COMPANY_CONFIG.pinCode}`) + "<br/>" : ""}
+              ${COMPANY_CONFIG.gstin ? "GST: " + esc(COMPANY_CONFIG.gstin) : ""}
+              ${COMPANY_CONFIG.pan ? " | PAN: " + esc(COMPANY_CONFIG.pan) : ""}
+              ${COMPANY_CONFIG.phone ? "<br/>Tel: " + esc(COMPANY_CONFIG.phone) : ""}
+              ${COMPANY_CONFIG.email ? " | " + esc(COMPANY_CONFIG.email) : ""}
             </div>
           </div>
         </div>
@@ -162,7 +156,6 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
           <tr>
             <th style="width:28px">#</th>
             <th>Item / Description</th>
-            <th style="width:60px">HSN</th>
             <th style="width:60px;text-align:center">Qty</th>
             <th class="num" style="width:90px">Unit Price</th>
             <th class="num" style="width:90px">Taxable Amt</th>
@@ -174,7 +167,7 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
           </tr>
         </thead>
         <tbody>
-          ${itemRows || `<tr><td colspan="11" style="text-align:center;padding:14px;color:#64748b">No items available</td></tr>`}
+          ${itemRows || `<tr><td colspan="10" style="text-align:center;padding:14px;color:#64748b">No items available</td></tr>`}
         </tbody>
       </table>
 
@@ -211,7 +204,7 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
           <div style="font-size:9px;color:#64748b">Name, Date &amp; Stamp</div>
         </div>
         <div class="sig-box" style="text-align:right">
-          <div class="sig-label">For ${esc(companyName)}</div>
+          <div class="sig-label">For ${esc(COMPANY_CONFIG.name)}</div>
           <div class="sig-name">&nbsp;</div>
           <div style="font-size:9px;color:#64748b">Authorized Signatory</div>
         </div>
@@ -305,13 +298,6 @@ const PurchaseOrderList = () => {
     },
   ];
 
-  const openDetails = async (po) => {
-    try {
-      setSelectedPO(await getPurchaseOrderById(po.id));
-    } catch (error) {
-      notify.error(getErrorMessage(error, "Purchase order details could not be loaded."));
-    }
-  };
 
   const confirmDelete = async () => {
     if (!deleteReason.trim()) {
@@ -402,13 +388,12 @@ const PurchaseOrderList = () => {
               searchableFields={["poNumber", "vendor", "description", "status"]}
               rowActions={(po) => (
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
+                  <Link
+                    to={`/purchase-orders/${po.id}`}
                     className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                    onClick={() => openDetails(po)}
                   >
                     <Eye size={15} /> View
-                  </button>
+                  </Link>
                   {canDownload ? (
                     <button
                       type="button"

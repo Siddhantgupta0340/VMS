@@ -154,8 +154,8 @@ const Navbar = () => {
           <button
             aria-current={isNotificationsActive ? "page" : undefined}
             aria-expanded={dropdownOpen}
-            aria-label="Open latest notifications"
-            className={`${NAVBAR_STYLES.control} relative ${isNotificationsActive ? NAVBAR_STYLES.activeControl : ""}`}
+            aria-label="Notifications"
+            className={`${NAVBAR_STYLES.control} relative cursor-pointer ${isNotificationsActive ? NAVBAR_STYLES.activeControl : ""}`}
             onClick={() => setDropdownOpen((current) => !current)}
             type="button"
           >

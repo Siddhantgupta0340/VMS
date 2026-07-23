@@ -44,11 +44,11 @@ export const createInvoiceSchema = z.object({
     invoiceCategory: z.enum(INVOICE_CATEGORIES, { message: 'Invoice Category is required.' }).optional().default('TAX_INVOICE'),
     invoiceDate: z.preprocess(
       (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Invoice date must be a valid date' }).optional(),
+      z.date({ required_error: 'Invoice date is required', invalid_type_error: 'Invoice date must be a valid date' }),
     ),
     dueDate: z.preprocess(
       (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(), // Due Date is required
+      z.date({ required_error: 'Due Date is required', invalid_type_error: 'Due Date must be a valid date' }),
     ),
     remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional().default(''),
   }),

@@ -1,8 +1,9 @@
 import { ArrowLeft, ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { COMPANY_CONFIG } from "../../config/company";
 
-import { calculatePurchaseOrderTax, createPurchaseOrder } from "../../services/purchaseOrderServices";
+import { calculatePurchaseOrderTax, createPurchaseOrder, getPurchaseOrderById, updatePurchaseOrder } from "../../services/purchaseOrderServices";
 import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
 import { getVendorsLookup } from "../../services/lookupService";
 import { getVendorById } from "../../services/vendorService";
@@ -11,10 +12,7 @@ import { fieldErrorClass, focusValidationField, validateRequiredFields } from ".
 
 const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 const readOnly = "h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700";
-const emptyItem = { itemName: "", description: "", quantity: "", rate: "", gstRate: "" };
-const companyName = import.meta.env.VITE_COMPANY_NAME || "";
-const companyGst = import.meta.env.VITE_COMPANY_GST || "";
-const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || "";
+const emptyItem = { itemCode: "", itemName: "", description: "", quantity: "", rate: "", gstRate: "", unit: "" };
 
 const currency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
@@ -43,11 +41,6 @@ const Field = ({ label, value, isRequired = false }) => (
   </div>
 );
 
-const MissingField = ({ field, source = "Vendor Master" }) => (
-  <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-    {field} missing. Complete it in {source}.
-  </span>
-);
 
 const ItemSection = ({ title, children }) => (
   <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -94,7 +87,78 @@ const PurchaseOrderCreate = () => {
     otherCharges: "0",
     terms: "",
     notes: "",
+    poType: "STANDARD",
+    purchaseRequisitionNumber: "",
+    department: "",
+    costCenter: "",
+    projectCode: "",
+    requester: "",
+    buyer: "",
+    quotationReference: "",
+    quotationDate: "",
+    contractReference: "",
   });
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
+  const [loadingPO, setLoadingPO] = useState(false);
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    
+    const loadPODetails = async () => {
+      try {
+        setLoadingPO(true);
+        const po = await getPurchaseOrderById(id);
+        
+        if (po.vendorId) {
+          try {
+            const vendor = await getVendorById(po.vendorId);
+            setVendorMasterDetails(vendor);
+            setVendorQuery(`${vendor.vendorCode} - ${vendor.name || vendor.vendorName}`);
+          } catch {
+            setVendorQuery(po.vendorName || po.vendor || "");
+          }
+        }
+        
+        setFormData({
+          vendorId: po.vendorId || "",
+          orderDate: po.orderDate ? new Date(po.orderDate).toISOString().split("T")[0] : "",
+          expectedDelivery: po.expectedDelivery ? new Date(po.expectedDelivery).toISOString().split("T")[0] : "",
+          deliveryAddress: po.deliveryAddress || "",
+          billingAddress: po.billingAddress || "",
+          items: po.items.map((item) => ({
+            itemCode: item.itemCode || "",
+            itemName: item.itemName || "",
+            description: item.description || "",
+            quantity: String(item.quantity || ""),
+            rate: String(item.unitPrice || item.rate || ""),
+            gstRate: String(item.gstRate || ""),
+            unit: item.unit || "",
+          })),
+          otherCharges: String(po.taxSummary?.otherCharges || 0),
+          terms: po.paymentTerms || "",
+          notes: po.description || "",
+          poType: po.poType || "STANDARD",
+          purchaseRequisitionNumber: po.purchaseRequisitionNumber || "",
+          department: po.department || "",
+          costCenter: po.costCenter || "",
+          projectCode: po.projectCode || "",
+          requester: po.requester || "",
+          buyer: po.buyer || "",
+          quotationReference: po.quotationReference || "",
+          quotationDate: po.quotationDate ? new Date(po.quotationDate).toISOString().split("T")[0] : "",
+          contractReference: po.contractReference || "",
+        });
+      } catch (err) {
+        console.error(err);
+        notify.error("Purchase Order details could not be loaded.");
+        navigate("/purchase-orders");
+      } finally {
+        setLoadingPO(false);
+      }
+    };
+    loadPODetails();
+  }, [id, isEditMode, navigate]);
 
   useEffect(() => {
     let active = true;
@@ -189,7 +253,7 @@ const PurchaseOrderCreate = () => {
       ...prev,
       vendorId: vendor.id,
       deliveryAddress: prev.deliveryAddress || full.address || full.vendorAddress || vendor.address || "",
-      billingAddress: prev.billingAddress || companyAddress || full.address || vendor.address || "",
+      billingAddress: prev.billingAddress || COMPANY_CONFIG.address || full.address || vendor.address || "",
     }));
     setVendorQuery(`${full.vendorCode || vendor.vendorCode} - ${full.vendorName || vendor.vendorName || vendor.name}`);
     setDropdownOpen(false);
@@ -246,11 +310,16 @@ const PurchaseOrderCreate = () => {
     setSubmitting(true);
 
     try {
-      const created = await createPurchaseOrder(formData);
-      notify.success(`Purchase order ${created.poNumber || ""} created successfully.`);
+      if (isEditMode) {
+        const updated = await updatePurchaseOrder(id, formData);
+        notify.success(`Purchase order ${updated.poNumber || ""} updated successfully.`);
+      } else {
+        const created = await createPurchaseOrder(formData);
+        notify.success(`Purchase order ${created.poNumber || ""} created successfully.`);
+      }
       navigate("/purchase-orders");
     } catch (error) {
-      notify.error(getErrorMessage(error, "Unable to create purchase order."));
+      notify.error(getErrorMessage(error, isEditMode ? "Unable to update purchase order." : "Unable to create purchase order."));
     } finally {
       setSubmitting(false);
     }
@@ -269,13 +338,25 @@ const PurchaseOrderCreate = () => {
             <ArrowLeft size={20} className="text-slate-600" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-950">Create Purchase Order</h1>
-            <p className="mt-1 text-sm text-slate-500">Backend generates the PO number and final tax totals.</p>
+            <h1 className="text-2xl font-bold text-slate-950">
+              {isEditMode ? "Edit Purchase Order" : "Create Purchase Order"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {isEditMode ? "Modify purchase order references and items." : "Backend generates the PO number and final tax totals."}
+            </p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      {loadingPO ? (
+        <div className="flex h-96 items-center justify-center text-slate-500">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+            <p className="font-semibold text-sm">Loading Purchase Order details...</p>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-6">
             <div className="mb-5 border-b border-slate-100 pb-4">
@@ -362,7 +443,7 @@ const PurchaseOrderCreate = () => {
               <Field label="Vendor Phone" value={activeVendor?.phone || activeVendor?.vendorPhone} isRequired />
               <Field label="Vendor State" value={activeVendor?.state || activeVendor?.vendorState} isRequired />
               <Field label="Tax Type" value={activeVendor?.taxType || activeVendor?.vendorTaxType} isRequired />
-              <Field label="Company GST" value={companyGst} />
+              <Field label="Company GST" value={COMPANY_CONFIG.gstin} />
               <Field label="Bank Name" value={activeVendor?.bankName || activeVendor?.vendorBankName} isRequired />
               <Field label="Account Holder" value={activeVendor?.accountHolder || activeVendor?.vendorAccountHolder} isRequired />
               <Field label="Account Number" value={activeVendor?.bankAccountNo ? (String(activeVendor.bankAccountNo).startsWith("****") ? activeVendor.bankAccountNo : `**** ${String(activeVendor.bankAccountNo).slice(-4)}`) : (activeVendor?.vendorBankAccountNo ? `**** ${String(activeVendor.vendorBankAccountNo).slice(-4)}` : null)} isRequired />
@@ -376,7 +457,7 @@ const PurchaseOrderCreate = () => {
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">Company Name</label>
-                <input value={companyName} disabled className={readOnly} />
+                <input value={COMPANY_CONFIG.name} disabled className={readOnly} />
               </div>
               <div>
                 <RequiredLabel>Delivery Address</RequiredLabel>
@@ -385,6 +466,47 @@ const PurchaseOrderCreate = () => {
               <div>
                 <RequiredLabel>Billing Address</RequiredLabel>
                 <textarea name="billingAddress" value={formData.billingAddress} onChange={handleChange} rows={3} className={`${input} h-auto py-3 ${fieldErrorClass(errorsByField.billingAddress)}`} />
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-slate-100 pt-6">
+              <h3 className="mb-4 text-base font-bold text-slate-950">Procurement &amp; Reference Information</h3>
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <FormField label="PO Type">
+                  <select name="poType" value={formData.poType} onChange={handleChange} className={input}>
+                    <option value="STANDARD">Standard</option>
+                    <option value="URGENT">Urgent</option>
+                    <option value="DIRECT">Direct</option>
+                    <option value="BLANKET">Blanket</option>
+                  </select>
+                </FormField>
+                <FormField label="Purchase Requisition Number">
+                  <input type="text" name="purchaseRequisitionNumber" value={formData.purchaseRequisitionNumber} onChange={handleChange} className={input} placeholder="e.g. PR-2026-001" />
+                </FormField>
+                <FormField label="Department">
+                  <input type="text" name="department" value={formData.department} onChange={handleChange} className={input} placeholder="e.g. Procurement" />
+                </FormField>
+                <FormField label="Cost Center">
+                  <input type="text" name="costCenter" value={formData.costCenter} onChange={handleChange} className={input} placeholder="e.g. CC-101" />
+                </FormField>
+                <FormField label="Project Code">
+                  <input type="text" name="projectCode" value={formData.projectCode} onChange={handleChange} className={input} placeholder="e.g. PRJ-VMS" />
+                </FormField>
+                <FormField label="Requester">
+                  <input type="text" name="requester" value={formData.requester} onChange={handleChange} className={input} placeholder="e.g. Alice Smith" />
+                </FormField>
+                <FormField label="Buyer">
+                  <input type="text" name="buyer" value={formData.buyer} onChange={handleChange} className={input} placeholder="e.g. Bob Johnson" />
+                </FormField>
+                <FormField label="Quotation Reference">
+                  <input type="text" name="quotationReference" value={formData.quotationReference} onChange={handleChange} className={input} placeholder="e.g. QUO-987" />
+                </FormField>
+                <FormField label="Quotation Date">
+                  <input type="date" name="quotationDate" value={formData.quotationDate} onChange={handleChange} className={input} />
+                </FormField>
+                <FormField label="Contract Reference">
+                  <input type="text" name="contractReference" value={formData.contractReference} onChange={handleChange} className={input} placeholder="e.g. CON-554" />
+                </FormField>
               </div>
             </div>
           </section>
@@ -434,6 +556,9 @@ const PurchaseOrderCreate = () => {
 
                     <div className="grid gap-4 p-5 xl:grid-cols-2">
                       <ItemSection title="Item Information">
+                        <FormField label="Item Code">
+                          <input value={item.itemCode || ""} onChange={(event) => handleItemChange(index, "itemCode", event.target.value)} className={input} placeholder="e.g. ITM-001" />
+                        </FormField>
                         <FormField label="Item Name *">
                           <input value={item.itemName} onChange={(event) => handleItemChange(index, "itemName", event.target.value)} className={`${input} ${fieldErrorClass(errorsByField.items)}`} required />
                         </FormField>
@@ -448,6 +573,18 @@ const PurchaseOrderCreate = () => {
                         </FormField>
                         <FormField label="Unit Price *">
                           <input type="number" min="0" step="0.01" value={item.rate} onChange={(event) => handleItemChange(index, "rate", event.target.value)} className={input} required />
+                        </FormField>
+                        <FormField label="Unit / UOM">
+                          <select value={item.unit || ""} onChange={(event) => handleItemChange(index, "unit", event.target.value)} className={input}>
+                            <option value="">Select Unit</option>
+                            <option value="NOS">NOS (Numbers)</option>
+                            <option value="PCS">PCS (Pieces)</option>
+                            <option value="SET">SET (Set)</option>
+                            <option value="BOX">BOX (Box)</option>
+                            <option value="KG">KG (Kilograms)</option>
+                            <option value="LTR">LTR (Liters)</option>
+                            <option value="MTR">MTR (Meters)</option>
+                          </select>
                         </FormField>
                         <ReadOnlyMetric label="Taxable Amount" value={currency(calculated.taxableAmount)} />
                       </ItemSection>
@@ -505,7 +642,7 @@ const PurchaseOrderCreate = () => {
             </label>
             <div className="mt-6 grid gap-3">
               <button type="submit" disabled={submitting || !formData.vendorId} className="rounded-lg bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
-                {submitting ? "Creating..." : "Create Purchase Order"}
+                {submitting ? (isEditMode ? "Saving..." : "Creating...") : (isEditMode ? "Save Changes" : "Create Purchase Order")}
               </button>
               <button type="button" onClick={() => navigate("/purchase-orders")} className="rounded-lg border border-slate-300 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-50">
                 Cancel
@@ -514,6 +651,7 @@ const PurchaseOrderCreate = () => {
           </section>
         </aside>
       </form>
+      )}
     </div>
   );
 };

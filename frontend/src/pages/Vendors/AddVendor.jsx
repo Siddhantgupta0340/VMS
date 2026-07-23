@@ -115,9 +115,17 @@ useEffect(() => {
 }, [id, isEditMode]);
 
 const handleChange = (e) => {
+  const { name, value } = e.target;
+  let finalValue = value;
+  if (name === "phone" || name === "alternatePhone" || name === "postalCode" || name === "accountNumber") {
+    finalValue = value.replace(/\D/g, "");
+  }
+  if (name === "pan" || name === "gst" || name === "ifscCode") {
+    finalValue = value.toUpperCase();
+  }
   setFormData((prev) => ({
     ...prev,
-    [e.target.name]: e.target.value,
+    [name]: finalValue,
   }));
 };
 
@@ -355,8 +363,11 @@ if (loadingVendor) {
             <RequiredLabel>Phone Number</RequiredLabel>
 
             <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
               className={`${input} ${fieldErrorClass(errorsByField.phone)}`}
-              placeholder="+91 9876543210"
+              placeholder="9876543210"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
@@ -365,7 +376,16 @@ if (loadingVendor) {
 
           <div>
             <label className="mb-2 block text-sm font-medium">Alternate Phone (Optional)</label>
-            <input className={input} placeholder="+91 9876543211" name="alternatePhone" value={formData.alternatePhone} onChange={handleChange} />
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              className={input}
+              placeholder="9876543211"
+              name="alternatePhone"
+              value={formData.alternatePhone}
+              onChange={handleChange}
+            />
           </div>
 
           <div>
@@ -450,7 +470,16 @@ if (loadingVendor) {
     <div>
       <RequiredLabel>Postal Code</RequiredLabel>
 
-      <input className={`${input} ${fieldErrorClass(errorsByField.postalCode)}`} placeholder="452001" name="postalCode" value={formData.postalCode} onChange={handleChange} />
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={6}
+        className={`${input} ${fieldErrorClass(errorsByField.postalCode)}`}
+        placeholder="452001"
+        name="postalCode"
+        value={formData.postalCode}
+        onChange={handleChange}
+      />
     </div>
 
     <div>
@@ -498,7 +527,16 @@ if (loadingVendor) {
 
     <input className={`${input} ${fieldErrorClass(errorsByField.accountHolder)}`} placeholder="Account Holder *" name="accountHolder" value={formData.accountHolder} onChange={handleChange} />
 
-    <input className={`${input} ${fieldErrorClass(errorsByField.accountNumber)}`} placeholder="Account Number *" name="accountNumber" value={formData.accountNumber} onChange={handleChange} />
+    <input
+      type="text"
+      inputMode="numeric"
+      maxLength={18}
+      className={`${input} ${fieldErrorClass(errorsByField.accountNumber)}`}
+      placeholder="Account Number *"
+      name="accountNumber"
+      value={formData.accountNumber}
+      onChange={handleChange}
+    />
 
     <input className={`${input} ${fieldErrorClass(errorsByField.ifscCode)}`} placeholder="IFSC Code *" name="ifscCode" value={formData.ifscCode} onChange={handleChange} />
 

@@ -13,6 +13,7 @@ import FinanceHeadVendorReview from "../pages/Vendors/FinanceHeadVendorReview";
 // Purchase Orders
 import PurchaseOrderList from "../pages/PurchaseOrders/PurchaseOrderList";
 import PurchaseOrderCreate from "../pages/PurchaseOrders/PurchaseOrderCreate";
+import PurchaseOrderDetails from "../pages/PurchaseOrders/PurchaseOrderDetails";
 
 // Invoices
 import InvoiceList from "../pages/Invoices/InvoiceList";
@@ -107,6 +108,8 @@ const AppRoutes = () => {
         <Route path="/purchase-orders" element={<PurchaseOrderList />} />
         <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
         <Route path="/purchase-orders/create" element={<PurchaseOrderCreate />} />
+        <Route path="/purchase-orders/:id" element={<PurchaseOrderDetails />} />
+        <Route path="/purchase-orders/:id/edit" element={<PurchaseOrderCreate />} />
 
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />

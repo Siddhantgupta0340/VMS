@@ -7,6 +7,7 @@ import {
   createPaymentSchema,
   updatePaymentSchema,
   paymentActionSchema,
+  paymentApproveSchema,
   paymentIdSchema,
   searchPaymentsSchema,
 } from './payment.validation.js';
@@ -40,7 +41,7 @@ router
 
 router.get('/:id/history', authorize(READ_ACCESS), validate(paymentIdSchema), paymentController.getPaymentHistory);
 
-router.patch('/:id/approve', authorize(REVIEW_ACCESS), validate(paymentActionSchema), paymentController.approvePayment);
+router.patch('/:id/approve', authorize(REVIEW_ACCESS), validate(paymentApproveSchema), paymentController.approvePayment);
 router.patch('/:id/reject', authorize(REVIEW_ACCESS), validate(paymentActionSchema), paymentController.rejectPayment);
 router.patch('/:id/return', authorize(REVIEW_ACCESS), validate(paymentActionSchema), paymentController.returnPayment);
 router.patch('/:id/cancel', authorize(READ_ACCESS), validate(paymentActionSchema), paymentController.cancelPayment);

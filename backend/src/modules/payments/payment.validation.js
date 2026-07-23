@@ -7,13 +7,13 @@ const uuidParamSchema = z.object({
 export const createPaymentSchema = z.object({
   body: z.object({
     invoiceId: z.string().uuid('Invalid invoice ID format'),
-    amount: z.coerce.number().positive('Payment amount must be greater than 0').optional(),
+    amount: z.coerce.number().positive('Payment amount must be greater than 0'),
     currency: z.string().trim().optional().default('INR'),
     paymentMethod: z.enum([
       'NEFT', 'RTGS', 'IMPS', 'UPI', 'CHEQUE', 'CASH', 
       'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING', 'WALLET', 
       'ACH', 'WIRE_TRANSFER'
-    ]).optional().default('NEFT'),
+    ], { required_error: 'Payment method is required' }),
     paymentType: z.enum([
       'FULL', 'PARTIAL', 'ADVANCE', 'FINAL', 'SCHEDULED', 
       'RECURRING', 'REFUND', 'ADJUSTMENT'
@@ -23,10 +23,19 @@ export const createPaymentSchema = z.object({
       'PHONEPE', 'PAYU', 'BANK_API', 'MANUAL'
     ]).optional().default('MANUAL'),
     providerTransactionId: z.string().trim().optional(),
+    referenceNo: z.string().trim().optional(),
     gatewayReference: z.string().trim().optional(),
     remarks: z.string().trim().optional(),
     dueDate: z.coerce.date().optional(),
     paymentDate: z.coerce.date().optional(),
+  }),
+});
+
+export const paymentApproveSchema = z.object({
+  params: uuidParamSchema,
+  body: z.object({
+    remarks: z.string().min(1, 'Remarks are required to approve this payment request.').max(1000).trim(),
+    referenceNo: z.string().min(1, 'Transaction Reference Number / UTR is required.').trim(),
   }),
 });
 

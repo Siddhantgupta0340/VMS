@@ -20,7 +20,7 @@ const generatePoNumber = async () => {
   const year = new Date().getFullYear();
   const rows = await prisma.$queryRaw`SELECT nextval('purchase_order_number_seq')::bigint AS value`;
   const nextValue = Number(rows?.[0]?.value || 0);
-  return `PO-${year}-${String(nextValue).padStart(6, '0')}`;
+  return `PO/${year}/${String(nextValue).padStart(6, '0')}`;
 };
 
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -59,8 +59,8 @@ const calculatePurchaseOrderTax = ({ vendor, items = [], otherCharges = 0 }) => 
       lineNumber: index + 1,
       itemName: item.itemName,
       description: item.description,
-      hsnCode: item.hsnCode || null,
       unit: item.unit || null,
+      itemCode: item.itemCode || null,
       quantity,
       unitPrice,
       gstRate,
@@ -181,6 +181,16 @@ class PurchaseOrderService {
         line_items: taxCalculation.items,
         tax_summary: taxCalculation.summary,
         status: PO_STATUS.CREATED,
+        po_type: payload.poType || 'STANDARD',
+        purchase_requisition_number: payload.purchaseRequisitionNumber || null,
+        department: payload.department || null,
+        cost_center: payload.costCenter || null,
+        project_code: payload.projectCode || null,
+        requester: payload.requester || null,
+        buyer: payload.buyer || null,
+        quotation_reference: payload.quotationReference || null,
+        quotation_date: payload.quotationDate ? new Date(payload.quotationDate) : null,
+        contract_reference: payload.contractReference || null,
       };
 
       const created = await purchaseOrderRepository.create(poData);
@@ -293,11 +303,21 @@ class PurchaseOrderService {
           payment_terms: payload.paymentTerms || null,
           line_items: taxCalculation.items,
           tax_summary: taxCalculation.summary,
+          po_type: payload.poType || existing.po_type,
+          purchase_requisition_number: payload.purchaseRequisitionNumber !== undefined ? payload.purchaseRequisitionNumber : existing.purchase_requisition_number,
+          department: payload.department !== undefined ? payload.department : existing.department,
+          cost_center: payload.costCenter !== undefined ? payload.costCenter : existing.cost_center,
+          project_code: payload.projectCode !== undefined ? payload.projectCode : existing.project_code,
+          requester: payload.requester !== undefined ? payload.requester : existing.requester,
+          buyer: payload.buyer !== undefined ? payload.buyer : existing.buyer,
+          quotation_reference: payload.quotationReference !== undefined ? payload.quotationReference : existing.quotation_reference,
+          quotation_date: payload.quotationDate !== undefined ? (payload.quotationDate ? new Date(payload.quotationDate) : null) : existing.quotation_date,
+          contract_reference: payload.contractReference !== undefined ? payload.contractReference : existing.contract_reference,
         },
         include: { vendor: true, created_by: { select: { id: true, email: true, first_name: true, last_name: true, role: true } } },
       });
 
-      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'line_items', 'tax_summary'];
+      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'line_items', 'tax_summary', 'po_type', 'purchase_requisition_number', 'department', 'cost_center', 'project_code', 'requester', 'buyer', 'quotation_reference', 'quotation_date', 'contract_reference'];
       const summary = summarizeChanges(existing, updated, fields);
       await tx.auditLog.create({
         data: {

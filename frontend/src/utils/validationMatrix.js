@@ -8,7 +8,9 @@ const nonNegative = (value) => Number(value) >= 0;
 const email = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 const gst = (value) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(String(value || "").trim().toUpperCase());
 const pan = (value) => !required(value) || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(value || "").trim().toUpperCase());
-const phone = (value) => /^[+\d][\d\s\-()]{6,19}$/.test(String(value || "").trim());
+const phone = (value) => /^\d{10}$/.test(String(value || "").trim());
+const postalCode = (value) => /^\d{6}$/.test(String(value || "").trim());
+const accountNumber = (value) => /^\d{9,18}$/.test(String(value || "").trim());
 const ifsc = (value) => !required(value) || /^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(value || "").trim().toUpperCase());
 
 export const REQUIRED_FIELD_MATRIX = {
@@ -22,15 +24,15 @@ export const REQUIRED_FIELD_MATRIX = {
     { field: "contactPerson", label: "Contact Person", dbColumn: "vendors.contact_person", required: true, rule: required, message: "Vendor Contact Person is required.", usedIn: ["Vendor", "Approvals", "Notifications"] },
     { field: "designation", label: "Contact Person Designation", dbColumn: "vendors.contact_designation", required: true, rule: required, message: "Contact Person Designation is required.", usedIn: ["Vendor"] },
     { field: "email", label: "Vendor Email", dbColumn: "vendors.email", required: true, rule: email, message: "Vendor Email is required and must be valid.", usedIn: ["Vendor", "Notifications"] },
-    { field: "phone", label: "Vendor Phone", dbColumn: "vendors.phone", required: true, rule: phone, message: "Vendor Phone is required and must be valid.", usedIn: ["Vendor", "Notifications"] },
+    { field: "phone", label: "Vendor Phone", dbColumn: "vendors.phone", required: true, rule: phone, message: "Vendor Phone is required and must be exactly 10 digits.", usedIn: ["Vendor", "Notifications"] },
     { field: "addressLine1", label: "Address Line 1", dbColumn: "vendors.address_line1", required: true, rule: required, message: "Address Line 1 is required.", usedIn: ["Vendor", "Purchase Order", "Invoice"] },
     { field: "city", label: "City", dbColumn: "vendors.city", required: true, rule: required, message: "City is required.", usedIn: ["Vendor"] },
     { field: "state", label: "State", dbColumn: "vendors.state", required: true, rule: required, message: "State is required.", usedIn: ["Vendor", "Purchase Order Tax"] },
     { field: "country", label: "Country", dbColumn: "vendors.country", required: true, rule: required, message: "Country is required.", usedIn: ["Vendor"] },
-    { field: "postalCode", label: "Postal Code", dbColumn: "vendors.zip_code", required: true, rule: required, message: "Postal Code is required.", usedIn: ["Vendor"] },
+    { field: "postalCode", label: "Postal Code", dbColumn: "vendors.zip_code", required: true, rule: postalCode, message: "Postal Code must be exactly 6 digits.", usedIn: ["Vendor"] },
     { field: "bankName", label: "Bank Name", dbColumn: "vendors.bank_name", required: true, rule: required, message: "Bank Name is required.", usedIn: ["Payment"] },
     { field: "accountHolder", label: "Account Holder", dbColumn: "vendors.account_holder", required: true, rule: required, message: "Account Holder is required.", usedIn: ["Payment"] },
-    { field: "accountNumber", label: "Account Number", dbColumn: "vendors.bank_account_no", required: true, rule: required, message: "Account Number is required.", usedIn: ["Payment"] },
+    { field: "accountNumber", label: "Account Number", dbColumn: "vendors.bank_account_no", required: true, rule: accountNumber, message: "Account Number must be between 9 and 18 digits.", usedIn: ["Payment"] },
     { field: "ifscCode", label: "IFSC Code", dbColumn: "vendors.ifsc_code", required: true, rule: ifsc, message: "IFSC Code is required and must be valid.", usedIn: ["Payment"] },
     { field: "bankBranch", label: "Bank Branch", dbColumn: "vendors.bank_branch", required: true, rule: required, message: "Bank Branch is required.", usedIn: ["Payment"] },
   ],

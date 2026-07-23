@@ -7,7 +7,7 @@ const uuidParamSchema = z.object({
 const emptyStringToUndefined = (value) => (value === '' ? undefined : value);
 const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const phoneRegex = /^[+\d][\d\s\-()]{6,19}$/;
+const phoneRegex = /^\d{10}$/;
 const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const accountNumberRegex = /^\d{9,18}$/;
 const vendorStatusValues = [
@@ -53,35 +53,44 @@ const mapSnakeToCamel = (val) => {
   return mapped;
 };
 
-const vendorBodySchema = z.object({
+const vendorBodyObjectSchema = z.object({
   name: z.string().min(1, 'Vendor name is required').trim(),
   email: z.string().email('Invalid vendor email').trim().lowercase(),
-  phone: z.string().trim().refine((value) => phoneRegex.test(value), 'Invalid phone number'),
-  address: z.string().min(1, 'Address is required').trim(),
-  addressLine1: z.string().trim().optional(),
+  phone: z.string().trim().refine((value) => phoneRegex.test(value), 'Phone number must contain exactly 10 digits.'),
+  address: z.string().trim().optional(),
+  addressLine1: z.string().min(1, 'Address Line 1 is required').trim(),
   addressLine2: z.string().trim().optional(),
-  city: z.string().trim().optional(),
+  city: z.string().min(1, 'City is required').trim(),
   district: z.string().trim().optional(),
-  state: z.string().trim().optional(),
-  country: z.string().trim().optional(),
-  zipCode: z.string().trim().optional(),
+  state: z.string().min(1, 'State is required').trim(),
+  country: z.string().min(1, 'Country is required').trim(),
+  zipCode: z.string().min(1, 'Postal code is required').trim().refine((value) => /^\d{6}$/.test(value), 'Postal code must contain exactly 6 digits.'),
   taxId: z.string().min(1, 'GST number is required').trim().transform((value) => value.toUpperCase()).refine((value) => gstRegex.test(value), 'Invalid GST number'),
   gstNumber: z.string().trim().transform((value) => value.toUpperCase()).refine((value) => !value || gstRegex.test(value), 'Invalid GST number').optional(),
-  panNumber: z.string().trim().transform((value) => value.toUpperCase()).refine((value) => !value || panRegex.test(value), 'Invalid PAN number').optional(),
+  panNumber: z.string().min(1, 'PAN number is required').trim().transform((value) => value.toUpperCase()).refine((value) => panRegex.test(value), 'Invalid PAN number'),
   cin: z.string().trim().optional(),
   msmeNumber: z.string().trim().optional(),
-  taxType: z.enum(['Regular', 'Composition', 'Exempt', 'REGULAR', 'COMPOSITION', 'EXEMPT']).optional(),
-  category: z.string().min(1, 'Category is required').trim(),
-  vendorType: z.string().min(1, 'Vendor type is required').trim(),
-  contactPerson: z.string().trim().optional(),
-  contactDesignation: z.string().trim().optional(),
-  alternatePhone: z.string().trim().refine((value) => !value || phoneRegex.test(value), 'Invalid alternate phone number').optional(),
-  bankName: z.string().trim().optional(),
-  accountHolder: z.string().trim().optional(),
-  bankAccountNo: z.string().trim().refine((value) => !value || accountNumberRegex.test(value), 'Invalid account number').optional(),
-  ifscCode: z.string().trim().transform((value) => value.toUpperCase()).refine((value) => !value || ifscRegex.test(value), 'Invalid IFSC code').optional(),
-  bankBranch: z.string().trim().optional(),
-  paymentTerms: z.string().trim().optional(),
+  taxType: z.enum(['Regular', 'Composition', 'Exempt', 'REGULAR', 'COMPOSITION', 'EXEMPT']).default('Regular'),
+  category: z.enum(['Manufacturer', 'Supplier', 'Distributor', 'Service Provider', 'MANUFACTURER', 'SUPPLIER', 'DISTRIBUTOR', 'SERVICE_PROVIDER'], {
+    errorMap: () => ({ message: 'Invalid vendor category' })
+  }),
+  vendorType: z.enum(['Domestic', 'International', 'DOMESTIC', 'INTERNATIONAL'], {
+    errorMap: () => ({ message: 'Invalid vendor type' })
+  }),
+  contactPerson: z.string().min(1, 'Contact person is required').trim(),
+  contactDesignation: z.string().min(1, 'Contact designation is required').trim(),
+  alternatePhone: z.string().trim().refine((value) => !value || phoneRegex.test(value), 'Alternate phone number must contain exactly 10 digits.').optional(),
+  bankName: z.string().min(1, 'Bank name is required').trim(),
+  accountHolder: z.string().min(1, 'Account holder is required').trim(),
+  bankAccountNo: z.string().min(1, 'Account number is required').trim().refine((value) => accountNumberRegex.test(value), 'Invalid bank account number'),
+  ifscCode: z.string().min(1, 'IFSC code is required').trim().transform((value) => value.toUpperCase()).refine((value) => ifscRegex.test(value), 'Invalid IFSC code'),
+  bankBranch: z.string().min(1, 'Bank branch is required').trim(),
+  paymentTerms: z.enum(['Net 15', 'Net 30', 'Net 45', 'Net 60', 'NET 15', 'NET 30', 'NET 45', 'NET 60']).default('Net 30'),
+});
+
+const vendorBodySchema = vendorBodyObjectSchema.refine((data) => !data.phone || !data.alternatePhone || data.phone !== data.alternatePhone, {
+  message: 'Alternate phone must be different from primary phone',
+  path: ['alternatePhone'],
 });
 
 export const createVendorSchema = z.object({
@@ -92,12 +101,15 @@ export const updateVendorSchema = z.object({
   params: uuidParamSchema,
   body: z.preprocess(
     mapSnakeToCamel,
-    vendorBodySchema.partial().extend({
+    vendorBodyObjectSchema.partial().extend({
       status: z.enum(vendorStatusValues).optional(),
       isActive: z.boolean().optional(),
     }).refine((data) => Object.keys(data).length > 0, {
       message: 'At least one field must be provided for update',
       path: ['body'],
+    }).refine((data) => !data.phone || !data.alternatePhone || data.phone !== data.alternatePhone, {
+      message: 'Alternate phone must be different from primary phone',
+      path: ['alternatePhone'],
     }),
   ),
 });

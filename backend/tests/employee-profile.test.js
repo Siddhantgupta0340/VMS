@@ -71,8 +71,8 @@ test('Create user returns database-generated employee ID and normalized profile 
       firstName: 'Case',
       lastName: 'Manager',
       role: 'CASE_MANAGER',
-      phone: '+91 98765 43210',
-      alternatePhone: '+91 98765 43211',
+      phone: '9876543210',
+      alternatePhone: '9876543211',
       designation: 'Case Analyst',
       branch: 'Mumbai',
       region: 'West',
@@ -81,8 +81,8 @@ test('Create user returns database-generated employee ID and normalized profile 
   );
 
   assert.equal(created.employee_id, 'EMP000001');
-  assert.equal(created.phone, '+919876543210');
-  assert.equal(created.alternate_phone, '+919876543211');
+  assert.equal(created.phone, '9876543210');
+  assert.equal(created.alternate_phone, '9876543211');
   assert.equal(created.designation, 'Case Analyst');
   assert.equal(created.branch, 'Mumbai');
   assert.equal(created.region, 'West');
@@ -90,16 +90,17 @@ test('Create user returns database-generated employee ID and normalized profile 
   restoreAll();
 });
 
-test('User validation accepts normalized phones and rejects invalid profile fields', () => {
+test('User validation accepts 10-digit phones and rejects invalid profile fields', () => {
   const valid = createUserSchema.safeParse({
     body: {
       email: 'valid@vms.com',
       password: 'Password@123',
+      confirmPassword: 'Password@123',
       firstName: 'Valid',
       lastName: 'User',
       role: 'CASE_MANAGER',
-      phone: '+91 98765 43210',
-      alternatePhone: '+91 98765 43211',
+      phone: '9876543210',
+      alternatePhone: '9876543211',
       designation: 'A'.repeat(100),
       branch: 'Mumbai',
       region: 'West',
@@ -125,8 +126,8 @@ test('User validation accepts normalized phones and rejects invalid profile fiel
       firstName: 'Same',
       lastName: 'Phone',
       role: 'CASE_MANAGER',
-      phone: '+919876543210',
-      alternatePhone: '+91 98765 43210',
+      phone: '9876543210',
+      alternatePhone: '9876543210',
     },
   }).success, false);
 
@@ -143,14 +144,14 @@ test('Update user maps profile fields and rejects alternate phone matching exist
     email: 'user@vms.com',
     role: 'CASE_MANAGER',
     status: 'ACTIVE',
-    phone: '+919876543210',
+    phone: '9876543210',
     alternate_phone: null,
   });
 
   await assert.rejects(
     userService.updateUser(
       'user_1',
-      { alternatePhone: '+91 98765 43210' },
+      { alternatePhone: '9876543210' },
       { id: 'admin_1', role: 'SUPER_ADMIN', email: 'admin@vms.com' },
     ),
     /Alternate phone must be different from phone/,
@@ -172,7 +173,7 @@ test('Update user maps profile fields and rejects alternate phone matching exist
   const updated = await userService.updateUser(
     'user_1',
     {
-      phone: '+91 98765 43212',
+      phone: '9876543212',
       alternatePhone: '',
       designation: 'Senior Analyst',
       branch: 'Delhi',
@@ -181,7 +182,7 @@ test('Update user maps profile fields and rejects alternate phone matching exist
     { id: 'admin_1', role: 'SUPER_ADMIN', email: 'admin@vms.com' },
   );
 
-  assert.equal(updateData.phone, '+919876543212');
+  assert.equal(updateData.phone, '9876543212');
   assert.equal(updateData.alternate_phone, null);
   assert.equal(updated.designation, 'Senior Analyst');
   assert.equal(updated.branch, 'Delhi');

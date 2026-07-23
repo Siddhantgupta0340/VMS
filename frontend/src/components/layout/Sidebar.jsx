@@ -27,11 +27,16 @@ const Sidebar = () => {
   const filteredNavigation = navigation
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => (
-        hasPermission(user, item.permission) &&
-        (!item.allowedRoles || item.allowedRoles.includes(user?.role)) &&
-        !item.excludedRoles?.includes(user?.role)
-      )),
+      items: section.items.filter((item) => {
+        if (item.title === "Three-Way Matching" && user?.role === "SUPER_ADMIN") {
+          return false;
+        }
+        return (
+          hasPermission(user, item.permission) &&
+          (!item.allowedRoles || item.allowedRoles.includes(user?.role)) &&
+          !item.excludedRoles?.includes(user?.role)
+        );
+      }),
     }))
     .filter((section) => section.items.length > 0);
   const compact = collapsed && !mobileOpen;

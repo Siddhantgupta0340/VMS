@@ -91,9 +91,13 @@ const UserCreate = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = type === "checkbox" ? checked : value;
+    if (name === "phone" || name === "alternatePhone") {
+      finalValue = value.replace(/\D/g, "");
+    }
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: finalValue,
     }));
     // Clear field-specific error as user types
     if (fieldErrors[name]) {
@@ -116,20 +120,14 @@ const UserCreate = () => {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = "Invalid email format";
     }
-    const phonePattern = /^\+?[1-9]\d{7,14}$/;
-    const normalizePhoneInput = (value) => {
-      const raw = value.trim();
-      const hasPlus = raw.startsWith("+");
-      const digits = raw.replace(/\D/g, "");
-      return hasPlus ? `+${digits}` : digits;
-    };
-    const phone = normalizePhoneInput(formData.phone);
-    const alternatePhone = normalizePhoneInput(formData.alternatePhone);
-    if (formData.phone.trim() && !phonePattern.test(phone)) {
-      errors.phone = "Phone must be 8 to 15 digits and may start with +";
+    const phonePattern = /^\d{10}$/;
+    const phone = formData.phone.trim();
+    const alternatePhone = formData.alternatePhone.trim();
+    if (phone && !phonePattern.test(phone)) {
+      errors.phone = "Phone number must contain exactly 10 digits.";
     }
-    if (formData.alternatePhone.trim() && !phonePattern.test(alternatePhone)) {
-      errors.alternatePhone = "Alternate phone must be 8 to 15 digits and may start with +";
+    if (alternatePhone && !phonePattern.test(alternatePhone)) {
+      errors.alternatePhone = "Phone number must contain exactly 10 digits.";
     }
     if (phone && alternatePhone && phone === alternatePhone) {
       errors.alternatePhone = "Alternate phone must be different from phone";
@@ -212,7 +210,11 @@ const UserCreate = () => {
       } else if (status === 403) {
         notify.error("You do not have permission to create a user with this role.");
       } else if (status === 400 && err?.response?.data?.errors) {
-        setFieldErrors(err.response.data.errors);
+        const formattedErrors = {};
+        Object.entries(err.response.data.errors).forEach(([field, msgs]) => {
+          formattedErrors[field] = Array.isArray(msgs) ? msgs.join(", ") : msgs;
+        });
+        setFieldErrors(formattedErrors);
         notify.error("Validation failed. Please correct the highlighted fields.");
       } else {
         notify.error(getErrorMessage(err, "Failed to create user account."));
@@ -311,7 +313,9 @@ const UserCreate = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+91 98765 43210"
+                  placeholder="9876543210"
+                  inputMode="numeric"
+                  maxLength={10}
                   className={`${inputClass} ${fieldErrors.phone ? 'border-red-500' : ''}`}
                   disabled={submitting}
                 />
@@ -328,7 +332,9 @@ const UserCreate = () => {
                   name="alternatePhone"
                   value={formData.alternatePhone}
                   onChange={handleChange}
-                  placeholder="+91 98765 43211"
+                  placeholder="9876543211"
+                  inputMode="numeric"
+                  maxLength={10}
                   className={`${inputClass} ${fieldErrors.alternatePhone ? 'border-red-500' : ''}`}
                   disabled={submitting}
                 />

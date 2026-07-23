@@ -13,13 +13,11 @@ const optionalText = (field, max = 100) => z.string()
   .optional()
   .or(z.literal(''));
 const phoneSchema = z.preprocess((value) => {
-  if (value === undefined || value === null || value === '') return value;
-  const raw = String(value).trim();
-  const hasPlus = raw.startsWith('+');
-  const digits = raw.replace(/\D/g, '');
-  return hasPlus ? `+${digits}` : digits;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value.trim();
+  return value;
 }, z.string()
-  .regex(/^\+?[1-9]\d{7,14}$/, 'Phone must be 8 to 15 digits and may start with +')
+  .regex(/^\d{10}$/, 'Phone number must contain exactly 10 digits.')
   .optional()
   .or(z.literal('')));
 

@@ -7,8 +7,8 @@ const uuidParamSchema = z.object({
 const poItemSchema = z.object({
   itemName: z.string().trim().min(1, 'Item name is required'),
   description: z.string().trim().optional().default(''),
-  hsnCode: z.string().trim().optional(),
   unit: z.string().trim().optional(),
+  itemCode: z.string().trim().optional(),
   quantity: z.coerce.number().positive('Quantity must be greater than 0'),
   unitPrice: z.coerce.number().nonnegative('Unit price cannot be negative').optional(),
   rate: z.coerce.number().nonnegative('Rate cannot be negative').optional(),
@@ -36,7 +36,7 @@ const requiredDate = (label) => z.preprocess(
 
 export const createPurchaseOrderSchema = z.object({
   body: purchaseOrderTaxPayloadSchema.extend({
-    currency: z.string().trim().min(1, 'Currency cannot be empty').optional().default('INR'),
+    currency: z.enum(['INR', 'USD', 'EUR']).optional().default('INR'),
     description: z.string().trim().optional(),
     billingAddress: z.string().trim().optional().default(''),
     deliveryAddress: z.string().trim().optional().default(''),
@@ -48,13 +48,23 @@ export const createPurchaseOrderSchema = z.object({
     items: z.array(poItemSchema).min(1, 'At least one line item is required'),
     otherCharges: z.coerce.number().nonnegative('Other charges cannot be negative').optional().default(0),
     paymentTerms: z.string().trim().optional().default('Net 30'),
+    poType: z.enum(['STANDARD', 'URGENT', 'DIRECT', 'BLANKET']).optional().default('STANDARD'),
+    purchaseRequisitionNumber: z.string().trim().optional(),
+    department: z.string().trim().optional(),
+    costCenter: z.string().trim().optional(),
+    projectCode: z.string().trim().optional(),
+    requester: z.string().trim().optional(),
+    buyer: z.string().trim().optional(),
+    quotationReference: z.string().trim().optional(),
+    quotationDate: z.preprocess((val) => (val ? new Date(val) : undefined), z.date().optional()),
+    contractReference: z.string().trim().optional(),
   }),
 });
 
 export const updatePurchaseOrderSchema = z.object({
   params: uuidParamSchema,
   body: purchaseOrderTaxPayloadSchema.extend({
-    currency: z.string().trim().min(1, 'Currency cannot be empty').optional().default('INR'),
+    currency: z.enum(['INR', 'USD', 'EUR']).optional().default('INR'),
     description: z.string().trim().optional(),
     billingAddress: z.string().trim().optional(),
     deliveryAddress: z.string().trim().optional(),
@@ -68,6 +78,16 @@ export const updatePurchaseOrderSchema = z.object({
     ),
     paymentTerms: z.string().optional(),
     reason: z.string().trim().max(500, 'Reason cannot exceed 500 characters').optional(),
+    poType: z.enum(['STANDARD', 'URGENT', 'DIRECT', 'BLANKET']).optional(),
+    purchaseRequisitionNumber: z.string().trim().optional(),
+    department: z.string().trim().optional(),
+    costCenter: z.string().trim().optional(),
+    projectCode: z.string().trim().optional(),
+    requester: z.string().trim().optional(),
+    buyer: z.string().trim().optional(),
+    quotationReference: z.string().trim().optional(),
+    quotationDate: z.preprocess((val) => (val ? new Date(val) : undefined), z.date().optional()),
+    contractReference: z.string().trim().optional(),
   }),
 });
 

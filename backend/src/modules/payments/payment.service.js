@@ -412,6 +412,7 @@ class PaymentService {
           payment_method:    payload.paymentMethod || 'NEFT',
           payment_type:      payload.paymentType || 'FULL',
           payment_provider:  payload.paymentProvider || 'MANUAL',
+          provider_transaction_id: payload.referenceNo || payload.providerTransactionId || null,
           remarks:           payload.remarks || payload.notes || '',
           due_date:          payload.dueDate ? new Date(payload.dueDate) : null,
           payment_date:      new Date(),
@@ -714,7 +715,7 @@ class PaymentService {
    * TASK 3 — Approve Payment Request.
    * Mandates remarks and enforces amount-based RBAC assignment.
    */
-  async approvePayment(id, user, remarks) {
+  async approvePayment(id, user, remarks, referenceNo) {
     assertRemarks(remarks, 'approve');
 
     const payment = await paymentRepository.findById(id);
@@ -742,6 +743,7 @@ class PaymentService {
           approved_at: new Date(),
           processed_by_id: user.id,
           remarks: remarks.trim(),
+          provider_transaction_id: referenceNo?.trim() || null,
           updated_by_id: user.id,
         },
       });

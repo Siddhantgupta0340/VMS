@@ -259,9 +259,13 @@ const UsersList = () => {
   // ── Handle Edit Form Inputs ────────────────────────────────────────────────
   const handleEditChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = type === "checkbox" ? checked : value;
+    if (name === "phone" || name === "alternatePhone") {
+      finalValue = value.replace(/\D/g, "");
+    }
     setEditForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: finalValue,
     }));
     if (editErrors[name]) {
       setEditErrors((prev) => ({ ...prev, [name]: null }));
@@ -292,20 +296,14 @@ const UsersList = () => {
     if (editForm.role === "SUPER_ADMIN" && !editForm.superAdminConfirmed) {
       errors.superAdminConfirmed = "Confirmation required to assign Super Admin authority";
     }
-    const normalizePhoneInput = (value) => {
-      const raw = value.trim();
-      const hasPlus = raw.startsWith("+");
-      const digits = raw.replace(/\D/g, "");
-      return hasPlus ? `+${digits}` : digits;
-    };
-    const phonePattern = /^\+?[1-9]\d{7,14}$/;
-    const phone = normalizePhoneInput(editForm.phone);
-    const alternatePhone = normalizePhoneInput(editForm.alternatePhone);
-    if (editForm.phone.trim() && !phonePattern.test(phone)) {
-      errors.phone = "Phone must be 8 to 15 digits and may start with +";
+    const phonePattern = /^\d{10}$/;
+    const phone = editForm.phone.trim();
+    const alternatePhone = editForm.alternatePhone.trim();
+    if (phone && !phonePattern.test(phone)) {
+      errors.phone = "Phone number must contain exactly 10 digits.";
     }
-    if (editForm.alternatePhone.trim() && !phonePattern.test(alternatePhone)) {
-      errors.alternatePhone = "Alternate phone must be 8 to 15 digits and may start with +";
+    if (alternatePhone && !phonePattern.test(alternatePhone)) {
+      errors.alternatePhone = "Phone number must contain exactly 10 digits.";
     }
     if (phone && alternatePhone && phone === alternatePhone) {
       errors.alternatePhone = "Alternate phone must be different from phone";
@@ -336,8 +334,16 @@ const UsersList = () => {
       await loadUsers(filters); // Refetch list
     } catch (err) {
       console.error(err);
-      if (err?.response?.data?.code === "VALIDATION_ERROR" && err?.response?.data?.errors) {
-        setEditErrors(err.response.data.errors);
+      const status = err?.response?.status;
+      if (status === 409) {
+        setEditErrors((prev) => ({ ...prev, email: "An account with this email already exists." }));
+        notify.error("An account with this email already exists.");
+      } else if (err?.response?.data?.code === "VALIDATION_ERROR" && err?.response?.data?.errors) {
+        const formattedErrors = {};
+        Object.entries(err.response.data.errors).forEach(([field, msgs]) => {
+          formattedErrors[field] = Array.isArray(msgs) ? msgs.join(", ") : msgs;
+        });
+        setEditErrors(formattedErrors);
       } else {
         notify.error(getErrorMessage(err, "Failed to save user updates."));
       }
@@ -1008,6 +1014,9 @@ const UsersList = () => {
                             name="phone"
                             value={editForm.phone}
                             onChange={handleEditChange}
+                            placeholder="9876543210"
+                            inputMode="numeric"
+                            maxLength={10}
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none transition focus:border-blue-600"
                           />
                           {editErrors.phone && (
@@ -1023,6 +1032,9 @@ const UsersList = () => {
                             name="alternatePhone"
                             value={editForm.alternatePhone}
                             onChange={handleEditChange}
+                            placeholder="9876543211"
+                            inputMode="numeric"
+                            maxLength={10}
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none transition focus:border-blue-600"
                           />
                           {editErrors.alternatePhone && (
