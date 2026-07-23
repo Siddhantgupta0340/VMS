@@ -86,32 +86,7 @@ export default function ApprovalTimeline({ invoice }: ApprovalTimelineProps) {
       status: invoice.three_way_match_status ? (invoice.three_way_match_status === 'MATCHED' ? 'approved' : 'rejected') : 'pending',
     },
 
-    // Step 3: Admin Review
-    {
-      key: 'admin-review',
-      title: 'Admin Match Review',
-      icon: invoice.admin_review_status === 'APPROVED' ? (
-        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-      ) : invoice.admin_review_status === 'REJECTED' ? (
-        <XCircle className="h-5 w-5 text-rose-600" />
-      ) : (
-        <Shield className="h-5 w-5 text-orange-600" />
-      ),
-      color: invoice.admin_review_status === 'APPROVED'
-        ? 'text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
-        : invoice.admin_review_status === 'REJECTED'
-        ? 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-950/20'
-        : 'text-orange-600 border-orange-500 bg-orange-50 dark:bg-orange-950/10',
-      approverName: invoice.admin_review_status ? 'Super Admin' : null,
-      date: formatDate(invoice.admin_reviewed_at),
-      description: invoice.admin_review_status === 'APPROVED'
-        ? 'Admin approved the matching report and pushed invoice to Team Lead approval.'
-        : invoice.admin_review_status === 'REJECTED'
-        ? 'Admin rejected matching report due to mismatches. Correction requested.'
-        : 'Waiting for Admin to review and authorize the Three-Way Match results.',
-      remarks: invoice.admin_remarks,
-      status: invoice.admin_review_status ? (invoice.admin_review_status === 'APPROVED' ? 'approved' : 'rejected') : 'pending',
-    },
+
 
     // Step 4: Team Lead Approval (Mandatory first role level)
     {

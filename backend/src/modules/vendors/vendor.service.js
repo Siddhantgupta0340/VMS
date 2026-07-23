@@ -496,9 +496,20 @@ class VendorService {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     // Cannot update an approved vendor's core details (only admin can)
     if (vendor.status === VENDOR_STATUS.APPROVED && user.role === ROLES.CASE_MANAGER) {
       throw new ApiError(400, 'Approved vendors cannot be edited by a case manager.');
+=======
+    // Super Admin cannot update vendors
+    if (user.role === ROLES.SUPER_ADMIN) {
+      throw new ApiError(403, 'Super Admins are not authorized to update vendors.');
+    }
+
+    // Cannot update an approved vendor's core details
+    if (vendor.status === VENDOR_STATUS.APPROVED) {
+      throw new ApiError(400, 'Approved vendors cannot be edited.');
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
     }
 
     const updateData = {};

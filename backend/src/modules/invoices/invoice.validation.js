@@ -109,6 +109,7 @@ export const invoiceCancelSchema = z.object({
 });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 export const updateInvoiceSchema = z.object({
   params: uuidParamSchema,
@@ -135,13 +136,9 @@ export const adminReviewApproveSchema = z.object({
     remarks: z.string().max(1000, 'Remarks cannot exceed 1000 characters').trim().optional().default(''),
   }).optional().default({}),
 });
+=======
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
 
-export const adminReviewRejectSchema = z.object({
-  params: uuidParamSchema,
-  body: z.object({
-    remarks: z.string().min(1, 'Remarks are required when rejecting.').max(1000).trim(),
-  }),
-});
 
 // ─── Soft Delete ─────────────────────────────────────────────────────────────
 export const invoiceDeleteSchema = z.object({
@@ -169,7 +166,6 @@ const ALL_STATUSES = [
   INVOICE_STATUS.DRAFT,
   INVOICE_STATUS.SUBMITTED,
   INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
-  INVOICE_STATUS.PENDING_ADMIN_REVIEW,
   INVOICE_STATUS.PENDING_TEAM_LEAD,
   INVOICE_STATUS.PENDING_MANAGER,
   INVOICE_STATUS.PENDING_FINANCE_HEAD,
@@ -234,11 +230,14 @@ export default {
   invoiceRejectSchema,
   invoiceCancelSchema,
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   updateInvoiceSchema,
 >>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   adminReviewApproveSchema,
   adminReviewRejectSchema,
+=======
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
   invoiceDeleteSchema,
   invoiceRestoreSchema,
   financeHeadRemarkSchema,

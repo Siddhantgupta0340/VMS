@@ -69,15 +69,7 @@ export function usePendingThreeWayMatch(params = {}) {
   });
 }
 
-export function usePendingAdminReview(params = {}) {
-  return useQuery<InvoiceListResponse>({
-    queryKey: invoiceKeys.pending('admin-review'),
-    queryFn:  async () => {
-      const { data } = await apiClient.get('/invoices/pending/admin-review', { params });
-      return data;
-    },
-  });
-}
+// usePendingAdminReview removed.
 
 /** Formerly useGetPendingL1 */
 export function usePendingTeamLead(params = {}) {
@@ -202,35 +194,7 @@ export function useCancelInvoice() {
   });
 }
 
-// Admin Review mutations
-export function useAdminApproveInvoice() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
-      const { data } = await apiClient.patch(`/invoices/${id}/admin-review/approve`, { remarks });
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('admin-review') });
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('team-lead') });
-    },
-  });
-}
-
-export function useAdminRejectInvoice() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, remarks }: { id: string; remarks: string }) => {
-      const { data } = await apiClient.patch(`/invoices/${id}/admin-review/reject`, { remarks });
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.pending('admin-review') });
-    },
-  });
-}
+// Admin Review mutations removed.
 
 // Soft Delete & Restore
 export function useDeleteInvoice() {
@@ -350,8 +314,6 @@ export function usePendingInvoices(level: string, params: Record<string, unknown
         url = '/invoices/pending/finance-head';
       } else if (lvl === 'three-way-match' || lvl === '3wm') {
         url = '/invoices/pending/three-way-match';
-      } else if (lvl === 'admin-review') {
-        url = '/invoices/pending/admin-review';
       }
       const { data } = await apiClient.get(url, { params });
       return data;

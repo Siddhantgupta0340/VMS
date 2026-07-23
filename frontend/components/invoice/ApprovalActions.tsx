@@ -32,10 +32,10 @@ export default function ApprovalActions({ invoice, currentUser }: ApprovalAction
   // 1. User role must match current pending approval level to Approve/Reject
   const canApproveOrReject = isPending && currentUser.role === currentLevel;
 
-  // 2. Creator or Super Admin can Cancel if still in pending queue
+  // 2. Creator can Cancel if still in pending queue
   const canCancel =
     isPending &&
-    (invoice.created_by_id === currentUser.id || currentUser.role === 'SUPER_ADMIN');
+    (invoice.created_by_id === currentUser.id);
 
   if (!canApproveOrReject && !canCancel) {
     return null;

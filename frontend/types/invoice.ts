@@ -6,7 +6,6 @@ export type InvoiceStatus =
   | 'DRAFT'
   | 'SUBMITTED'
   | 'PENDING_THREE_WAY_MATCH'
-  | 'PENDING_ADMIN_REVIEW'
   | 'PENDING_TEAM_LEAD'
   | 'PENDING_MANAGER'
   | 'PENDING_FINANCE_HEAD'
@@ -15,9 +14,8 @@ export type InvoiceStatus =
   | 'CANCELLED';
 
 export type ApprovalRole = 'TEAM_LEAD' | 'MANAGER' | 'FINANCE_HEAD';
-export type ApprovalLevel = 'TEAM_LEAD' | 'MANAGER' | 'FINANCE_HEAD' | 'THREE_WAY_MATCH' | 'ADMIN_REVIEW' | null;
+export type ApprovalLevel = 'TEAM_LEAD' | 'MANAGER' | 'FINANCE_HEAD' | 'THREE_WAY_MATCH' | null;
 export type ThreeWayMatchStatus = 'PENDING' | 'MATCHED' | 'UNMATCHED' | 'SKIPPED';
-export type AdminReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'PAYMENT_PENDING' | 'PAYMENT_FAILED' | 'REFUNDED';
 
 export interface InvoiceUser {
@@ -58,11 +56,7 @@ export interface Invoice {
   matching_completed_at:       string | null;
   matching_remarks:            string | null;
 
-  // Admin Review
-  admin_review_status:    AdminReviewStatus | null;
-  admin_reviewed_by_id:   string | null;
-  admin_reviewed_at:      string | null;
-  admin_remarks:          string | null;
+
 
   // Team Lead (formerly L1) Approval
   team_lead_approver_id:  string | null;
@@ -153,10 +147,6 @@ export interface ThreeWayMatch {
   completed_by_id:      string | null;
   completed_at:         string | null;
   remarks:              string | null;
-  admin_review_status:  AdminReviewStatus | null;
-  admin_reviewed_by_id: string | null;
-  admin_reviewed_at:    string | null;
-  admin_remarks:        string | null;
   created_at:           string;
   updated_at:           string;
   invoice?:      Invoice;
@@ -228,7 +218,6 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
   DRAFT:                    'Draft',
   SUBMITTED:                'Submitted',
   PENDING_THREE_WAY_MATCH:  'Pending Three-Way Matching',
-  PENDING_ADMIN_REVIEW:     'Pending Admin Review',
   PENDING_TEAM_LEAD:        'Pending Team Lead',
   PENDING_MANAGER:          'Pending Manager',
   PENDING_FINANCE_HEAD:     'Pending Finance Head',
@@ -241,7 +230,6 @@ export const INVOICE_STATUS_COLORS: Record<string, string> = {
   DRAFT:                    'gray',
   SUBMITTED:                'blue',
   PENDING_THREE_WAY_MATCH:  'purple',
-  PENDING_ADMIN_REVIEW:     'orange',
   PENDING_TEAM_LEAD:        'yellow',
   PENDING_MANAGER:          'amber',
   PENDING_FINANCE_HEAD:     'indigo',

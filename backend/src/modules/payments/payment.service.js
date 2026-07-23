@@ -723,8 +723,8 @@ class PaymentService {
 >>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     }
 
-    if (user.role !== ROLES.SUPER_ADMIN && user.role !== ROLES.FINANCE_HEAD) {
-      throw new ApiError(403, 'Unauthorized access.');
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can delete payment requests.');
     }
 
     return paymentRepository.delete(id);
@@ -888,8 +888,13 @@ class PaymentService {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
       throw new ApiError(403, 'Only Finance Managers or Admins can approve payments.');
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can approve payments.');
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
     }
 
 =======
@@ -1004,8 +1009,13 @@ class PaymentService {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
       throw new ApiError(403, 'Only Finance Managers can reject payments.');
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+      throw new ApiError(403, 'Only Finance Heads can reject payments.');
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
     }
 
 =======
@@ -1257,10 +1267,14 @@ class PaymentService {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (user.role !== ROLES.FINANCE_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
 =======
     if (![ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user.role)) {
 >>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
+=======
+    if (user.role !== ROLES.FINANCE_HEAD) {
+>>>>>>> a88ae1768d12205223891c6a6c1f656438518083
       throw new ApiError(403, 'Unauthorized refund access.');
     }
 

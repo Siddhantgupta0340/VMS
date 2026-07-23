@@ -24,19 +24,7 @@ export const matchIdSchema    = z.object({ params: uuidParam });
 export const invoiceIdParam   = z.object({ params: z.object({ invoiceId: z.string().uuid() }) });
 export const poIdParam        = z.object({ params: z.object({ poId:      z.string().uuid() }) });
 
-export const adminReviewSchema = z.object({
-  params: uuidParam,
-  body: z.object({
-    remarks: z.string().max(1000).trim().optional().default(''),
-  }).optional().default({}),
-});
 
-export const adminRejectSchema = z.object({
-  params: uuidParam,
-  body: z.object({
-    remarks: z.string().min(1, 'Remarks required for rejection').max(1000).trim(),
-  }),
-});
 
 export const createGRNSchema = z.object({
   body: z.object({
@@ -162,8 +150,6 @@ export default {
   matchIdSchema,
   invoiceIdParam,
   poIdParam,
-  adminReviewSchema,
-  adminRejectSchema,
   createGRNSchema,
   updateGRNSchema,
 <<<<<<< HEAD

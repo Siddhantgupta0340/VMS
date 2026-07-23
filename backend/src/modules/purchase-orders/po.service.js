@@ -44,9 +44,12 @@ class PurchaseOrderService {
    * @param {object} user    - Authenticated user (from req.user).
    */
   async createPurchaseOrder(payload, user) {
+    if (user.role !== ROLES.CASE_MANAGER) {
+      throw new ApiError(403, 'Only Case Managers can create purchase orders.');
+    }
     console.log(`[PurchaseOrderService] createPurchaseOrder — user: ${user.id} (${user.role})`);
     console.log(`[PurchaseOrderService] payload: ${JSON.stringify(payload)}`);
-
+    
     // ── 1. Validate Vendor ───────────────────────────────────────────────────
     const vendor = await vendorRepository.findById(payload.vendorId);
 =======

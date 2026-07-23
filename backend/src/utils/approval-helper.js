@@ -283,16 +283,13 @@ export const INVOICE_STATUS = {
   // Step 1 — Case Manager initiates Three-Way Matching
   PENDING_THREE_WAY_MATCH: 'PENDING_THREE_WAY_MATCH',
 
-  // Step 2 — Admin reviews the matching report
-  PENDING_ADMIN_REVIEW:    'PENDING_ADMIN_REVIEW',
-
-  // Step 3 — Team Lead approval (all invoices)
+  // Step 2 — Team Lead approval (all invoices)
   PENDING_TEAM_LEAD:       'PENDING_TEAM_LEAD',
 
-  // Step 4 — Manager approval (invoices > ₹10,000)
+  // Step 3 — Manager approval (invoices > ₹10,000)
   PENDING_MANAGER:         'PENDING_MANAGER',
 
-  // Step 5 — Finance Head approval (invoices > ₹1,00,000)
+  // Step 4 — Finance Head approval (invoices > ₹1,00,000)
   PENDING_FINANCE_HEAD:    'PENDING_FINANCE_HEAD',
 
   // Terminal States
@@ -360,7 +357,6 @@ export const getCurrentApprovalLevel = (status) => {
 
   // New workflow statuses
   if (s === INVOICE_STATUS.PENDING_THREE_WAY_MATCH) return 'THREE_WAY_MATCH';
-  if (s === INVOICE_STATUS.PENDING_ADMIN_REVIEW)    return 'ADMIN_REVIEW';
   if (s === INVOICE_STATUS.PENDING_TEAM_LEAD)       return 'TEAM_LEAD';
   if (s === INVOICE_STATUS.PENDING_MANAGER)         return 'MANAGER';
   if (s === INVOICE_STATUS.PENDING_FINANCE_HEAD)    return 'FINANCE_HEAD';
@@ -386,10 +382,6 @@ export const getNextApprovalStatus = (amount, currentStatus) => {
 
   // New workflow
   if (s === INVOICE_STATUS.PENDING_THREE_WAY_MATCH) {
-    return INVOICE_STATUS.PENDING_ADMIN_REVIEW;
-  }
-
-  if (s === INVOICE_STATUS.PENDING_ADMIN_REVIEW) {
     return INVOICE_STATUS.PENDING_TEAM_LEAD;
   }
 
@@ -458,14 +450,8 @@ export const isValidStatusTransition = (fromStatus, toStatus) => {
       INVOICE_STATUS.CANCELLED,
     ],
     [INVOICE_STATUS.PENDING_THREE_WAY_MATCH]: [
-      INVOICE_STATUS.PENDING_ADMIN_REVIEW,
-      INVOICE_STATUS.REJECTED,
-      INVOICE_STATUS.CANCELLED,
-    ],
-    [INVOICE_STATUS.PENDING_ADMIN_REVIEW]: [
       INVOICE_STATUS.PENDING_TEAM_LEAD,
       INVOICE_STATUS.REJECTED,
-      INVOICE_STATUS.PENDING_THREE_WAY_MATCH, // Send back for re-matching
       INVOICE_STATUS.CANCELLED,
     ],
     [INVOICE_STATUS.PENDING_TEAM_LEAD]: [
@@ -501,7 +487,6 @@ export const getStatusLabel = (status) => {
     [INVOICE_STATUS.DRAFT]:                   'Draft',
     [INVOICE_STATUS.SUBMITTED]:               'Submitted',
     [INVOICE_STATUS.PENDING_THREE_WAY_MATCH]: 'Pending Three-Way Matching',
-    [INVOICE_STATUS.PENDING_ADMIN_REVIEW]:    'Pending Admin Review',
     [INVOICE_STATUS.PENDING_TEAM_LEAD]:       'Pending Team Lead Approval',
     [INVOICE_STATUS.PENDING_MANAGER]:         'Pending Manager Approval',
     [INVOICE_STATUS.PENDING_FINANCE_HEAD]:    'Pending Finance Head Approval',

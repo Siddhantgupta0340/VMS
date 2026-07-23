@@ -172,11 +172,11 @@ class DashboardService {
     ]);
 
     return {
-      vendors,
-      purchaseOrders,
-      invoices,
-      payments,
-      threeWayMatching,
+      vendorStats: vendors,
+      purchaseOrderStats: purchaseOrders,
+      invoiceStats: invoices,
+      paymentStats: payments,
+      threeWayMatchingStats: threeWayMatching,
       recentActivity,
     };
   }
@@ -212,14 +212,12 @@ class DashboardService {
       ]);
 
     return {
-      summary: {
-        vendors,
-        purchaseOrders,
-        invoices,
-        payments,
-        threeWayMatching,
-      },
-      pendingActions: pendingCounts,
+      vendorStats: vendors,
+      purchaseOrderStats: purchaseOrders,
+      invoiceStats: invoices,
+      paymentStats: payments,
+      threeWayMatchingStats: threeWayMatching,
+      pendingCounts,
       recentActivity,
     };
   }
