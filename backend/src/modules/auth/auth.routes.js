@@ -2,7 +2,23 @@ import express from 'express';
 import authController from './auth.controller.js';
 import { protect } from '../../middleware/auth.middleware.js';
 import validate from '../../middleware/validate.middleware.js';
+<<<<<<< HEAD
 import { loginSchema, changePasswordSchema, refreshTokenSchema, forgotPasswordSchema, verifyOtpSchema, resetPasswordSchema } from '../../zodSchema/auth.schema.js';
+=======
+import {
+  activateAccountSchema,
+  activationTokenSchema,
+  changePasswordSchema,
+  completeTemporaryPasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  refreshTokenSchema,
+  resendActivationSchema,
+  resetPasswordSchema,
+  setPasswordSchema,
+  verifyOtpSchema,
+} from '../../zodSchema/auth.schema.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 import authorize from '../../middleware/authorize.middleware.js';
 import { PERMISSIONS } from './auth.permissions.js';
 
@@ -23,6 +39,14 @@ router.post('/login', validate(loginSchema), authController.login);
 router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/verify-otp', validate(verifyOtpSchema), authController.verifyOtp);
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+<<<<<<< HEAD
+=======
+router.get('/validate-activation-token', validate(activationTokenSchema), authController.validateActivationToken);
+router.post('/set-password', validate(setPasswordSchema), authController.setPassword);
+router.post('/activate-account', validate(activateAccountSchema), authController.activateAccount);
+router.post('/resend-activation', validate(resendActivationSchema), authController.resendActivation);
+router.post('/complete-temporary-password', validate(completeTemporaryPasswordSchema), authController.completeTemporaryPasswordChange);
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 
 // --- Protected Routes ---

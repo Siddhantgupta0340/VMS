@@ -16,6 +16,10 @@ export {
   assignRoleSchema,
   searchUsersSchema,
   updateUserStatusSchema,
+<<<<<<< HEAD
+=======
+  resendCredentialsSchema,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   resetPasswordSchema as adminResetPasswordSchema,
 } from './user.schema.js';
 
@@ -29,4 +33,8 @@ export {
   updateVendorSchema,
   deleteVendorSchema,
   searchVendorsSchema,
+<<<<<<< HEAD
 } from './vendor.schema.js';
+=======
+} from './vendor.schema.js';
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

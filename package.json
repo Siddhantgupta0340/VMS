@@ -1,5 +1,21 @@
 {
+<<<<<<< HEAD
   "dependencies": {
     "build": "^0.1.4"
+=======
+  "name": "vms",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start:backend": "npm --prefix backend start",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix backend test",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "dependencies": {
+    "play-sound": "^1.1.6"
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }
 }

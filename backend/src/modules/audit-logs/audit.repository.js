@@ -16,7 +16,11 @@ class AuditRepository {
         orderBy,
         include: {
           performed_by: {
+<<<<<<< HEAD
             select: { id: true, email: true, first_name: true, last_name: true, role: true },
+=======
+            select: { id: true, employee_id: true, email: true, first_name: true, last_name: true, role: true },
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
           },
         },
       }),
@@ -41,6 +45,21 @@ class AuditRepository {
     });
   }
 
+<<<<<<< HEAD
+=======
+  async findFirst({ where = {}, source = 'audit' }) {
+    const model = source === 'legacy' ? prisma.approvalLog : prisma.auditLog;
+    return model.findFirst({
+      where,
+      include: {
+        performed_by: {
+          select: { id: true, employee_id: true, email: true, first_name: true, last_name: true, role: true },
+        },
+      },
+    });
+  }
+
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   /**
    * Get combined audit logs (new AuditLog + legacy ApprovalLog) for an entity.
    */

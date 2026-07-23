@@ -12,6 +12,11 @@ import {
   adminRejectSchema,
   createGRNSchema,
   updateGRNSchema,
+<<<<<<< HEAD
+=======
+  createDeliveryChallanSchema,
+  updateDeliveryChallanSchema,
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   searchMatchesSchema,
 } from './matching.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
@@ -65,6 +70,46 @@ router.put('/grn/:id',
   matchingController.updateGRN,
 );
 
+<<<<<<< HEAD
+=======
+router.delete('/grn/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(matchIdSchema),
+  matchingController.deleteGRN,
+);
+
+// Delivery Challan routes are placed before matching routes to avoid route conflicts.
+router.post('/delivery-challan',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(createDeliveryChallanSchema),
+  matchingController.createDeliveryChallan,
+);
+
+router.get('/delivery-challan/by-po/:poId',
+  authorize(Object.values(ROLES)),
+  validate(poIdParam),
+  matchingController.getDeliveryChallansByPurchaseOrder,
+);
+
+router.get('/delivery-challan/:id',
+  authorize(Object.values(ROLES)),
+  validate(matchIdSchema),
+  matchingController.getDeliveryChallanById,
+);
+
+router.put('/delivery-challan/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(updateDeliveryChallanSchema),
+  matchingController.updateDeliveryChallan,
+);
+
+router.delete('/delivery-challan/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(matchIdSchema),
+  matchingController.deleteDeliveryChallan,
+);
+
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 // ─── Three-Way Matching Routes ────────────────────────────────────────────────
 
 /**
@@ -81,10 +126,18 @@ router.post('/start',
 /**
  * GET    /api/v1/three-way-matching
  * List all matching records
+<<<<<<< HEAD
  * Access: Admin, Finance Head
  */
 router.get('/',
   authorize([ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD]),
+=======
+ * Access: Admin only. Finance Head invoice approval must not expose the
+ * standalone matching workspace.
+ */
+router.get('/',
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   validate(searchMatchesSchema),
   matchingController.listMatches,
 );
@@ -95,7 +148,11 @@ router.get('/',
  * Access: All read roles
  */
 router.get('/invoice/:invoiceId',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   validate(invoiceIdParam),
   matchingController.getMatchReportByInvoice,
 );
@@ -105,7 +162,11 @@ router.get('/invoice/:invoiceId',
  * Get a specific match report by ID
  */
 router.get('/:id',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   validate(matchIdSchema),
   matchingController.getMatchReport,
 );
@@ -116,7 +177,11 @@ router.get('/:id',
  * Access: Super Admin only
  */
 router.patch('/:id/approve',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN]),
+=======
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   validate(adminReviewSchema),
   matchingController.adminApproveMatch,
 );
@@ -127,9 +192,22 @@ router.patch('/:id/approve',
  * Access: Super Admin only
  */
 router.patch('/:id/reject',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN]),
+=======
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   validate(adminRejectSchema),
   matchingController.adminRejectMatch,
 );
 
+<<<<<<< HEAD
+=======
+router.patch('/:id/return',
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  validate(adminRejectSchema),
+  matchingController.returnMatchForCorrection,
+);
+
+>>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 export default router;
