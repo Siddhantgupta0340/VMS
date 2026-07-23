@@ -2,7 +2,34 @@ import prisma from '../../config/prisma.js';
 
 const invoiceInclude = {
   vendor: true,
+<<<<<<< HEAD
   purchase_order: true,
+=======
+  purchase_order: {
+    include: {
+      grns: {
+        where: { deleted_at: null },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      },
+      delivery_challans: {
+        where: { deleted_at: null },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      },
+    },
+  },
+  three_way_matches: {
+    where: { status: 'MATCHED' },
+    orderBy: { created_at: 'desc' },
+    take: 1,
+  },
+  payment_approvals: {
+    where: { status: 'APPROVED' },
+    orderBy: { approved_at: 'desc' },
+    take: 1,
+  },
+>>>>>>> origin/main
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
@@ -21,7 +48,17 @@ const invoiceInclude = {
   rejected_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },
+<<<<<<< HEAD
   payments: true,
+=======
+  attachments: {
+    where: { deleted_at: null },
+    orderBy: { uploaded_at: 'asc' },
+  },
+  payments: {
+    select: { id: true, payment_number: true, amount: true, status: true, created_at: true },
+  },
+>>>>>>> origin/main
 };
 
 class InvoiceRepository {

@@ -5,6 +5,7 @@ const uuidParamSchema = z.object({
   id: z.string().uuid('Invalid invoice ID format'),
 });
 
+<<<<<<< HEAD
 // ─── Create Invoice ───────────────────────────────────────────────────────────
 export const createInvoiceSchema = z.object({
   body: z.object({
@@ -18,12 +19,67 @@ export const createInvoiceSchema = z.object({
     description:     z.string().trim().optional(),
   }),
 });
+=======
+export const INVOICE_SOURCES = [
+  'MANUAL_ENTRY',
+  'UPLOADED_PDF',
+  'SCANNED_PDF',
+  'SCANNED_IMAGE',
+  'EMAIL_ATTACHMENT',
+  'SYSTEM_IMPORT',
+];
+
+export const INVOICE_CREATION_METHODS = ['MANUAL', 'OCR'];
+
+export const INVOICE_CATEGORIES = [
+  'TAX_INVOICE',
+  'PROFORMA_INVOICE',
+  'DEBIT_NOTE',
+  'CREDIT_NOTE',
+  'COMMERCIAL_INVOICE',
+  'SERVICE_INVOICE',
+  'PURCHASE_INVOICE',
+  'RECURRING_INVOICE',
+  'OTHER',
+];
+>>>>>>> origin/main
 
 // ─── ID-only param ───────────────────────────────────────────────────────────
 export const invoiceIdSchema = z.object({
   params: uuidParamSchema,
 });
 
+<<<<<<< HEAD
+=======
+export const createInvoiceSchema = z.object({
+  body: z.object({
+    purchaseOrderId: z.string().uuid('Invalid purchase order ID format'),
+    vendorId: z.string().uuid('Invalid vendor ID format').optional(),
+    amount: z.coerce.number().positive().optional(),
+    currency: z.string().optional().default('INR'),
+    invoiceCreationMethod: z.enum(INVOICE_CREATION_METHODS, { message: 'Invoice creation method is required.' }).optional().default('MANUAL'),
+    invoiceSource: z.enum(INVOICE_SOURCES, { message: 'Invoice Source is required.' }).optional().default('MANUAL_ENTRY'),
+    invoiceCategory: z.enum(INVOICE_CATEGORIES, { message: 'Invoice Category is required.' }).optional().default('TAX_INVOICE'),
+    invoiceDate: z.preprocess(
+      (val) => (val ? new Date(val) : undefined),
+      z.date({ invalid_type_error: 'Invoice date must be a valid date' }).optional(),
+    ),
+    dueDate: z.preprocess(
+      (val) => (val ? new Date(val) : undefined),
+      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(), // Due Date is required
+    ),
+    remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional().default(''),
+  }),
+});
+
+export const approvedPurchaseOrdersForInvoiceSchema = z.object({
+  query: z.object({
+    search: z.string().trim().optional(),
+    limit: z.coerce.number().int().positive().max(50).optional().default(25),
+  }),
+});
+
+>>>>>>> origin/main
 // ─── Approve ─────────────────────────────────────────────────────────────────
 export const invoiceApproveSchema = z.object({
   params: uuidParamSchema,
@@ -52,7 +108,41 @@ export const invoiceCancelSchema = z.object({
   }).optional().default({}),
 });
 
+<<<<<<< HEAD
 
+=======
+export const updateInvoiceSchema = z.object({
+  params: uuidParamSchema,
+  body: z.object({
+    invoiceDate: z.preprocess(
+      (val) => (val ? new Date(val) : undefined),
+      z.date({ invalid_type_error: 'Invoice date must be a valid date' }).optional(),
+    ),
+    dueDate: z.preprocess(
+      (val) => (val ? new Date(val) : undefined),
+      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(),
+    ),
+    remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional(),
+    lineItems: z.array(z.record(z.any())).optional(),
+    reason: z.string().trim().max(500, 'Reason cannot exceed 500 characters').optional(),
+  }),
+});
+
+// ─── Admin Review ─────────────────────────────────────────────────────────────
+export const adminReviewApproveSchema = z.object({
+  params: uuidParamSchema,
+  body: z.object({
+    remarks: z.string().max(1000, 'Remarks cannot exceed 1000 characters').trim().optional().default(''),
+  }).optional().default({}),
+});
+
+export const adminReviewRejectSchema = z.object({
+  params: uuidParamSchema,
+  body: z.object({
+    remarks: z.string().min(1, 'Remarks are required when rejecting.').max(1000).trim(),
+  }),
+});
+>>>>>>> origin/main
 
 // ─── Soft Delete ─────────────────────────────────────────────────────────────
 export const invoiceDeleteSchema = z.object({
@@ -80,11 +170,19 @@ const ALL_STATUSES = [
   INVOICE_STATUS.DRAFT,
   INVOICE_STATUS.SUBMITTED,
   INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
+<<<<<<< HEAD
+=======
+  INVOICE_STATUS.PENDING_ADMIN_REVIEW,
+>>>>>>> origin/main
   INVOICE_STATUS.PENDING_TEAM_LEAD,
   INVOICE_STATUS.PENDING_MANAGER,
   INVOICE_STATUS.PENDING_FINANCE_HEAD,
   INVOICE_STATUS.APPROVED,
   INVOICE_STATUS.REJECTED,
+<<<<<<< HEAD
+=======
+  INVOICE_STATUS.PAID,
+>>>>>>> origin/main
   INVOICE_STATUS.CANCELLED,
 ];
 
@@ -104,6 +202,10 @@ export const searchInvoicesSchema = z.object({
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
     page:    z.coerce.number().int().positive().optional().default(1),
     limit:   z.coerce.number().int().positive().max(100).optional().default(10),
+<<<<<<< HEAD
+=======
+    eligibleForPayment: z.string().optional(),
+>>>>>>> origin/main
   }),
 });
 
@@ -127,15 +229,34 @@ export const invoiceActionSchema = z.object({
 });
 
 export default {
+<<<<<<< HEAD
   createInvoiceSchema,
+=======
+>>>>>>> origin/main
   invoiceIdSchema,
   invoiceApproveSchema,
   invoiceRejectSchema,
   invoiceCancelSchema,
+<<<<<<< HEAD
+=======
+  updateInvoiceSchema,
+  adminReviewApproveSchema,
+  adminReviewRejectSchema,
+>>>>>>> origin/main
   invoiceDeleteSchema,
   invoiceRestoreSchema,
   financeHeadRemarkSchema,
   searchInvoicesSchema,
   financeHeadObservationSchema,
+<<<<<<< HEAD
   invoiceActionSchema,
 };
+=======
+  createInvoiceSchema,
+  approvedPurchaseOrdersForInvoiceSchema,
+  invoiceActionSchema,
+};
+
+// Due Date is required
+
+>>>>>>> origin/main

@@ -15,6 +15,11 @@ router.use(protect);
  */
 router.get('/', authorize(ALL_ROLES), notificationController.getMyNotifications);
 
+<<<<<<< HEAD
+=======
+router.get('/unread-count', authorize(ALL_ROLES), notificationController.getUnreadCount);
+
+>>>>>>> origin/main
 /**
  * PATCH  /api/v1/notifications/read-all  — Mark all as read (must be before /:id)
  */
@@ -25,4 +30,11 @@ router.patch('/read-all', authorize(ALL_ROLES), notificationController.markAllAs
  */
 router.patch('/:id/read', authorize(ALL_ROLES), notificationController.markAsRead);
 
+<<<<<<< HEAD
+=======
+router.get('/:id', authorize(ALL_ROLES), notificationController.getNotificationById);
+
+router.delete('/:id', authorize(ALL_ROLES), notificationController.deleteNotification);
+
+>>>>>>> origin/main
 export default router;

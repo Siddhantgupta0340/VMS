@@ -16,6 +16,10 @@ export {
   assignRoleSchema,
   searchUsersSchema,
   updateUserStatusSchema,
+<<<<<<< HEAD
+=======
+  resendCredentialsSchema,
+>>>>>>> origin/main
   resetPasswordSchema as adminResetPasswordSchema,
 } from './user.schema.js';
 
@@ -29,4 +33,8 @@ export {
   updateVendorSchema,
   deleteVendorSchema,
   searchVendorsSchema,
+<<<<<<< HEAD
 } from './vendor.schema.js';
+=======
+} from './vendor.schema.js';
+>>>>>>> origin/main

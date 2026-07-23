@@ -29,20 +29,54 @@ export const AUTH_STATUS = {
 
 export const USER_COLUMNS = {
   ID:                         'id',
+<<<<<<< HEAD
+=======
+  EMPLOYEE_ID:                'employee_id',
+>>>>>>> origin/main
   EMAIL:                      'email',
   PASSWORD:                   'password',
   ROLE:                       'role',
   FIRST_NAME:                 'first_name',
   LAST_NAME:                  'last_name',
+<<<<<<< HEAD
+=======
+  PHONE:                      'phone',
+  ALTERNATE_PHONE:            'alternate_phone',
+  DESIGNATION:                'designation',
+  BRANCH:                     'branch',
+  REGION:                     'region',
+>>>>>>> origin/main
   STATUS:                     'status',
   STATUS_CHANGED_AT:          'status_changed_at',
   STATUS_CHANGED_BY:          'status_changed_by',
   UPDATED_BY:                 'updated_by',
   DELETED_AT:                 'deleted_at',
+<<<<<<< HEAD
+=======
+  DELETED_BY_ID:              'deleted_by_id',
+>>>>>>> origin/main
   LAST_LOGIN_AT:              'last_login_at',
   REFRESH_TOKEN:              'refresh_token',
   PASSWORD_RESET_OTP:         'password_reset_otp',
   PASSWORD_RESET_OTP_EXPIRES: 'password_reset_otp_expires',
+<<<<<<< HEAD
+=======
+  ACTIVATION_TOKEN_HASH:      'activation_token_hash',
+  ACTIVATION_TOKEN_EXPIRES_AT: 'activation_token_expires_at',
+  ACTIVATION_TOKEN_USED_AT:   'activation_token_used_at',
+  ACTIVATION_SENT_AT:         'activation_sent_at',
+  ACTIVATION_LAST_SENT_AT:    'activation_last_sent_at',
+  ACTIVATION_RESEND_COUNT:    'activation_resend_count',
+  ACTIVATED_AT:               'activated_at',
+  PASSWORD_SET_AT:            'password_set_at',
+  MUST_CHANGE_PASSWORD:       'must_change_password',
+  TEMPORARY_PASSWORD_EXPIRES_AT: 'temporary_password_expires_at',
+  PASSWORD_CHANGED_AT:        'password_changed_at',
+  CREDENTIALS_EMAIL_STATUS:   'credentials_email_status',
+  CREDENTIALS_EMAIL_SENT_AT:  'credentials_email_sent_at',
+  FAILED_LOGIN_ATTEMPTS:      'failed_login_attempts',
+  LOCKED_UNTIL:               'locked_until',
+>>>>>>> origin/main
   CREATED_AT:                 'created_at',
   UPDATED_AT:                 'updated_at',
 };

@@ -17,6 +17,28 @@ class NotificationController {
     });
   });
 
+<<<<<<< HEAD
+=======
+  getUnreadCount = asyncHandler(async (req, res) => {
+    const result = await notificationService.getUnreadCount(req.user.id);
+    res.status(200).json({
+      success: true,
+      message: 'Unread notification count retrieved successfully.',
+      ...result,
+    });
+  });
+
+  getNotificationById = asyncHandler(async (req, res) => {
+    const notification = await notificationService.getById(req.params.id, req.user.id);
+    res.status(200).json({
+      success: true,
+      message: 'Notification retrieved successfully.',
+      data: notification,
+      notification,
+    });
+  });
+
+>>>>>>> origin/main
   /**
    * @desc    Mark a single notification as read
    * @route   PATCH /api/v1/notifications/:id/read
@@ -36,6 +58,14 @@ class NotificationController {
     const result = await notificationService.markAllAsRead(req.user.id);
     res.status(200).json({ success: true, ...result });
   });
+<<<<<<< HEAD
+=======
+
+  deleteNotification = asyncHandler(async (req, res) => {
+    const result = await notificationService.deleteNotification(req.params.id, req.user.id);
+    res.status(200).json({ success: true, ...result });
+  });
+>>>>>>> origin/main
 }
 
 export default new NotificationController();

@@ -4,24 +4,51 @@ class NotificationRepository {
   /**
    * Create a new notification for a user.
    */
+<<<<<<< HEAD
   async create(data) {
     return prisma.notification.create({ data });
+=======
+  async create(data, tx = null) {
+    const client = tx || prisma;
+    return client.notification.create({ data });
+>>>>>>> origin/main
   }
 
   /**
    * Create multiple notifications at once (bulk).
    */
+<<<<<<< HEAD
   async createMany(notifications) {
     return prisma.notification.createMany({ data: notifications });
+=======
+  async createMany(notifications, tx = null) {
+    const client = tx || prisma;
+    return client.notification.createMany({ data: notifications });
+>>>>>>> origin/main
   }
 
   /**
    * Find all notifications for a user with pagination.
    */
+<<<<<<< HEAD
   async findAll({ userId, isRead, skip = 0, take = 20 }) {
     const where = {
       user_id: userId,
       ...(isRead !== undefined && { is_read: isRead }),
+=======
+  async findAll({ userId, isRead, type, entityType, createdFrom, createdTo, skip = 0, take = 20 }) {
+    const where = {
+      user_id: userId,
+      ...(isRead !== undefined && { is_read: isRead }),
+      ...(type && { type }),
+      ...(entityType && { entity_type: entityType }),
+      ...((createdFrom || createdTo) && {
+        created_at: {
+          ...(createdFrom && { gte: createdFrom }),
+          ...(createdTo && { lte: createdTo }),
+        },
+      }),
+>>>>>>> origin/main
     };
 
     const [notifications, total, unreadCount] = await Promise.all([
@@ -38,6 +65,15 @@ class NotificationRepository {
     return { notifications, total, unreadCount };
   }
 
+<<<<<<< HEAD
+=======
+  async findByIdForUser(id, userId) {
+    return prisma.notification.findFirst({
+      where: { id, user_id: userId },
+    });
+  }
+
+>>>>>>> origin/main
   /**
    * Mark a single notification as read.
    */
@@ -64,6 +100,15 @@ class NotificationRepository {
   async countUnread(userId) {
     return prisma.notification.count({ where: { user_id: userId, is_read: false } });
   }
+<<<<<<< HEAD
+=======
+
+  async deleteForUser(id, userId) {
+    return prisma.notification.deleteMany({
+      where: { id, user_id: userId },
+    });
+  }
+>>>>>>> origin/main
 }
 
 export default new NotificationRepository();

@@ -5,8 +5,13 @@ class MatchingController {
   // ─── Three-Way Matching ────────────────────────────────────────────────────
 
   startMatching = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
     const { invoiceId, grnId } = req.body;
     const result = await matchingService.startMatching(invoiceId, grnId, req.user, req);
+=======
+    const { invoiceId, grnId, deliveryChallanId } = req.body;
+    const result = await matchingService.startMatching(invoiceId, grnId, req.user, req, deliveryChallanId);
+>>>>>>> origin/main
     res.status(201).json({
       success: true,
       message: result.message,
@@ -32,7 +37,27 @@ class MatchingController {
     res.status(200).json({ success: true, ...result });
   });
 
+<<<<<<< HEAD
   // Admin review methods removed.
+=======
+  adminApproveMatch = asyncHandler(async (req, res) => {
+    const { remarks } = req.body || {};
+    const result = await matchingService.adminApproveMatching(req.params.id, req.user, remarks, req);
+    res.status(200).json({ success: true, ...result });
+  });
+
+  adminRejectMatch = asyncHandler(async (req, res) => {
+    const { remarks } = req.body || {};
+    const result = await matchingService.adminRejectMatching(req.params.id, req.user, remarks, req);
+    res.status(200).json({ success: true, ...result });
+  });
+
+  returnMatchForCorrection = asyncHandler(async (req, res) => {
+    const { remarks } = req.body || {};
+    const result = await matchingService.returnMatchingForCorrection(req.params.id, req.user, remarks, req);
+    res.status(200).json({ success: true, ...result });
+  });
+>>>>>>> origin/main
 
   // ─── GRN ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +71,14 @@ class MatchingController {
     res.status(200).json({ success: true, message: 'GRN updated successfully.', data: grn });
   });
 
+<<<<<<< HEAD
+=======
+  deleteGRN = asyncHandler(async (req, res) => {
+    const grn = await matchingService.deleteGRN(req.params.id, req.user, req.body?.reason);
+    res.status(200).json({ success: true, message: 'GRN deleted successfully.', data: grn });
+  });
+
+>>>>>>> origin/main
   getGRNById = asyncHandler(async (req, res) => {
     const grn = await matchingService.getGRNById(req.params.id);
     res.status(200).json({ success: true, data: grn });
@@ -55,6 +88,34 @@ class MatchingController {
     const grns = await matchingService.getGRNsByPurchaseOrder(req.params.poId);
     res.status(200).json({ success: true, data: grns });
   });
+<<<<<<< HEAD
+=======
+
+  createDeliveryChallan = asyncHandler(async (req, res) => {
+    const challan = await matchingService.createDeliveryChallan(req.body, req.user);
+    res.status(201).json({ success: true, message: 'Delivery Challan created successfully.', data: challan });
+  });
+
+  updateDeliveryChallan = asyncHandler(async (req, res) => {
+    const challan = await matchingService.updateDeliveryChallan(req.params.id, req.body, req.user);
+    res.status(200).json({ success: true, message: 'Delivery Challan updated successfully.', data: challan });
+  });
+
+  deleteDeliveryChallan = asyncHandler(async (req, res) => {
+    const challan = await matchingService.deleteDeliveryChallan(req.params.id, req.user, req.body?.reason);
+    res.status(200).json({ success: true, message: 'Delivery Challan deleted successfully.', data: challan });
+  });
+
+  getDeliveryChallanById = asyncHandler(async (req, res) => {
+    const challan = await matchingService.getDeliveryChallanById(req.params.id);
+    res.status(200).json({ success: true, data: challan });
+  });
+
+  getDeliveryChallansByPurchaseOrder = asyncHandler(async (req, res) => {
+    const challans = await matchingService.getDeliveryChallansByPurchaseOrder(req.params.poId);
+    res.status(200).json({ success: true, data: challans });
+  });
+>>>>>>> origin/main
 }
 
 export default new MatchingController();

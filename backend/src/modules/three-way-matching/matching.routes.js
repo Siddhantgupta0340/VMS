@@ -12,6 +12,11 @@ import {
   adminRejectSchema,
   createGRNSchema,
   updateGRNSchema,
+<<<<<<< HEAD
+=======
+  createDeliveryChallanSchema,
+  updateDeliveryChallanSchema,
+>>>>>>> origin/main
   searchMatchesSchema,
 } from './matching.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
@@ -29,7 +34,11 @@ router.use(protect);
  * Access: Case Manager
  */
 router.post('/grn',
+<<<<<<< HEAD
   authorize([ROLES.CASE_MANAGER]),
+=======
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(createGRNSchema),
   matchingController.createGRN,
 );
@@ -60,11 +69,55 @@ router.get('/grn/:id',
  * Update a GRN
  */
 router.put('/grn/:id',
+<<<<<<< HEAD
   authorize([ROLES.CASE_MANAGER]),
+=======
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(updateGRNSchema),
   matchingController.updateGRN,
 );
 
+<<<<<<< HEAD
+=======
+router.delete('/grn/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(matchIdSchema),
+  matchingController.deleteGRN,
+);
+
+// Delivery Challan routes are placed before matching routes to avoid route conflicts.
+router.post('/delivery-challan',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(createDeliveryChallanSchema),
+  matchingController.createDeliveryChallan,
+);
+
+router.get('/delivery-challan/by-po/:poId',
+  authorize(Object.values(ROLES)),
+  validate(poIdParam),
+  matchingController.getDeliveryChallansByPurchaseOrder,
+);
+
+router.get('/delivery-challan/:id',
+  authorize(Object.values(ROLES)),
+  validate(matchIdSchema),
+  matchingController.getDeliveryChallanById,
+);
+
+router.put('/delivery-challan/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(updateDeliveryChallanSchema),
+  matchingController.updateDeliveryChallan,
+);
+
+router.delete('/delivery-challan/:id',
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+  validate(matchIdSchema),
+  matchingController.deleteDeliveryChallan,
+);
+
+>>>>>>> origin/main
 // ─── Three-Way Matching Routes ────────────────────────────────────────────────
 
 /**
@@ -73,7 +126,11 @@ router.put('/grn/:id',
  * Access: Case Manager
  */
 router.post('/start',
+<<<<<<< HEAD
   authorize([ROLES.CASE_MANAGER]),
+=======
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(startMatchingSchema),
   matchingController.startMatching,
 );
@@ -81,10 +138,18 @@ router.post('/start',
 /**
  * GET    /api/v1/three-way-matching
  * List all matching records
+<<<<<<< HEAD
  * Access: Admin, Finance Head
  */
 router.get('/',
   authorize([ROLES.SUPER_ADMIN, ROLES.FINANCE_HEAD]),
+=======
+ * Access: Admin only. Finance Head invoice approval must not expose the
+ * standalone matching workspace.
+ */
+router.get('/',
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> origin/main
   validate(searchMatchesSchema),
   matchingController.listMatches,
 );
@@ -95,7 +160,11 @@ router.get('/',
  * Access: All read roles
  */
 router.get('/invoice/:invoiceId',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> origin/main
   validate(invoiceIdParam),
   matchingController.getMatchReportByInvoice,
 );
@@ -105,11 +174,45 @@ router.get('/invoice/:invoiceId',
  * Get a specific match report by ID
  */
 router.get('/:id',
+<<<<<<< HEAD
   authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.SUPER_ADMIN, ROLES.CASE_MANAGER, ROLES.FINANCE_HEAD]),
+>>>>>>> origin/main
   validate(matchIdSchema),
   matchingController.getMatchReport,
 );
 
+<<<<<<< HEAD
 // Admin approve/reject match routes removed as admin review stage is eliminated.
+=======
+/**
+ * PATCH  /api/v1/three-way-matching/:id/approve
+ * Admin approves a match report → Invoice moves to PENDING_TEAM_LEAD
+ * Access: Super Admin only
+ */
+router.patch('/:id/approve',
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  validate(adminReviewSchema),
+  matchingController.adminApproveMatch,
+);
+
+/**
+ * PATCH  /api/v1/three-way-matching/:id/reject
+ * Admin rejects a match report → Invoice returned with mismatch report
+ * Access: Super Admin only
+ */
+router.patch('/:id/reject',
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  validate(adminRejectSchema),
+  matchingController.adminRejectMatch,
+);
+
+router.patch('/:id/return',
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+  validate(adminRejectSchema),
+  matchingController.returnMatchForCorrection,
+);
+>>>>>>> origin/main
 
 export default router;

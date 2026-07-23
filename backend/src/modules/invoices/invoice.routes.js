@@ -8,15 +8,27 @@ import {
   invoiceApproveSchema,
   invoiceRejectSchema,
   invoiceCancelSchema,
+<<<<<<< HEAD
 
+=======
+  adminReviewApproveSchema,
+  adminReviewRejectSchema,
+>>>>>>> origin/main
   invoiceDeleteSchema,
   invoiceRestoreSchema,
   financeHeadRemarkSchema,
   invoiceIdSchema,
   searchInvoicesSchema,
   financeHeadObservationSchema,
+<<<<<<< HEAD
 } from './invoice.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
+=======
+  approvedPurchaseOrdersForInvoiceSchema,
+} from './invoice.validation.js';
+import { ROLES } from '../../zodSchema/index.js';
+import { uploadInvoiceFile } from './invoice.upload.js';
+>>>>>>> origin/main
 
 const router = express.Router();
 
@@ -29,7 +41,11 @@ router.use(protect);
 
 // ─── Finance Head Observation Dashboard ──────────────────────────────────────
 router.get('/observation',
+<<<<<<< HEAD
   authorize([ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(financeHeadObservationSchema),
   invoiceController.getFinanceHeadObservation,
 );
@@ -49,40 +65,97 @@ router.get('/my/pending',
 // ─── Workflow-Stage Queues ────────────────────────────────────────────────────
 // Three-Way Matching queue (Case Manager)
 router.get('/pending/three-way-match',
+<<<<<<< HEAD
   authorize([ROLES.CASE_MANAGER]),
+=======
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(searchInvoicesSchema),
   invoiceController.getPendingThreeWayMatch,
 );
 
+<<<<<<< HEAD
 // Admin Review queue removed.
 
 // Team Lead queue (formerly L1)
 router.get('/pending/team-lead',
   authorize([ROLES.TEAM_LEAD]),
+=======
+// Admin Review queue (Super Admin)
+router.get('/pending/admin-review',
+  authorize([ROLES.SUPER_ADMIN]),
+  validate(searchInvoicesSchema),
+  invoiceController.getPendingAdminReview,
+);
+
+// Team Lead queue (formerly L1)
+router.get('/pending/team-lead',
+  authorize([ROLES.TEAM_LEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(searchInvoicesSchema),
   invoiceController.getPendingTeamLead,
 );
 
 // Manager queue (formerly L2)
 router.get('/pending/manager',
+<<<<<<< HEAD
   authorize([ROLES.MANAGER]),
+=======
+  authorize([ROLES.MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(searchInvoicesSchema),
   invoiceController.getPendingManager,
 );
 
 // Finance Head queue (formerly L3)
 router.get('/pending/finance-head',
+<<<<<<< HEAD
   authorize([ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(searchInvoicesSchema),
   invoiceController.getPendingFinanceHead,
 );
 
+<<<<<<< HEAD
 
 // ─── Base Collection Routes ───────────────────────────────────────────────────
 router
   .route('/')
   .post(authorize([ROLES.CASE_MANAGER]), validate(createInvoiceSchema), invoiceController.createInvoice)
   .get(authorize(READ_ROLES), validate(searchInvoicesSchema), invoiceController.getInvoices);
+=======
+// ─── Approved Purchase Orders for Invoice Selection ─────────────────────────────
+router.get('/approved-purchase-orders',
+  authorize(READ_ROLES),
+  validate(approvedPurchaseOrdersForInvoiceSchema),
+  invoiceController.getApprovedPurchaseOrdersForInvoice,
+);
+
+
+// ─── Base Collection Routes ───────────────────────────────────────────────────
+router
+  .route("/")
+  .post(
+    authorize([
+      ROLES.CASE_MANAGER,
+      ROLES.FINANCE_HEAD,
+      ROLES.SUPER_ADMIN,
+    ]),
+    uploadInvoiceFile.fields([
+      { name: 'invoiceFile', maxCount: 1 },
+      { name: 'supportingDocuments', maxCount: 10 }
+    ]),
+    validate(createInvoiceSchema),
+    invoiceController.createInvoice
+  )
+  .get(
+    authorize(READ_ROLES),
+    validate(searchInvoicesSchema),
+    invoiceController.getInvoices
+  );
+>>>>>>> origin/main
 
 // ─── Dynamic Parameterized Routes ─────────────────────────────────────────────
 router.get('/:id',
@@ -95,6 +168,14 @@ router.get('/:id/history',
   validate(invoiceIdSchema),
   invoiceController.getApprovalHistory,
 );
+<<<<<<< HEAD
+=======
+router.get('/:id/download',
+  authorize(READ_ROLES),
+  validate(invoiceIdSchema),
+  invoiceController.downloadInvoicePdf,
+);
+>>>>>>> origin/main
 
 // ─── Role-Level Approval Actions ──────────────────────────────────────────────
 router.patch('/:id/approve',
@@ -108,12 +189,30 @@ router.patch('/:id/reject',
   invoiceController.rejectInvoice,
 );
 router.patch('/:id/cancel',
+<<<<<<< HEAD
   authorize([ROLES.CASE_MANAGER]),
+=======
+  authorize([ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(invoiceCancelSchema),
   invoiceController.cancelInvoice,
 );
 
+<<<<<<< HEAD
 // Admin Review Actions removed.
+=======
+// ─── Admin Review Actions ─────────────────────────────────────────────────────
+router.patch('/:id/admin-review/approve',
+  authorize([ROLES.SUPER_ADMIN]),
+  validate(adminReviewApproveSchema),
+  invoiceController.adminApproveInvoice,
+);
+router.patch('/:id/admin-review/reject',
+  authorize([ROLES.SUPER_ADMIN]),
+  validate(adminReviewRejectSchema),
+  invoiceController.adminRejectInvoice,
+);
+>>>>>>> origin/main
 
 // ─── Soft Delete & Restore ────────────────────────────────────────────────────
 router.delete('/:id',
@@ -129,7 +228,11 @@ router.post('/:id/restore',
 
 // ─── Finance Head Observation Remarks ─────────────────────────────────────────
 router.post('/:id/remark',
+<<<<<<< HEAD
   authorize([ROLES.FINANCE_HEAD]),
+=======
+  authorize([ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN]),
+>>>>>>> origin/main
   validate(financeHeadRemarkSchema),
   invoiceController.addFinanceHeadRemark,
 );

@@ -11,6 +11,7 @@ datasource db {
 // Roles: SUPER_ADMIN | CASE_MANAGER | TEAM_LEAD | MANAGER | FINANCE_HEAD
 // ─────────────────────────────────────────────────────────────────────────────
 model User {
+<<<<<<< HEAD
   id                         String    @id @default(uuid())
   email                      String    @unique
   password                   String
@@ -72,6 +73,107 @@ model User {
   legacy_approval_logs         ApprovalLog[]   @relation("ApprovalLogPerformedBy")
   notifications                Notification[]  @relation("NotificationRecipient")
 
+=======
+  id                          String    @id @default(uuid())
+  employee_id                 String    @unique @default(dbgenerated("'EMP' || lpad((nextval('employee_id_seq'::regclass))::text, 6, '0'::text)"))
+  email                       String    @unique
+  password                    String?
+  role                        String // SUPER_ADMIN | CASE_MANAGER | TEAM_LEAD | MANAGER | FINANCE_HEAD
+  first_name                  String?
+  last_name                   String?
+  phone                       String?
+  alternate_phone             String?
+  designation                 String?
+  branch                      String?
+  region                      String?
+  status                      String    @default("ACTIVE")
+  status_changed_at           DateTime?
+  status_changed_by           String?
+  updated_by                  String?
+  deleted_at                  DateTime?
+  deleted_by_id               String?
+  last_login_at               DateTime?
+  refresh_token               String?
+  password_reset_otp          String?
+  password_reset_otp_expires  DateTime?
+  activation_token_hash       String?
+  activation_token_expires_at DateTime?
+  activation_token_used_at    DateTime?
+  activation_sent_at          DateTime?
+  activation_last_sent_at     DateTime?
+  activation_resend_count     Int       @default(0)
+  activated_at                DateTime?
+  password_set_at             DateTime?
+  must_change_password        Boolean   @default(false)
+  temporary_password_expires_at DateTime?
+  password_changed_at         DateTime?
+  credentials_email_status    String?
+  credentials_email_sent_at   DateTime?
+  failed_login_attempts       Int       @default(0)
+  locked_until                DateTime?
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime  @updatedAt
+
+  // Vendor relations
+  vendors_created  Vendor[] @relation("VendorCreatedBy")
+  vendors_approved Vendor[] @relation("VendorApprovedBy")
+  vendor_documents_uploaded VendorDocument[] @relation("VendorDocumentUploadedBy")
+  deleted_by       User?    @relation("UserDeletedBy", fields: [deleted_by_id], references: [id], onDelete: SetNull)
+  deleted_users    User[]   @relation("UserDeletedBy")
+
+  // Purchase Order relations
+  purchase_orders_created PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  invoice_attachments_uploaded InvoiceAttachment[] @relation("InvoiceAttachmentUploadedBy")
+
+  // Invoice relations
+  invoices_created               Invoice[] @relation("InvoiceCreatedBy")
+  invoices_updated               Invoice[] @relation("InvoiceUpdatedBy")
+  invoices_team_lead_approved    Invoice[] @relation("InvoiceTeamLeadApprovedBy")
+  invoices_manager_approved      Invoice[] @relation("InvoiceManagerApprovedBy")
+  invoices_finance_head_approved Invoice[] @relation("InvoiceFinanceHeadApprovedBy")
+  invoices_rejected              Invoice[] @relation("InvoiceRejectedBy")
+  invoices_deleted               Invoice[] @relation("InvoiceDeletedBy")
+
+  // Three-Way Matching relations
+  matching_completed ThreeWayMatch[] @relation("MatchingCompletedBy")
+  matching_reviewed  ThreeWayMatch[] @relation("MatchingAdminReviewedBy")
+
+  // Admin Review relations
+  admin_reviews_done Invoice[] @relation("InvoiceAdminReviewedBy")
+
+  // GRN relations
+  grns_created GoodsReceiptNote[] @relation("GRNCreatedBy")
+  delivery_challans_created DeliveryChallan[] @relation("DeliveryChallanCreatedBy")
+
+  // Payment relations
+  payments_created   Payment[] @relation("PaymentCreatedBy")
+  payments_approved  Payment[] @relation("PaymentApprovedBy")
+  payments_processed Payment[] @relation("PaymentProcessedBy")
+  payments_updated   Payment[] @relation("PaymentUpdatedBy")
+
+  // Legacy payment relations (kept for migration safety)
+  payments_created_old  PaymentOld[] @relation("PaymentOldCreatedBy")
+  payments_approved_old PaymentOld[] @relation("PaymentOldApprovedBy")
+  payments_rejected_old PaymentOld[] @relation("PaymentOldRejectedBy")
+  payments_blocked_old  PaymentOld[] @relation("PaymentOldBlockedBy")
+
+  // Payment Approval relations
+  payment_approvals_assigned    PaymentApproval[] @relation("PaymentApprovalAssignedTo")
+  payment_approvals_requested   PaymentApproval[] @relation("PaymentApprovalRequestedBy")
+  payment_approvals_approved    PaymentApproval[] @relation("PaymentApprovalApprovedBy")
+  payment_approvals_rejected    PaymentApproval[] @relation("PaymentApprovalRejectedBy")
+  payment_approval_history_done PaymentApprovalHistory[] @relation("PaymentApprovalHistoryPerformedBy")
+
+  // Audit & Notification relations
+  approval_logs        AuditLog[]     @relation("AuditLogPerformedBy")
+  legacy_approval_logs ApprovalLog[]  @relation("ApprovalLogPerformedBy")
+  notifications        Notification[] @relation("NotificationRecipient")
+
+  @@index([employee_id])
+  @@index([deleted_by_id])
+  @@index([activation_token_hash])
+  @@index([locked_until])
+>>>>>>> origin/main
   @@map("users")
 }
 
@@ -80,6 +182,7 @@ model User {
 // Created by Case Manager, reviewed/approved by Finance Head
 // ─────────────────────────────────────────────────────────────────────────────
 model Vendor {
+<<<<<<< HEAD
   id              String    @id @default(uuid())
   name            String
   vendor_code     String    @unique
@@ -117,10 +220,107 @@ model Vendor {
   grns            GoodsReceiptNote[]
 
   @@index([status])
+=======
+  id               String    @id @default(uuid())
+  name             String
+  vendor_code      String    @unique
+  email            String    @unique
+  phone            String
+  address          String
+  city             String?
+  district         String?
+  state            String?
+  country          String?
+  zip_code         String?
+  address_line1    String?
+  address_line2    String?
+  tax_id           String    @unique
+  gst_number       String?
+  pan_number       String?   @unique
+  cin              String?
+  msme_number      String?
+  tax_type         String?
+  category         String
+  vendor_type      String?
+  contact_person   String?
+  contact_designation String?
+  alternate_phone  String?
+  bank_name        String?
+  account_holder   String?
+  bank_account_no  String?
+  ifsc_code        String?
+  bank_branch      String?
+  payment_terms    String?
+  billing_address  String?
+  delivery_address String?
+  status           String    @default("PENDING") // PENDING | ACTIVE | INACTIVE | BLOCKED
+  approval_status  String    @default("PENDING") // PENDING | APPROVED | REJECTED | BLOCKED
+  approval_remarks String?
+  pending_changes  Json?
+  pending_change_status String?
+  pending_change_requested_by_id String?
+  pending_change_requested_at DateTime?
+  created_by_id    String?
+  approved_by_id   String?
+  approved_at      DateTime?
+  activated_at     DateTime?
+  rejected_at      DateTime?
+  blocked_at       DateTime?
+  is_active        Boolean   @default(false)
+  deleted_at       DateTime?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  created_by      User?              @relation("VendorCreatedBy", fields: [created_by_id], references: [id])
+  approved_by     User?              @relation("VendorApprovedBy", fields: [approved_by_id], references: [id])
+  purchase_orders PurchaseOrder[]
+  invoices        Invoice[]
+  invoice_attachments InvoiceAttachment[]
+  payments        Payment[]
+  payment_approvals PaymentApproval[]
+  grns            GoodsReceiptNote[]
+  delivery_challans DeliveryChallan[]
+  documents       VendorDocument[]
+
+  @@index([status])
+  @@index([approval_status])
+  @@index([pending_change_status])
+  @@index([status, approval_status, is_active])
+>>>>>>> origin/main
   @@index([created_by_id])
   @@map("vendors")
 }
 
+<<<<<<< HEAD
+=======
+model VendorDocument {
+  id                 String    @id @default(uuid())
+  vendor_id          String
+  document_name      String
+  original_file_name String
+  file_url           String
+  storage_path       String
+  document_type      String
+  mime_type          String
+  file_size          Int
+  status             String    @default("ACTIVE")
+  uploaded_by_id     String?
+  uploaded_at        DateTime  @default(now())
+  deleted_at         DateTime?
+  deleted_by_id      String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  vendor      Vendor @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  uploaded_by User?  @relation("VendorDocumentUploadedBy", fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+
+  @@index([vendor_id])
+  @@index([document_type])
+  @@index([uploaded_by_id])
+  @@map("vendor_documents")
+}
+
+>>>>>>> origin/main
 // ─────────────────────────────────────────────────────────────────────────────
 // PURCHASE ORDER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,9 +329,16 @@ model PurchaseOrder {
   po_number              String    @unique
   vendor_id              String
   created_by_id          String?
+<<<<<<< HEAD
   amount                 Decimal   @db.Decimal(14, 2)
   currency               String    @default("INR")
   status                 String    @default("pending")  // pending | open | closed | cancelled
+=======
+  updated_by_id          String?
+  amount                 Decimal   @db.Decimal(14, 2)
+  currency               String    @default("INR")
+  status                 String    @default("created") // created | closed | cancelled
+>>>>>>> origin/main
   description            String?
   delivery_terms         String?
   payment_terms          String?
@@ -141,10 +348,17 @@ model PurchaseOrder {
   expected_delivery_date DateTime?
   closed_at              DateTime?
   cancelled_at           DateTime?
+<<<<<<< HEAD
+=======
+  deleted_at             DateTime?
+  deleted_by_id          String?
+  delete_reason          String?
+>>>>>>> origin/main
   created_at             DateTime  @default(now())
   updated_at             DateTime  @updatedAt
 
   // Line items (stored as JSON for flexibility)
+<<<<<<< HEAD
   line_items             Json?
 
   vendor     Vendor    @relation(fields: [vendor_id],     references: [id])
@@ -152,6 +366,21 @@ model PurchaseOrder {
   invoices   Invoice[]
   payments   Payment[]
   grns       GoodsReceiptNote[]
+=======
+  line_items Json?
+  tax_summary Json?
+
+  vendor            Vendor             @relation(fields: [vendor_id], references: [id])
+  created_by        User?              @relation("PurchaseOrderCreatedBy", fields: [created_by_id], references: [id])
+  invoices          Invoice[]
+  invoice_attachments InvoiceAttachment[]
+  payments          Payment[]
+  payment_approvals PaymentApproval[]
+  grns              GoodsReceiptNote[]
+  goods_receipt_items GoodsReceiptItem[]
+  delivery_challans DeliveryChallan[]
+  delivery_challan_items DeliveryChallanItem[]
+>>>>>>> origin/main
   three_way_matches ThreeWayMatch[]
 
   @@index([vendor_id])
@@ -164,6 +393,7 @@ model PurchaseOrder {
 // Created when goods are physically received from vendor
 // ─────────────────────────────────────────────────────────────────────────────
 model GoodsReceiptNote {
+<<<<<<< HEAD
   id                  String    @id @default(uuid())
   grn_number          String    @unique
   vendor_id           String
@@ -179,11 +409,35 @@ model GoodsReceiptNote {
   // Delivery info
   delivery_date       DateTime?
   delivery_challan_no String?
+=======
+  id                String  @id @default(uuid())
+  grn_number        String  @unique
+  vendor_id         String
+  purchase_order_id String
+  created_by_id     String?
+  status            String  @default("draft") // draft | verified | rejected
+
+  // Core GRN fields
+  vendor_name String?
+  vendor_code String?
+  gst_number  String?
+
+  // Delivery info
+  delivery_date       DateTime?
+  receipt_date        DateTime?
+  delivery_challan_no String?
+  delivery_challan_id String?
+  receiver_name       String?
+  received_by         String?
+  attachment_url      String?
+  attachment_name     String?
+>>>>>>> origin/main
   delivery_address    String?
   billing_address     String?
   delivery_terms      String?
 
   // Financial fields
+<<<<<<< HEAD
   currency            String    @default("INR")
   subtotal            Decimal   @default(0) @db.Decimal(14, 2)
   gst_amount          Decimal   @default(0) @db.Decimal(14, 2)
@@ -208,11 +462,138 @@ model GoodsReceiptNote {
   @@map("goods_receipt_notes")
 }
 
+=======
+  currency      String  @default("INR")
+  subtotal      Decimal @default(0) @db.Decimal(14, 2)
+  gst_amount    Decimal @default(0) @db.Decimal(14, 2)
+  discount      Decimal @default(0) @db.Decimal(14, 2)
+  total_amount  Decimal @default(0) @db.Decimal(14, 2)
+  payment_terms String?
+
+  // Line items (stored as JSON)
+  line_items Json?
+  items      GoodsReceiptItem[]
+
+  remarks    String?
+  deleted_at DateTime?
+  deleted_by_id String?
+  delete_reason String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  vendor            Vendor          @relation(fields: [vendor_id], references: [id])
+  purchase_order    PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
+  delivery_challan  DeliveryChallan? @relation(fields: [delivery_challan_id], references: [id])
+  created_by        User?           @relation("GRNCreatedBy", fields: [created_by_id], references: [id])
+  three_way_matches ThreeWayMatch[]
+
+  @@index([vendor_id])
+  @@index([purchase_order_id])
+  @@index([delivery_challan_id])
+  @@map("goods_receipt_notes")
+}
+
+model GoodsReceiptItem {
+  id                   String   @id @default(uuid())
+  goods_receipt_note_id String
+  purchase_order_id    String
+  item_name            String
+  description          String?
+  ordered_quantity     Decimal  @default(0) @db.Decimal(14, 3)
+  received_quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  accepted_quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  rejected_quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  unit_price           Decimal  @default(0) @db.Decimal(14, 2)
+  gst_amount           Decimal  @default(0) @db.Decimal(14, 2)
+  line_total           Decimal  @default(0) @db.Decimal(14, 2)
+  remarks              String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  goods_receipt_note GoodsReceiptNote @relation(fields: [goods_receipt_note_id], references: [id], onDelete: Cascade)
+  purchase_order     PurchaseOrder    @relation(fields: [purchase_order_id], references: [id])
+
+  @@index([goods_receipt_note_id])
+  @@index([purchase_order_id])
+  @@map("goods_receipt_items")
+}
+
+model DeliveryChallan {
+  id                        String    @id @default(uuid())
+  delivery_challan_number   String    @unique
+  vendor_id                 String
+  purchase_order_id         String
+  created_by_id             String?
+  status                    String    @default("created")
+
+  vendor_name     String?
+  vendor_code     String?
+  gst_number      String?
+  delivery_date   DateTime?
+  delivery_address String?
+  transporter     String?
+  vehicle_number  String?
+  driver_name     String?
+  driver_contact  String?
+  delivery_status String @default("CREATED")
+  document_url    String?
+  document_name   String?
+  vehicle_details String?
+  currency        String    @default("INR")
+  subtotal        Decimal   @default(0) @db.Decimal(14, 2)
+  gst_amount      Decimal   @default(0) @db.Decimal(14, 2)
+  total_amount    Decimal   @default(0) @db.Decimal(14, 2)
+  line_items      Json?
+  items           DeliveryChallanItem[]
+  remarks         String?
+  deleted_at      DateTime?
+  deleted_by_id   String?
+  delete_reason   String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  vendor            Vendor          @relation(fields: [vendor_id], references: [id])
+  purchase_order    PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
+  created_by        User?           @relation("DeliveryChallanCreatedBy", fields: [created_by_id], references: [id])
+  goods_receipt_notes GoodsReceiptNote[]
+  three_way_matches ThreeWayMatch[]
+
+  @@index([vendor_id])
+  @@index([purchase_order_id])
+  @@index([status])
+  @@map("delivery_challans")
+}
+
+model DeliveryChallanItem {
+  id                   String   @id @default(uuid())
+  delivery_challan_id   String
+  purchase_order_id     String
+  item_name             String
+  description           String?
+  ordered_quantity      Decimal  @default(0) @db.Decimal(14, 3)
+  delivered_quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  unit_price            Decimal  @default(0) @db.Decimal(14, 2)
+  gst_amount            Decimal  @default(0) @db.Decimal(14, 2)
+  line_total            Decimal  @default(0) @db.Decimal(14, 2)
+  remarks               String?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  delivery_challan DeliveryChallan @relation(fields: [delivery_challan_id], references: [id], onDelete: Cascade)
+  purchase_order   PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
+
+  @@index([delivery_challan_id])
+  @@index([purchase_order_id])
+  @@map("delivery_challan_items")
+}
+
+>>>>>>> origin/main
 // ─────────────────────────────────────────────────────────────────────────────
 // INVOICE
 // Central entity — drives the approval workflow
 // ─────────────────────────────────────────────────────────────────────────────
 model Invoice {
+<<<<<<< HEAD
   id                     String    @id @default(uuid())
   invoice_number         String    @unique
   vendor_id              String
@@ -239,12 +620,49 @@ model Invoice {
 
   // ── Three-Way Matching ──────────────────────────────────────
   three_way_match_status     String?   // PENDING | MATCHED | UNMATCHED | SKIPPED
+=======
+  id                String  @id @default(uuid())
+  invoice_number    String  @unique
+  vendor_id         String
+  purchase_order_id String
+  created_by_id     String?
+  updated_by_id     String?
+
+  // Amounts
+  amount           Decimal @db.Decimal(14, 2)
+  currency         String  @default("INR")
+  invoice_total    Decimal @default(0.00) @db.Decimal(14, 2)
+  paid_amount      Decimal @default(0.00) @db.Decimal(14, 2)
+  remaining_amount Decimal @default(0.00) @db.Decimal(14, 2)
+  line_items       Json?
+  tax_summary      Json?
+  invoice_creation_method String @default("MANUAL")
+  invoice_category String?
+  invoice_source   String?
+  ocr_status       String? @default("NOT_STARTED")
+  ocr_confidence   Decimal? @db.Decimal(5, 2)
+  ocr_extracted_data Json?
+
+  // Approval workflow
+  status                 String  @default("PENDING_TEAM_LEAD")
+  required_approval_role String // TEAM_LEAD | MANAGER | FINANCE_HEAD
+  current_approval_level String? // TEAM_LEAD | MANAGER | FINANCE_HEAD | null
+
+  // Payment status
+  payment_status    String    @default("UNPAID")
+  last_payment_date DateTime?
+  last_payment_id   String?
+
+  // ── Three-Way Matching ──────────────────────────────────────
+  three_way_match_status     String? // PENDING | MATCHED | UNMATCHED | SKIPPED
+>>>>>>> origin/main
   three_way_match_percentage Decimal?  @db.Decimal(5, 2)
   matching_completed_by_id   String?
   matching_completed_at      DateTime?
   matching_remarks           String?
 
   // ── Admin Review ────────────────────────────────────────────
+<<<<<<< HEAD
   admin_review_status    String?   // PENDING | APPROVED | REJECTED
   admin_reviewed_by_id   String?
   admin_reviewed_at      DateTime?
@@ -300,6 +718,69 @@ model Invoice {
   payments       Payment[]
   payments_old   PaymentOld[]
   three_way_matches ThreeWayMatch[]
+=======
+  admin_review_status  String? // PENDING | APPROVED | REJECTED
+  admin_reviewed_by_id String?
+  admin_reviewed_at    DateTime?
+  admin_remarks        String?
+
+  // ── Team Lead (formerly L1) Approval ────────────────────────
+  team_lead_approver_id String?
+  team_lead_approved_at DateTime?
+  team_lead_remarks     String?
+
+  // ── Manager (formerly L2) Approval ──────────────────────────
+  manager_approver_id String?
+  manager_approved_at DateTime?
+  manager_remarks     String?
+
+  // ── Finance Head (formerly L3) Approval ─────────────────────
+  finance_head_approver_id String?
+  finance_head_approved_at DateTime?
+  finance_head_remarks     String?
+
+  // ── Final State ──────────────────────────────────────────────
+  final_approved_at DateTime?
+  rejected_by_id    String?
+  rejected_at       DateTime?
+  rejection_reason  String?
+  cancelled_at      DateTime?
+
+  // ── Soft Delete ──────────────────────────────────────────────
+  deleted_at    DateTime?
+  deleted_by_id String?
+  delete_reason String?
+
+  // Dates & Meta
+  invoice_date DateTime  @default(now())
+  due_date     DateTime?
+  description  String?
+  file_url     String?
+  file_name    String?
+  file_mime    String?
+  file_size    Int?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  // ── Relations ────────────────────────────────────────────────
+  vendor         Vendor        @relation(fields: [vendor_id], references: [id])
+  purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+
+  created_by            User? @relation("InvoiceCreatedBy", fields: [created_by_id], references: [id])
+  updated_by            User? @relation("InvoiceUpdatedBy", fields: [updated_by_id], references: [id])
+  team_lead_approver    User? @relation("InvoiceTeamLeadApprovedBy", fields: [team_lead_approver_id], references: [id])
+  manager_approver      User? @relation("InvoiceManagerApprovedBy", fields: [manager_approver_id], references: [id])
+  finance_head_approver User? @relation("InvoiceFinanceHeadApprovedBy", fields: [finance_head_approver_id], references: [id])
+  rejected_by           User? @relation("InvoiceRejectedBy", fields: [rejected_by_id], references: [id])
+  deleted_by            User? @relation("InvoiceDeletedBy", fields: [deleted_by_id], references: [id])
+  admin_reviewed_by     User? @relation("InvoiceAdminReviewedBy", fields: [admin_reviewed_by_id], references: [id])
+
+  payments          Payment[]
+  payments_old      PaymentOld[]
+  payment_approvals PaymentApproval[]
+  three_way_matches ThreeWayMatch[]
+  attachments       InvoiceAttachment[]
+>>>>>>> origin/main
 
   @@index([status])
   @@index([vendor_id])
@@ -313,6 +794,7 @@ model Invoice {
 // THREE-WAY MATCH
 // Comparison record between PO, GRN, and Invoice
 // ─────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 model ThreeWayMatch {
   id                    String    @id @default(uuid())
   invoice_id            String
@@ -327,11 +809,64 @@ model ThreeWayMatch {
   unmatched_fields      Json?     // Array of { field, poValue, grnValue, invoiceValue }
   matched_fields        Json?     // Array of matched field names
   warnings              Json?     // Partial matches / warnings
+=======
+model InvoiceAttachment {
+  id                 String   @id @default(uuid())
+  invoice_id         String
+  purchase_order_id  String
+  vendor_id          String
+  invoice_creation_method String @default("MANUAL")
+  invoice_category   String?
+  invoice_source     String?
+  attachment_type    String   @default("INVOICE")
+  original_file_name String
+  stored_file_name   String
+  file_url           String
+  file_type          String
+  file_size          Int
+  ocr_status         String   @default("NOT_STARTED")
+  ocr_confidence     Decimal? @db.Decimal(5, 2)
+  ocr_extracted_data Json?
+  uploaded_by_id     String?
+  uploaded_at        DateTime @default(now())
+  deleted_at         DateTime?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  invoice        Invoice       @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  vendor         Vendor        @relation(fields: [vendor_id], references: [id])
+  uploaded_by    User?         @relation("InvoiceAttachmentUploadedBy", fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+
+  @@index([invoice_id])
+  @@index([purchase_order_id])
+  @@index([vendor_id])
+  @@index([uploaded_by_id])
+  @@map("invoice_attachments")
+}
+
+model ThreeWayMatch {
+  id                String  @id @default(uuid())
+  invoice_id        String
+  purchase_order_id String
+  grn_id            String?
+  delivery_challan_id String?
+
+  // Match result
+  status               String  @default("PENDING") // PENDING | MATCHED | UNMATCHED
+  match_percentage     Decimal @default(0) @db.Decimal(5, 2)
+  matched_fields_count Int     @default(0)
+  total_fields_count   Int     @default(0)
+  unmatched_fields     Json? // Array of { field, poValue, grnValue, invoiceValue }
+  matched_fields       Json? // Array of matched field names
+  warnings             Json? // Partial matches / warnings
+>>>>>>> origin/main
 
   // Approval recommendation
   approval_recommendation String? // APPROVE | REJECT | REVIEW
 
   // Snapshot data (stored at time of matching)
+<<<<<<< HEAD
   po_snapshot           Json?     // PO data at matching time
   grn_snapshot          Json?     // GRN data at matching time
   invoice_snapshot      Json?     // Invoice data at matching time
@@ -357,6 +892,38 @@ model ThreeWayMatch {
   admin_reviewed_by User?      @relation("MatchingAdminReviewedBy",  fields: [admin_reviewed_by_id],  references: [id])
 
   @@index([invoice_id])
+=======
+  po_snapshot      Json? // PO data at matching time
+  grn_snapshot     Json? // GRN data at matching time
+  delivery_challan_snapshot Json?
+  invoice_snapshot Json? // Invoice data at matching time
+
+  // Completion tracking
+  completed_by_id String?
+  completed_at    DateTime?
+  remarks         String?
+
+  // Admin review
+  admin_review_status  String? // PENDING | APPROVED | REJECTED
+  admin_reviewed_by_id String?
+  admin_reviewed_at    DateTime?
+  admin_remarks        String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  invoice           Invoice           @relation(fields: [invoice_id], references: [id])
+  purchase_order    PurchaseOrder     @relation(fields: [purchase_order_id], references: [id])
+  grn               GoodsReceiptNote? @relation(fields: [grn_id], references: [id])
+  delivery_challan  DeliveryChallan?  @relation(fields: [delivery_challan_id], references: [id])
+  completed_by      User?             @relation("MatchingCompletedBy", fields: [completed_by_id], references: [id])
+  admin_reviewed_by User?             @relation("MatchingAdminReviewedBy", fields: [admin_reviewed_by_id], references: [id])
+  payment_approvals PaymentApproval[]
+  payments          Payment[]
+
+  @@index([invoice_id])
+  @@index([delivery_challan_id])
+>>>>>>> origin/main
   @@index([status])
   @@map("three_way_matches")
 }
@@ -365,6 +932,7 @@ model ThreeWayMatch {
 // PAYMENT (Rebuilt multi-payment model)
 // ─────────────────────────────────────────────────────────────────────────────
 model Payment {
+<<<<<<< HEAD
   id                      String    @id @default(uuid())
   payment_number          String    @unique
   invoice_id              String
@@ -403,6 +971,53 @@ model Payment {
   updated_by     User?          @relation("PaymentUpdatedBy",   fields: [updated_by_id],   references: [id])
 
   @@index([status])
+=======
+  id                       String    @id @default(uuid())
+  payment_number           String    @unique
+  invoice_id               String
+  vendor_id                String
+  purchase_order_id        String
+  three_way_match_id       String?   // Link to matched 3-way match record
+  amount                   Decimal   @db.Decimal(14, 2)
+  currency                 String    @default("INR")
+  status                   String    @default("PENDING_APPROVAL") // PENDING_APPROVAL | PENDING | INITIATED | PROCESSING | SUCCESS | FAILED | CANCELLED | RETURNED | REFUNDED
+  approval_status          String    @default("PENDING")          // PENDING | APPROVED | REJECTED
+  payment_method           String?
+  payment_type             String    @default("FULL")
+  payment_provider         String    @default("MANUAL")
+  provider_transaction_id  String?
+  gateway_reference        String?
+  payment_gateway_response Json?
+  gateway_status           String?
+  response_message         String?
+  payment_date             DateTime?
+  due_date                 DateTime?
+  remarks                  String?
+
+  processed_by_id String?
+  approved_by_id  String?
+  approved_at     DateTime?
+  created_by_id   String?
+  updated_by_id   String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  invoice           Invoice        @relation(fields: [invoice_id], references: [id])
+  vendor            Vendor         @relation(fields: [vendor_id], references: [id])
+  purchase_order    PurchaseOrder  @relation(fields: [purchase_order_id], references: [id])
+  three_way_match   ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
+
+  processed_by      User? @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
+  approved_by       User? @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
+  created_by        User? @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
+  updated_by        User? @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
+
+  payment_approvals PaymentApproval[]
+
+  @@index([status])
+  @@index([approval_status])
+>>>>>>> origin/main
   @@index([invoice_id])
   @@index([vendor_id])
   @@index([purchase_order_id])
@@ -429,11 +1044,19 @@ model PaymentOld {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
+<<<<<<< HEAD
   invoice     Invoice @relation(fields: [invoice_id],    references: [id])
   created_by  User?   @relation("PaymentOldCreatedBy",  fields: [created_by_id],  references: [id])
   approved_by User?   @relation("PaymentOldApprovedBy", fields: [approved_by_id], references: [id])
   rejected_by User?   @relation("PaymentOldRejectedBy", fields: [rejected_by_id], references: [id])
   blocked_by  User?   @relation("PaymentOldBlockedBy",  fields: [blocked_by_id],  references: [id])
+=======
+  invoice     Invoice @relation(fields: [invoice_id], references: [id])
+  created_by  User?   @relation("PaymentOldCreatedBy", fields: [created_by_id], references: [id])
+  approved_by User?   @relation("PaymentOldApprovedBy", fields: [approved_by_id], references: [id])
+  rejected_by User?   @relation("PaymentOldRejectedBy", fields: [rejected_by_id], references: [id])
+  blocked_by  User?   @relation("PaymentOldBlockedBy", fields: [blocked_by_id], references: [id])
+>>>>>>> origin/main
 
   @@map("payments_old")
 }
@@ -444,15 +1067,26 @@ model PaymentOld {
 // ─────────────────────────────────────────────────────────────────────────────
 model AuditLog {
   id              String   @id @default(uuid())
+<<<<<<< HEAD
   entity_type     String   // invoice | vendor | payment | grn | three_way_match | user
   entity_id       String
   action          String   // submitted | approved | rejected | cancelled | deleted | restored | matching_started | ...
+=======
+  entity_type     String // invoice | vendor | payment | grn | three_way_match | user
+  entity_id       String
+  action          String // submitted | approved | rejected | cancelled | deleted | restored | matching_started | ...
+>>>>>>> origin/main
   from_status     String?
   to_status       String?
   performed_by_id String?
   remarks         String?
+<<<<<<< HEAD
   old_value       Json?    // Snapshot of entity before change
   new_value       Json?    // Snapshot of entity after change
+=======
+  old_value       Json? // Snapshot of entity before change
+  new_value       Json? // Snapshot of entity after change
+>>>>>>> origin/main
   ip_address      String?
   user_agent      String?
   created_at      DateTime @default(now())
@@ -495,6 +1129,11 @@ model Notification {
   title       String
   message     String
   type        String
+<<<<<<< HEAD
+=======
+  role        String?
+  reference_id String?
+>>>>>>> origin/main
   entity_type String?
   entity_id   String?
   is_read     Boolean   @default(false)
@@ -505,5 +1144,98 @@ model Notification {
 
   @@index([user_id, is_read])
   @@index([user_id, created_at])
+<<<<<<< HEAD
   @@map("notifications")
 }
+=======
+  @@index([role, is_read])
+  @@index([entity_type, entity_id])
+  @@index([reference_id])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT APPROVAL
+// Dedicated approval record created BEFORE notification is sent.
+// approverId = exact assigned user (NOT role broadcast).
+// This is what the approver sees in the Payment Approval module.
+// ─────────────────────────────────────────────────────────────────────────────
+model PaymentApproval {
+  id                  String    @id @default(uuid())
+  payment_id          String?
+  invoice_id          String
+  purchase_order_id   String
+  vendor_id           String
+  three_way_match_id  String?
+
+  amount              Decimal   @db.Decimal(14, 2)
+  currency            String    @default("INR")
+  approval_level      Int       @default(1)
+  required_role       String    // TEAM_LEAD | MANAGER | FINANCE_HEAD
+
+  approver_id         String    // Exact assigned user ID — must always be set
+  status              String    @default("PENDING") // PENDING | APPROVED | REJECTED
+
+  remarks             String?
+  rejection_reason    String?
+
+  requested_by_id     String?
+  requested_at        DateTime  @default(now())
+
+  approved_by_id      String?
+  approved_at         DateTime?
+  rejected_by_id      String?
+  rejected_at         DateTime?
+
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  payment         Payment?      @relation(fields: [payment_id], references: [id])
+  invoice         Invoice       @relation(fields: [invoice_id], references: [id])
+  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  vendor          Vendor        @relation(fields: [vendor_id], references: [id])
+  three_way_match ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
+
+  approver        User          @relation("PaymentApprovalAssignedTo", fields: [approver_id], references: [id])
+  requested_by    User?         @relation("PaymentApprovalRequestedBy", fields: [requested_by_id], references: [id])
+  approved_by     User?         @relation("PaymentApprovalApprovedBy", fields: [approved_by_id], references: [id])
+  rejected_by     User?         @relation("PaymentApprovalRejectedBy", fields: [rejected_by_id], references: [id])
+
+  history         PaymentApprovalHistory[]
+
+  @@index([payment_id])
+  @@index([approver_id, status])
+  @@index([invoice_id])
+  @@index([status])
+  @@index([requested_at])
+  @@map("payment_approvals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT APPROVAL HISTORY
+// Immutable audit trail for every action on a PaymentApproval record.
+// ─────────────────────────────────────────────────────────────────────────────
+model PaymentApprovalHistory {
+  id                    String   @id @default(uuid())
+  payment_approval_id   String
+  payment_id            String?
+  invoice_id            String?
+
+  action                String   // REQUESTED | ASSIGNED | NOTIFICATION_SENT | APPROVED | REJECTED
+  previous_status       String?
+  new_status            String?
+  performed_by_id       String?
+  remarks               String?
+
+  created_at            DateTime @default(now())
+
+  payment_approval PaymentApproval @relation(fields: [payment_approval_id], references: [id], onDelete: Cascade)
+  performed_by     User?           @relation("PaymentApprovalHistoryPerformedBy", fields: [performed_by_id], references: [id])
+
+  @@index([payment_approval_id])
+  @@index([payment_id])
+  @@index([created_at])
+  @@map("payment_approval_history")
+}
+>>>>>>> origin/main

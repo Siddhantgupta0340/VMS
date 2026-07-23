@@ -1,4 +1,8 @@
 import ApiError from '../utils/ApiError.js';
+<<<<<<< HEAD
+=======
+import sanitizeObject from '../utils/logSanitizer.js';
+>>>>>>> origin/main
 
 /**
  * Express middleware factory that validates the request against a Zod schema.
@@ -16,18 +20,46 @@ const validate = (schema) => (req, res, next) => {
 
   const isDev = process.env.NODE_ENV !== 'production';
 
+<<<<<<< HEAD
   // ── Always log incoming payload in development ──────────────────────────────
   if (isDev) {
+=======
+  // ── Always log incoming payload in development (Sanitized) ───────────────────
+  if (isDev) {
+    const sanitizedHeaders = sanitizeObject(req.headers) ?? {};
+    const sanitizedBody = sanitizeObject(req.body) ?? {};
+    const sanitizedParams = sanitizeObject(req.params) ?? {};
+    const sanitizedQuery = sanitizeObject(req.query) ?? {};
+    const sanitizedUser = sanitizeObject(req.user);
+
+>>>>>>> origin/main
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[Validate] Incoming Request (Before Validation)');
     console.log(`  Method      : ${req.method}`);
     console.log(`  URL         : ${req.originalUrl}`);
+<<<<<<< HEAD
     console.log(`  Headers     : ${JSON.stringify(req.headers, null, 2)}`);
     console.log(`  Content-Type: ${req.headers['content-type'] || 'NOT SET'}`);
     console.log(`  Body        : ${JSON.stringify(req.body, null, 2)}`);
     console.log(`  Params      : ${JSON.stringify(req.params, null, 2)}`);
     console.log(`  Query       : ${JSON.stringify(req.query, null, 2)}`);
     console.log(`  User        : ${JSON.stringify(req.user, null, 2)}`);
+=======
+    console.log(`  Headers     : ${JSON.stringify(sanitizedHeaders, null, 2)}`);
+    console.log(`  Content-Type: ${req.headers['content-type'] || 'NOT SET'}`);
+    if (req.method !== 'GET' && Object.keys(sanitizedBody).length > 0) {
+      console.log(`  Body        : ${JSON.stringify(sanitizedBody, null, 2)}`);
+    }
+    if (Object.keys(sanitizedParams).length > 0) {
+      console.log(`  Params      : ${JSON.stringify(sanitizedParams, null, 2)}`);
+    }
+    if (Object.keys(sanitizedQuery).length > 0) {
+      console.log(`  Query       : ${JSON.stringify(sanitizedQuery, null, 2)}`);
+    }
+    if (sanitizedUser) {
+      console.log(`  User        : ${JSON.stringify(sanitizedUser, null, 2)}`);
+    }
+>>>>>>> origin/main
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
@@ -43,7 +75,10 @@ const validate = (schema) => (req, res, next) => {
       req.body = result.data.body;
     }
     if (result.data.query !== undefined) {
+<<<<<<< HEAD
       // req.query is read-only in some versions; assign each key instead.
+=======
+>>>>>>> origin/main
       for (const key of Object.keys(result.data.query)) {
         req.query[key] = result.data.query[key];
       }
@@ -60,6 +95,7 @@ const validate = (schema) => (req, res, next) => {
     return next();
   }
 
+<<<<<<< HEAD
   // ── Validation failed ───────────────────────────────────────────────────────
   // Zod v4 uses `issues`; older versions used `errors`.
   const issues = result?.error?.issues ?? result?.error?.errors ?? [];
@@ -86,3 +122,41 @@ const validate = (schema) => (req, res, next) => {
 };
 
 export default validate;
+=======
+  // ── Validation failed (Standardized structure) ──────────────────────────────
+  const issues = result.error.issues ?? result.error.errors ?? [];
+
+  // Group validation errors by parameter field (stripping body/query/params prefix)
+  const groupedErrors = {};
+  issues.forEach((issue) => {
+    let path = issue.path;
+    if (path.length > 0 && (path[0] === 'body' || path[0] === 'query' || path[0] === 'params')) {
+      path = path.slice(1);
+    }
+    const field = path.join('.') || 'root';
+    
+    if (!groupedErrors[field]) {
+      groupedErrors[field] = [];
+    }
+    groupedErrors[field].push(issue.message);
+  });
+
+  const summary = Object.entries(groupedErrors)
+    .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+    .join(' | ') || 'Invalid request payload';
+
+  if (isDev) {
+    console.log('[Validate]  Validation failed:');
+    Object.entries(groupedErrors).forEach(([field, msgs]) => {
+      console.log(`  - ${field}: ${msgs.join(', ')}`);
+    });
+  }
+
+  const apiError = new ApiError(400, summary);
+  apiError.code = 'VALIDATION_ERROR';
+  apiError.errors = groupedErrors;
+  next(apiError);
+};
+
+export default validate;
+>>>>>>> origin/main

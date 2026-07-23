@@ -12,6 +12,10 @@ export const sanitizeUser = (user) => {
     [UserEntity.columns.REFRESH_TOKEN]: __,
     [UserEntity.columns.PASSWORD_RESET_OTP]: ___,
     [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: ____,
+<<<<<<< HEAD
+=======
+    [UserEntity.columns.ACTIVATION_TOKEN_HASH]: _____,
+>>>>>>> origin/main
     ...sanitized
   } = user;
   return sanitized;
