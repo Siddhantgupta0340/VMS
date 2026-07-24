@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronDown, Download, Eye, FileText, Trash2, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, { Component, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { createInvoice, getApprovedPurchaseOrdersForInvoice, getPurchaseOrderForInvoice, processInvoiceOcr } from "../../services/invoiceService";
@@ -7,6 +7,124 @@ import { createInvoice, getApprovedPurchaseOrdersForInvoice, getPurchaseOrderFor
 import { RequiredLabel } from "../../components/common/FormValidation";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { fieldErrorClass, validateRequiredFields } from "../../utils/validationMatrix";
+
+class InvoiceCreateErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("[InvoiceCreateErrorBoundary] Caught UI rendering error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-2xl mx-auto my-12 rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-950 space-y-4 shadow-lg">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-xl">
+            !
+          </div>
+          <h2 className="text-xl font-bold text-red-900">Invoice Creation Interface Error</h2>
+          <p className="text-sm text-red-700 leading-relaxed">
+            {this.state.error?.message || "A rendering issue occurred. You can safely retry or navigate back to invoice history."}
+          </p>
+          <div className="pt-2 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition shadow-sm"
+            >
+              Retry Form
+            </button>
+            <Link
+              to="/invoices"
+              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+            >
+              Back to Invoices
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const OcrProgressStepper = ({ ocrStep, ocrResultData, onRetry, onUploadAnother, onContinueManual }) => {
+  if (!ocrStep) return null;
+
+  const stateMessages = {
+    IDLE: "Upload an invoice document to extract details.",
+    UPLOADING: "Uploading document...",
+    PARSING: "Extracting invoice details using OCR...",
+    EXTRACTING: "Extracting invoice details using OCR...",
+    MATCHING_VENDOR: "Matching vendor master details...",
+    MATCHING_PO: "Matching purchase order from database...",
+    COMPLETED: "Invoice details extracted successfully. Please review the information before creating the invoice.",
+    PARTIAL_SUCCESS: "Some invoice details could not be detected. Please review and complete the missing fields.",
+    FAILED: "Unable to process this document. Please try again or enter invoice details manually.",
+    INVALID_FILE: "Unsupported file type. Please upload PDF, PNG, JPG, or JPEG.",
+  };
+
+  const confidenceDisplay = typeof ocrResultData?.ocrConfidence === "number" && !isNaN(ocrResultData.ocrConfidence)
+    ? `${ocrResultData.ocrConfidence}% Confidence`
+    : "Not Available";
+
+  return (
+    <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-xs space-y-3">
+      <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+        <span className="font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2">
+          {stateMessages[ocrStep] || "Processing OCR Pipeline..."}
+        </span>
+        <span className="rounded-full bg-blue-600 px-2.5 py-0.5 font-bold text-white">
+          OCR Confidence: {confidenceDisplay}
+        </span>
+      </div>
+
+      <p className="text-slate-700 font-medium leading-relaxed">
+        {stateMessages[ocrStep] || "Review extracted invoice metadata below."}
+      </p>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {onRetry && (ocrStep === "FAILED" || ocrStep === "INVALID_FILE") && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white hover:bg-blue-700 transition shadow-sm"
+          >
+            Retry OCR
+          </button>
+        )}
+        {onUploadAnother && (
+          <button
+            type="button"
+            onClick={onUploadAnother}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+          >
+            Upload Another File
+          </button>
+        )}
+        {onContinueManual && (
+          <button
+            type="button"
+            onClick={onContinueManual}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+          >
+            Continue Manually
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 
 const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 const readOnly = "h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700";
@@ -78,8 +196,10 @@ const InvoiceCreate = () => {
   const [validationErrors, setValidationErrors] = useState([]);
   const [ocrNotice, setOcrNotice] = useState("");
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrStep, setOcrStep] = useState("IDLE");
   const [ocrResultData, setOcrResultData] = useState(null);
   const [createdInvoiceSuccessData, setCreatedInvoiceSuccessData] = useState(null);
+
 
   const [formData, setFormData] = useState({
     purchaseOrderId: "",
@@ -264,22 +384,28 @@ const InvoiceCreate = () => {
     if (!file) {
       setOcrNotice("");
       setOcrResultData(null);
+      setOcrStep("IDLE");
       return;
     }
     if (!isSupportedInvoiceFile(file)) {
+      setOcrStep("FAILED");
       setOcrNotice("Unsupported file format for OCR. Please upload a PDF, PNG, JPG, or JPEG file.");
       return;
     }
 
     if (formData.invoiceCreationMethod === "OCR") {
       setOcrProcessing(true);
-      setOcrNotice("Extracting document information via OCR engine...");
+      setOcrStep("UPLOADING");
+      setOcrNotice("Uploading document...");
       try {
+        setOcrStep("PARSING");
+        setOcrNotice("Processing OCR document text...");
         const res = await processInvoiceOcr(file);
         setOcrResultData(res);
         const { ocrConfidence, extractedData, matchedPurchaseOrder } = res;
 
-        notify.success(`OCR Extraction Complete (${ocrConfidence}% Confidence).`);
+        setOcrStep("EXTRACTING");
+        setOcrNotice("Extracting invoice data...");
 
         if (extractedData?.header?.invoiceDate) {
           setFormData((prev) => ({ ...prev, invoiceDate: extractedData.header.invoiceDate }));
@@ -288,16 +414,26 @@ const InvoiceCreate = () => {
           setFormData((prev) => ({ ...prev, dueDate: extractedData.header.dueDate }));
         }
 
+        if (extractedData?.vendor?.gstin || extractedData?.vendor?.vendorName) {
+          setOcrStep("MATCHING_VENDOR");
+        }
+
         if (matchedPurchaseOrder) {
+          setOcrStep("MATCHING_PO");
           await selectPurchaseOrder(matchedPurchaseOrder);
-          setOcrNotice(`OCR extracted invoice metadata (${ocrConfidence}% Confidence) and auto-matched Purchase Order #${matchedPurchaseOrder.poNumber}. Review extracted values below.`);
+          setOcrStep("COMPLETED");
+          notify.success(`OCR Extraction Complete (${ocrConfidence}% Confidence).`);
+          setOcrNotice(`OCR extracted document metadata (${ocrConfidence}% Confidence) and auto-matched Purchase Order #${matchedPurchaseOrder.poNumber}. Review extracted values below.`);
         } else {
-          setOcrNotice(`OCR extracted invoice metadata (${ocrConfidence}% Confidence). Select an available Purchase Order to complete creation.`);
+          setOcrStep("COMPLETED");
+          notify.success(`OCR Extraction Complete (${ocrConfidence}% Confidence).`);
+          setOcrNotice(`OCR extracted document metadata (${ocrConfidence}% Confidence). Select an available Purchase Order to complete creation.`);
         }
       } catch (err) {
         console.error("[InvoiceCreate] OCR Extraction error:", err);
-        notify.error("OCR document extraction failed. Please select Purchase Order manually.");
-        setOcrNotice("OCR document extraction completed with warnings. Select Purchase Order manually.");
+        setOcrStep("FAILED");
+        notify.error("OCR document extraction failed. You can still select the Purchase Order manually.");
+        setOcrNotice("Unable to extract invoice information from this document. Please verify the document or create the invoice manually.");
       } finally {
         setOcrProcessing(false);
       }
@@ -305,6 +441,7 @@ const InvoiceCreate = () => {
       setOcrNotice("File attached for Manual Entry.");
     }
   };
+
 
 
   const previewInvoiceFile = () => {
@@ -694,10 +831,13 @@ const InvoiceCreate = () => {
                 ) : null}
 
                 {ocrNotice ? (
-                  <p className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${ocrResultData?.ocrStatus === "SUCCESS" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  <p className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${ocrResultData?.ocrStatus === "SUCCESS" || ocrStep === "COMPLETED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                     {ocrNotice}
                   </p>
                 ) : null}
+
+                <OcrProgressStepper ocrStep={ocrStep} ocrResultData={ocrResultData} />
+
 
                 {ocrResultData?.extractedData ? (
                   <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
@@ -708,13 +848,14 @@ const InvoiceCreate = () => {
                       </span>
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                      <div><span className="text-slate-500">Detected PO:</span> <strong className="text-slate-900">{ocrResultData.extractedData.references?.poNumber || "Not Detected"}</strong></div>
-                      <div><span className="text-slate-500">Detected GSTIN:</span> <strong className="text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "Not Detected"}</strong></div>
-                      <div><span className="text-slate-500">Extracted Inv Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.invoiceDate || "Not Detected"}</strong></div>
-                      <div><span className="text-slate-500">Extracted Due Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.dueDate || "Not Detected"}</strong></div>
-                      <div><span className="text-slate-500">Bank Account:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.accountNumber || "Not Detected"}</strong></div>
-                      <div><span className="text-slate-500">IFSC Code:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.ifscCode || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Detected PO:</span> <strong className="text-slate-900">{ocrResultData.extractedData.references?.poNumber || "Not detected by OCR — please select PO manually"}</strong></div>
+                      <div><span className="text-slate-500">Detected GSTIN:</span> <strong className="text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "Not detected by OCR — please enter manually"}</strong></div>
+                      <div><span className="text-slate-500">Extracted Inv Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.invoiceDate || "Not detected by OCR — please enter manually"}</strong></div>
+                      <div><span className="text-slate-500">Extracted Due Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.dueDate || "Not detected by OCR — please enter manually"}</strong></div>
+                      <div><span className="text-slate-500">Bank Account:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.accountNumber || "Not detected by OCR — please enter manually"}</strong></div>
+                      <div><span className="text-slate-500">IFSC Code:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.ifscCode || "Not detected by OCR — please enter manually"}</strong></div>
                     </div>
+
                   </div>
                 ) : null}
 
@@ -831,9 +972,10 @@ const InvoiceCreate = () => {
             </div>
             <ErrorText message={errorsByField.gst} />
             <div className="mt-6 grid gap-3">
-              <button type="submit" disabled={submitting || loadingPurchaseOrderDetails} className="rounded-lg bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
-                {submitting ? "Creating..." : "Create Invoice"}
+              <button type="submit" disabled={submitting || ocrProcessing || loadingPurchaseOrderDetails} className="rounded-lg bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                {ocrProcessing ? "Processing Invoice..." : submitting ? "Creating..." : "Create Invoice"}
               </button>
+
               <button type="button" onClick={() => navigate("/invoices")} className="rounded-lg border border-slate-300 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-50">
                 Cancel
               </button>
@@ -845,4 +987,11 @@ const InvoiceCreate = () => {
   );
 };
 
-export default InvoiceCreate;
+const InvoiceCreateWithBoundary = (props) => (
+  <InvoiceCreateErrorBoundary>
+    <InvoiceCreate {...props} />
+  </InvoiceCreateErrorBoundary>
+);
+
+export default InvoiceCreateWithBoundary;
+

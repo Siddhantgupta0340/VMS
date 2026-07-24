@@ -402,13 +402,27 @@ export const processInvoiceOcr = async (file) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-  const data = res.data.data;
+  const data = res.data.data || {};
+  const extracted = data.extractedData || {};
+
+  data.extractedData = {
+    sourceFileName: extracted.sourceFileName || file?.name || "Uploaded Document",
+    ocrConfidence: Number(data.ocrConfidence ?? extracted.ocrConfidence ?? 0),
+    header: extracted.header || {},
+    vendor: extracted.vendor || {},
+    company: extracted.company || {},
+    bank: extracted.bank || {},
+    references: extracted.references || {},
+    totals: extracted.totals || {},
+  };
+
   if (data?.matchedPurchaseOrder) {
     data.matchedPurchaseOrder = mapApprovedPurchaseOrder(data.matchedPurchaseOrder);
   }
 
   return data;
 };
+
 
 
 

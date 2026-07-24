@@ -109,6 +109,52 @@ export const resendActivation = async (email) => {
   return res.data;
 };
 
+export const forgotPassword = async ({ email }) => {
+  try {
+    const res = await api.post("/v1/auth/forgot-password", { email });
+    return {
+      success: true,
+      message: res.data?.message || "If an account exists for this email address, password reset instructions have been sent.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: getSafeAuthErrorMessage(err),
+    };
+  }
+};
+
+export const verifyOtp = async ({ email, otp }) => {
+  try {
+    const res = await api.post("/v1/auth/verify-otp", { email, otp });
+    return {
+      success: true,
+      message: res.data?.message || "OTP verified successfully.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: getSafeAuthErrorMessage(err),
+    };
+  }
+};
+
+export const resetPassword = async ({ email, otp, newPassword }) => {
+  try {
+    const res = await api.post("/v1/auth/reset-password", { email, otp, newPassword });
+    return {
+      success: true,
+      message: res.data?.message || "Password reset successfully. You can now login with your new password.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: getSafeAuthErrorMessage(err),
+    };
+  }
+};
+
+
 export const logout = async () => {
   // Note: backend logout is protected and expects Authorization header.
   // api interceptor will attach it automatically from stored access token.

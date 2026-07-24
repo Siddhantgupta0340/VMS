@@ -58,6 +58,8 @@ import Forbidden from "../pages/Forbidden/Forbidden";
 
 // Auth
 import Login from "../pages/Auth/Login";
+import ForgotPassword from "../pages/Auth/ForgotPassword";
+import ResetPassword from "../pages/Auth/ResetPassword";
 import ActivateAccount from "../pages/Auth/ActivateAccount";
 import ChangeTemporaryPassword from "../pages/Auth/ChangeTemporaryPassword";
 
@@ -80,8 +82,11 @@ const AppRoutes = () => {
     <Routes>
       {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/activate-account" element={<ActivateAccount />} />
       <Route path="/change-temporary-password" element={<ChangeTemporaryPassword />} />
+
 
       {/* Root Redirect */}
       <Route path="/" element={<RootRedirect />} />
