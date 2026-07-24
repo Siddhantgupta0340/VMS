@@ -9,19 +9,6 @@ class InvoiceController {
   });
 
   // ─── List & Get ────────────────────────────────────────────────────────────
-<<<<<<< HEAD
-=======
-  getApprovedPurchaseOrdersForInvoice = asyncHandler(async (req, res) => {
-    console.debug("[InvoiceController] getApprovedPurchaseOrdersForInvoice request received", {
-      jwtUser: req.user ? { id: req.user.id, role: req.user.role } : null,
-      requestParameters: req.query
-    });
-    const purchaseOrders = await invoiceService.getApprovedPurchaseOrdersForInvoice(req.query, req.user);
-    console.debug("[InvoiceController] purchaseOrders returned count", { count: purchaseOrders.length });
-    res.status(200).json({ success: true, purchaseOrders });
-  });
-
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   getInvoices = asyncHandler(async (req, res) => {
     const result = await invoiceService.listInvoices(req.query, req.user);
     res.status(200).json({ success: true, ...result });
@@ -119,18 +106,6 @@ class InvoiceController {
     const result = await invoiceService.addFinanceHeadRemark(req.params.id, req.user, remark, req);
     res.status(200).json({ success: true, ...result });
   });
-<<<<<<< HEAD
-=======
-
-  downloadInvoicePdf = asyncHandler(async (req, res) => {
-    const invoice = await invoiceService.downloadInvoicePdf(req.params.id, req.user, req);
-    res.status(200).json({
-      success: true,
-      message: 'Invoice download authorized.',
-      data: invoice,
-    });
-  });
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 }
 
 export default new InvoiceController();

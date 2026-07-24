@@ -10,18 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
+
     "@hookform/resolvers": "^5.4.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.18.0",
-=======
+
     "@fontsource/inter": "^5.2.8",
     "@heroui/react": "^3.2.1",
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/vite": "^4.3.2",
     "axios": "^1.18.1",
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
+
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.0",
     "html2pdf.js": "^0.14.0",

@@ -1,7 +1,6 @@
 import nodemailer from "nodemailer";
 
 const sendEmail = async (options) => {
-<<<<<<< HEAD
   console.log("\n================ EMAIL DEBUG =================");
 
   try {
@@ -16,9 +15,6 @@ const sendEmail = async (options) => {
     );
     console.log("EMAIL_FROM :", process.env.EMAIL_FROM);
 
-=======
-  try {
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     if (
       !process.env.SMTP_HOST ||
       !process.env.SMTP_PORT ||
@@ -28,11 +24,8 @@ const sendEmail = async (options) => {
       throw new Error("SMTP configuration is missing in the .env file.");
     }
 
-<<<<<<< HEAD
     console.log("\n[2] Creating Gmail SMTP Transport...");
 
-=======
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -43,7 +36,6 @@ const sendEmail = async (options) => {
       },
     });
 
-<<<<<<< HEAD
     console.log("[3] Verifying SMTP Connection...");
 
     await transporter.verify();
@@ -56,10 +48,6 @@ const sendEmail = async (options) => {
 
     console.log("\n[5] Sending Email...");
 
-=======
-    await transporter.verify();
-
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     const info = await transporter.sendMail({
       from:
         process.env.EMAIL_FROM ||
@@ -73,7 +61,6 @@ const sendEmail = async (options) => {
       attachments: options.attachments || [],
     });
 
-<<<<<<< HEAD
     console.log("\n========== EMAIL SENT ==========");
     console.log("Message ID :", info.messageId);
     console.log("Accepted :", info.accepted);
@@ -90,16 +77,8 @@ const sendEmail = async (options) => {
     console.error("Stack :", error.stack);
     console.error("=================================\n");
 
-=======
-    return info;
-  } catch (error) {
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     throw error;
   }
 };
 
-<<<<<<< HEAD
 export default sendEmail;
-=======
-export default sendEmail;
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

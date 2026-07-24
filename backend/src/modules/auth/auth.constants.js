@@ -8,17 +8,10 @@ export const AUTH_MESSAGES = {
   LOGIN_SUCCESS: 'Login successful.',
   LOGOUT_SUCCESS: 'Logged out successfully.',
   INVALID_CREDENTIALS: 'Invalid email or password.',
-<<<<<<< HEAD
   UNAUTHORIZED: 'Unauthorized access.',
   FORBIDDEN: 'You do not have permission to perform this action.',
   PASSWORD_CHANGED: 'Password changed successfully.',
   TOKEN_EXPIRED: 'Session expired, please login again.',
-=======
-  UNAUTHORIZED: 'Please log in to continue.',
-  FORBIDDEN: 'You do not have permission to access this resource.',
-  PASSWORD_CHANGED: 'Password changed successfully.',
-  TOKEN_EXPIRED: 'Your session has expired. Please log in again.',
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   USER_NOT_FOUND: 'User not found.',
   REFRESH_SUCCESS: 'Token refreshed successfully.',
   FORGOT_PASSWORD_SENT: 'If an account exists with that email, a password reset OTP has been sent.',

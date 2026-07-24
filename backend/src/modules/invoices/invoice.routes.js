@@ -15,15 +15,8 @@ import {
   invoiceIdSchema,
   searchInvoicesSchema,
   financeHeadObservationSchema,
-<<<<<<< HEAD
 } from './invoice.validation.js';
 import { ROLES } from '../../zodSchema/index.js';
-=======
-  approvedPurchaseOrdersForInvoiceSchema,
-} from './invoice.validation.js';
-import { ROLES } from '../../zodSchema/index.js';
-import { uploadInvoiceFile } from './invoice.upload.js';
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 const router = express.Router();
 
@@ -84,44 +77,12 @@ router.get('/pending/finance-head',
   invoiceController.getPendingFinanceHead,
 );
 
-<<<<<<< HEAD
 
 // ─── Base Collection Routes ───────────────────────────────────────────────────
 router
   .route('/')
   .post(authorize([ROLES.CASE_MANAGER]), validate(createInvoiceSchema), invoiceController.createInvoice)
   .get(authorize(READ_ROLES), validate(searchInvoicesSchema), invoiceController.getInvoices);
-=======
-// ─── Approved Purchase Orders for Invoice Selection ─────────────────────────────
-router.get('/approved-purchase-orders',
-  authorize(READ_ROLES),
-  validate(approvedPurchaseOrdersForInvoiceSchema),
-  invoiceController.getApprovedPurchaseOrdersForInvoice,
-);
-
-
-// ─── Base Collection Routes ───────────────────────────────────────────────────
-router
-  .route("/")
-  .post(
-    authorize([
-      ROLES.CASE_MANAGER,
-      ROLES.FINANCE_HEAD,
-      ROLES.SUPER_ADMIN,
-    ]),
-    uploadInvoiceFile.fields([
-      { name: 'invoiceFile', maxCount: 1 },
-      { name: 'supportingDocuments', maxCount: 10 }
-    ]),
-    validate(createInvoiceSchema),
-    invoiceController.createInvoice
-  )
-  .get(
-    authorize(READ_ROLES),
-    validate(searchInvoicesSchema),
-    invoiceController.getInvoices
-  );
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── Dynamic Parameterized Routes ─────────────────────────────────────────────
 router.get('/:id',
@@ -134,14 +95,6 @@ router.get('/:id/history',
   validate(invoiceIdSchema),
   invoiceController.getApprovalHistory,
 );
-<<<<<<< HEAD
-=======
-router.get('/:id/download',
-  authorize(READ_ROLES),
-  validate(invoiceIdSchema),
-  invoiceController.downloadInvoicePdf,
-);
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── Role-Level Approval Actions ──────────────────────────────────────────────
 router.patch('/:id/approve',

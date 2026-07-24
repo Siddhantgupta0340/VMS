@@ -1,22 +1,11 @@
 import { z } from 'zod';
 
 const uuidParam = z.object({ id: z.string().uuid('Invalid ID format') });
-<<<<<<< HEAD
-=======
-const requiredDate = (label) => z.coerce.date({
-  required_error: `${label} is required`,
-  invalid_type_error: `${label} must be a valid date`,
-});
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 export const startMatchingSchema = z.object({
   body: z.object({
     invoiceId: z.string().uuid('Invalid invoice ID'),
     grnId:     z.string().uuid('Invalid GRN ID').optional(),
-<<<<<<< HEAD
-=======
-    deliveryChallanId: z.string().uuid('Invalid Delivery Challan ID').optional(),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }),
 });
 
@@ -30,19 +19,8 @@ export const createGRNSchema = z.object({
   body: z.object({
     purchaseOrderId:   z.string().uuid('Invalid PO ID'),
     grnNumber:         z.string().trim().optional(),
-<<<<<<< HEAD
     deliveryDate:      z.coerce.date().optional(),
     deliveryChallanNo: z.string().trim().optional(),
-=======
-    deliveryDate:      requiredDate('GRN Receipt Date'),
-    receiptDate:       z.coerce.date().optional(),
-    deliveryChallanId: z.string().uuid('Invalid Delivery Challan ID').optional(),
-    deliveryChallanNo: z.string().trim().optional(),
-    receiverName:      z.string().trim().min(1, 'Receiver Name is required'),
-    receivedBy:        z.string().trim().optional(),
-    attachmentUrl:     z.string().trim().optional(),
-    attachmentName:    z.string().trim().optional(),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     deliveryAddress:   z.string().trim().optional(),
     billingAddress:    z.string().trim().optional(),
     deliveryTerms:     z.string().trim().optional(),
@@ -61,17 +39,7 @@ export const updateGRNSchema = z.object({
   params: uuidParam,
   body: z.object({
     deliveryDate:      z.coerce.date().optional(),
-<<<<<<< HEAD
     deliveryChallanNo: z.string().trim().optional(),
-=======
-    receiptDate:       z.coerce.date().optional(),
-    deliveryChallanId: z.string().uuid('Invalid Delivery Challan ID').optional(),
-    deliveryChallanNo: z.string().trim().optional(),
-    receiverName:      z.string().trim().optional(),
-    receivedBy:        z.string().trim().optional(),
-    attachmentUrl:     z.string().trim().optional(),
-    attachmentName:    z.string().trim().optional(),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     deliveryAddress:   z.string().trim().optional(),
     billingAddress:    z.string().trim().optional(),
     deliveryTerms:     z.string().trim().optional(),
@@ -86,59 +54,9 @@ export const updateGRNSchema = z.object({
   }),
 });
 
-<<<<<<< HEAD
 export const searchMatchesSchema = z.object({
   query: z.object({
     status:    z.enum(['PENDING', 'MATCHED', 'UNMATCHED']).optional(),
-=======
-export const createDeliveryChallanSchema = z.object({
-  body: z.object({
-    purchaseOrderId: z.string().uuid('Invalid PO ID'),
-    deliveryDate:   requiredDate('Delivery Challan Date'),
-    deliveryAddress: z.string().trim().optional(),
-    transporter:    z.string().trim().optional(),
-    vehicleNumber:  z.string().trim().optional(),
-    driverName:     z.string().trim().optional(),
-    driverContact:  z.string().trim().optional(),
-    deliveryStatus: z.string().trim().optional(),
-    documentUrl:    z.string().trim().optional(),
-    documentName:   z.string().trim().optional(),
-    vehicleDetails: z.string().trim().optional(),
-    currency:       z.string().trim().optional().default('INR'),
-    subtotal:       z.coerce.number().min(0).optional().default(0),
-    gstAmount:      z.coerce.number().min(0).optional().default(0),
-    totalAmount:    z.coerce.number().min(0).optional().default(0),
-    lineItems:      z.array(z.any()).optional(),
-    remarks:        z.string().trim().optional(),
-  }),
-});
-
-export const updateDeliveryChallanSchema = z.object({
-  params: uuidParam,
-  body: z.object({
-    deliveryDate:   z.coerce.date().optional(),
-    deliveryAddress: z.string().trim().optional(),
-    transporter:    z.string().trim().optional(),
-    vehicleNumber:  z.string().trim().optional(),
-    driverName:     z.string().trim().optional(),
-    driverContact:  z.string().trim().optional(),
-    deliveryStatus: z.string().trim().optional(),
-    documentUrl:    z.string().trim().optional(),
-    documentName:   z.string().trim().optional(),
-    vehicleDetails: z.string().trim().optional(),
-    subtotal:       z.coerce.number().min(0).optional(),
-    gstAmount:      z.coerce.number().min(0).optional(),
-    totalAmount:    z.coerce.number().min(0).optional(),
-    lineItems:      z.array(z.any()).optional(),
-    remarks:        z.string().trim().optional(),
-    status:         z.enum(['created', 'verified', 'cancelled']).optional(),
-  }),
-});
-
-export const searchMatchesSchema = z.object({
-  query: z.object({
-    status:    z.enum(['PENDING', 'MATCHED', 'PARTIAL_MATCH', 'MISMATCH', 'UNMATCHED']).optional(),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
     invoiceId: z.string().uuid().optional(),
     page:      z.coerce.number().int().positive().optional().default(1),
     limit:     z.coerce.number().int().positive().max(100).optional().default(20),
@@ -152,10 +70,5 @@ export default {
   poIdParam,
   createGRNSchema,
   updateGRNSchema,
-<<<<<<< HEAD
-=======
-  createDeliveryChallanSchema,
-  updateDeliveryChallanSchema,
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   searchMatchesSchema,
 };

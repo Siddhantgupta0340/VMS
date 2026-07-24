@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 import ApiError from '../../utils/ApiError.js';
 import notificationRepository from './notification.repository.js';
 import prisma from '../../config/prisma.js';
@@ -383,4 +381,3 @@ class NotificationService {
 }
 
 export default new NotificationService();
->>>>>>> a88ae1768d12205223891c6a6c1f656438518083

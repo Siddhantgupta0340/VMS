@@ -17,17 +17,9 @@ const normalizeDatabaseUrl = (url?: string) => {
 export default defineConfig({
   schema: "prisma/schema.prisma",
   datasource: {
-<<<<<<< HEAD
     url: process.env.DATABASE_URL,
-=======
-    url: normalizeDatabaseUrl(process.env.DIRECT_URL || process.env.DATABASE_URL),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   },
   migrations: {
     path: "prisma/migrations",
   },
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

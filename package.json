@@ -1,8 +1,8 @@
 {
-<<<<<<< HEAD
+
   "dependencies": {
     "build": "^0.1.4"
-=======
+
   "name": "vms",
   "private": true,
   "scripts": {
@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "play-sound": "^1.1.6"
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
+
   }
 }

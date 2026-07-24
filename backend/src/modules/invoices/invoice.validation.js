@@ -5,7 +5,6 @@ const uuidParamSchema = z.object({
   id: z.string().uuid('Invalid invoice ID format'),
 });
 
-<<<<<<< HEAD
 // ─── Create Invoice ───────────────────────────────────────────────────────────
 export const createInvoiceSchema = z.object({
   body: z.object({
@@ -19,67 +18,12 @@ export const createInvoiceSchema = z.object({
     description:     z.string().trim().optional(),
   }),
 });
-=======
-export const INVOICE_SOURCES = [
-  'MANUAL_ENTRY',
-  'UPLOADED_PDF',
-  'SCANNED_PDF',
-  'SCANNED_IMAGE',
-  'EMAIL_ATTACHMENT',
-  'SYSTEM_IMPORT',
-];
-
-export const INVOICE_CREATION_METHODS = ['MANUAL', 'OCR'];
-
-export const INVOICE_CATEGORIES = [
-  'TAX_INVOICE',
-  'PROFORMA_INVOICE',
-  'DEBIT_NOTE',
-  'CREDIT_NOTE',
-  'COMMERCIAL_INVOICE',
-  'SERVICE_INVOICE',
-  'PURCHASE_INVOICE',
-  'RECURRING_INVOICE',
-  'OTHER',
-];
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 
 // ─── ID-only param ───────────────────────────────────────────────────────────
 export const invoiceIdSchema = z.object({
   params: uuidParamSchema,
 });
 
-<<<<<<< HEAD
-=======
-export const createInvoiceSchema = z.object({
-  body: z.object({
-    purchaseOrderId: z.string().uuid('Invalid purchase order ID format'),
-    vendorId: z.string().uuid('Invalid vendor ID format').optional(),
-    amount: z.coerce.number().positive().optional(),
-    currency: z.string().optional().default('INR'),
-    invoiceCreationMethod: z.enum(INVOICE_CREATION_METHODS, { message: 'Invoice creation method is required.' }).optional().default('MANUAL'),
-    invoiceSource: z.enum(INVOICE_SOURCES, { message: 'Invoice Source is required.' }).optional().default('MANUAL_ENTRY'),
-    invoiceCategory: z.enum(INVOICE_CATEGORIES, { message: 'Invoice Category is required.' }).optional().default('TAX_INVOICE'),
-    invoiceDate: z.preprocess(
-      (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Invoice date must be a valid date' }).optional(),
-    ),
-    dueDate: z.preprocess(
-      (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(), // Due Date is required
-    ),
-    remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional().default(''),
-  }),
-});
-
-export const approvedPurchaseOrdersForInvoiceSchema = z.object({
-  query: z.object({
-    search: z.string().trim().optional(),
-    limit: z.coerce.number().int().positive().max(50).optional().default(25),
-  }),
-});
-
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 // ─── Approve ─────────────────────────────────────────────────────────────────
 export const invoiceApproveSchema = z.object({
   params: uuidParamSchema,
@@ -108,27 +52,6 @@ export const invoiceCancelSchema = z.object({
   }).optional().default({}),
 });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-export const updateInvoiceSchema = z.object({
-  params: uuidParamSchema,
-  body: z.object({
-    invoiceDate: z.preprocess(
-      (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Invoice date must be a valid date' }).optional(),
-    ),
-    dueDate: z.preprocess(
-      (val) => (val ? new Date(val) : undefined),
-      z.date({ invalid_type_error: 'Due Date must be a valid date' }).optional(),
-    ),
-    remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional(),
-    lineItems: z.array(z.record(z.any())).optional(),
-    reason: z.string().trim().max(500, 'Reason cannot exceed 500 characters').optional(),
-  }),
-});
-
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
 // ─── Admin Review ─────────────────────────────────────────────────────────────
 export const adminReviewApproveSchema = z.object({
   params: uuidParamSchema,
@@ -136,8 +59,6 @@ export const adminReviewApproveSchema = z.object({
     remarks: z.string().max(1000, 'Remarks cannot exceed 1000 characters').trim().optional().default(''),
   }).optional().default({}),
 });
-=======
->>>>>>> a88ae1768d12205223891c6a6c1f656438518083
 
 
 // ─── Soft Delete ─────────────────────────────────────────────────────────────
@@ -171,10 +92,6 @@ const ALL_STATUSES = [
   INVOICE_STATUS.PENDING_FINANCE_HEAD,
   INVOICE_STATUS.APPROVED,
   INVOICE_STATUS.REJECTED,
-<<<<<<< HEAD
-=======
-  INVOICE_STATUS.PAID,
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   INVOICE_STATUS.CANCELLED,
 ];
 
@@ -194,10 +111,6 @@ export const searchInvoicesSchema = z.object({
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
     page:    z.coerce.number().int().positive().optional().default(1),
     limit:   z.coerce.number().int().positive().max(100).optional().default(10),
-<<<<<<< HEAD
-=======
-    eligibleForPayment: z.string().optional(),
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   }),
 });
 
@@ -221,37 +134,17 @@ export const invoiceActionSchema = z.object({
 });
 
 export default {
-<<<<<<< HEAD
   createInvoiceSchema,
-=======
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   invoiceIdSchema,
   invoiceApproveSchema,
   invoiceRejectSchema,
   invoiceCancelSchema,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  updateInvoiceSchema,
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   adminReviewApproveSchema,
   adminReviewRejectSchema,
-=======
->>>>>>> a88ae1768d12205223891c6a6c1f656438518083
   invoiceDeleteSchema,
   invoiceRestoreSchema,
   financeHeadRemarkSchema,
   searchInvoicesSchema,
   financeHeadObservationSchema,
-<<<<<<< HEAD
   invoiceActionSchema,
 };
-=======
-  createInvoiceSchema,
-  approvedPurchaseOrdersForInvoiceSchema,
-  invoiceActionSchema,
-};
-
-// Due Date is required
-
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52

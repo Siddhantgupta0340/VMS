@@ -1,24 +1,9 @@
 import asyncHandler from '../../middleware/asyncHandler.middleware.js';
 import purchaseOrderService from './po.service.js';
+import { generatePurchaseOrderPdf } from './po.pdf.js';
+import ApiError from '../../utils/ApiError.js';
 
-<<<<<<< HEAD
-/**
- * PurchaseOrderController
- *
- * Handles HTTP layer only:
- * - Extract validated req.body / req.params / req.user
- * - Delegate all business logic to PurchaseOrderService
- * - Return standardized JSON responses
- */
 class PurchaseOrderController {
-  /**
-   * POST /api/v1/purchase-orders
-   * Create a new Purchase Order.
-   * Requires role: CASE_MANAGER | FINANCE_MANAGER
-   */
-=======
-class PurchaseOrderController {
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   createPurchaseOrder = asyncHandler(async (req, res) => {
     const purchaseOrder = await purchaseOrderService.createPurchaseOrder(req.body, req.user);
     res.status(201).json({
@@ -28,12 +13,6 @@ class PurchaseOrderController {
     });
   });
 
-<<<<<<< HEAD
-  /**
-   * GET /api/v1/purchase-orders
-   * List purchase orders with pagination and filters.
-   */
-=======
   calculatePurchaseOrderTax = asyncHandler(async (req, res) => {
     const tax = await purchaseOrderService.calculatePurchaseOrderTaxPreview(req.body, req.user);
     res.status(200).json({
@@ -42,39 +21,26 @@ class PurchaseOrderController {
     });
   });
 
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   getPurchaseOrders = asyncHandler(async (req, res) => {
     const result = await purchaseOrderService.listPurchaseOrders(req.query, req.user);
     res.status(200).json({ success: true, ...result });
   });
 
-<<<<<<< HEAD
-  /**
-   * GET /api/v1/purchase-orders/:id
-   * Get a single Purchase Order by ID.
-   */
-=======
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
   getPurchaseOrderById = asyncHandler(async (req, res) => {
     const purchaseOrder = await purchaseOrderService.getPurchaseOrderById(req.params.id, req.user);
     res.status(200).json({ success: true, data: purchaseOrder });
   });
 
-<<<<<<< HEAD
-  /**
-   * PATCH /api/v1/purchase-orders/:id/status
-   * Update a Purchase Order's status.
-   * Requires role: FINANCE_MANAGER
-   * Uses validated req.body.status — set by validate middleware.
-   */
   updatePurchaseOrderStatus = asyncHandler(async (req, res) => {
-    // req.body.status is already validated and set by the validate middleware
     const { status } = req.body;
     const purchaseOrder = await purchaseOrderService.updatePurchaseOrderStatus(req.params.id, status);
     res.status(200).json({
       success: true,
       message: `Purchase order status updated to "${status}" successfully.`,
-=======
+      data: purchaseOrder,
+    });
+  });
+
   updatePurchaseOrder = asyncHandler(async (req, res) => {
     const purchaseOrder = await purchaseOrderService.updatePurchaseOrder(req.params.id, req.body, req.user, req);
     res.status(200).json({
@@ -89,14 +55,47 @@ class PurchaseOrderController {
     res.status(200).json({ success: true, ...result });
   });
 
+  /**
+   * GET /:id/download
+   * Generates and streams a real PDF binary with Content-Type: application/pdf.
+   * RBAC is enforced by the `authorize(DOWNLOAD_ROLES)` middleware in po.routes.js.
+   */
   downloadPurchaseOrderPdf = asyncHandler(async (req, res) => {
-    const purchaseOrder = await purchaseOrderService.downloadPurchaseOrderPdf(req.params.id, req.user, req);
-    res.status(200).json({
-      success: true,
-      message: 'Purchase order download authorized.',
->>>>>>> 870185c8e3ae31efe09445248cd7c7dc457a6b52
-      data: purchaseOrder,
+    // 1. Fetch the full PO record from the database (throws 404 if not found / 403 if unauthorized)
+    const po = await purchaseOrderService.downloadPurchaseOrderPdf(req.params.id, req.user, req);
+
+    if (!po) {
+      throw new ApiError(404, 'Purchase Order not found.');
+    }
+
+    // 2. Generate the PDF buffer — all data comes from the live database record
+    let pdfBuffer;
+    try {
+      pdfBuffer = await generatePurchaseOrderPdf(po);
+    } catch (pdfError) {
+      console.error('[PO PDF] Generation failed:', pdfError);
+      throw new ApiError(500, 'PDF generation failed. Please try again.');
+    }
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new ApiError(500, 'PDF generation produced an empty document. Please contact support.');
+    }
+
+    // 3. Build a safe filename: PO_2026_000001.pdf
+    const safeNumber = String(po.po_number || po.poNumber || 'PO').replace(/[/\\?%*:|"<>]/g, '_');
+    const filename   = `${safeNumber}.pdf`;
+
+    // 4. Stream the PDF binary to the client
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length':      pdfBuffer.length,
+      'Cache-Control':       'no-cache, no-store, must-revalidate',
+      'Pragma':              'no-cache',
+      'Expires':             '0',
     });
+
+    res.end(pdfBuffer);
   });
 }
 
