@@ -6,7 +6,7 @@ import {
   updateStoredTokens,
 } from "../services/authSession";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://vms-5rht.onrender.com/api";
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication required. Redirecting to login.") {
