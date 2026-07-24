@@ -50,7 +50,7 @@ test('LookupController - getVendors returns database-mapped active vendors', asy
 
   // Mock Prisma vendor findMany
   prisma.vendor.findMany = async () => [
-    { id: 'v1', name: 'Acme Corp', vendor_code: 'VND001' },
+    { id: 'v1', name: 'ACRE Corp', vendor_code: 'VND001' },
     { id: 'v2', name: 'Global Industries', vendor_code: 'VND002' },
   ];
 
@@ -62,7 +62,7 @@ test('LookupController - getVendors returns database-mapped active vendors', asy
   assert.equal(res.statusCode, 200);
   assert.ok(res.body.success);
   assert.equal(res.body.data.length, 2);
-  assert.equal(res.body.data[0].name, 'Acme Corp (VND001)');
+  assert.equal(res.body.data[0].name, 'ACRE Corp (VND001)');
   assert.equal(res.body.data[0].value, 'v1');
 
   restoreAll();

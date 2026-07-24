@@ -8,7 +8,7 @@ const basePo = {
   po_number: 'PO-2026-000001',
   vendor_id: 'vendor-1',
   amount: 1180,
-  vendor: { name: 'Acme Supplies', vendor_code: 'VEN-001' },
+  vendor: { name: 'ACRE Supplies', vendor_code: 'VEN-001' },
   line_items: [
     { itemName: 'Laptop Stand', hsnCode: '8473', quantity: 10, unitPrice: 100, gstAmount: 180, lineTotal: 1180 },
   ],
@@ -42,7 +42,7 @@ const baseInvoice = {
   vendor_id: 'vendor-1',
   amount: 1180,
   invoice_total: 1180,
-  vendor: { name: 'Acme Supplies', vendor_code: 'VEN-001' },
+  vendor: { name: 'ACRE Supplies', vendor_code: 'VEN-001' },
   line_items: [
     { itemName: 'Laptop Stand', hsnCode: '8473', quantity: 10, unitPrice: 100, gstAmount: 180, lineTotal: 1180 },
   ],

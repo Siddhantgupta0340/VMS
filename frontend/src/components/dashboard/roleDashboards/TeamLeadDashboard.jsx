@@ -238,12 +238,12 @@ const TeamLeadDashboard = () => {
               )
             </p>
           </div>
-          <Link
+          {/* <Link
             to="/approvals"
             className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 sm:h-9 sm:text-sm"
           >
             Open queue
-          </Link>
+          </Link> */}
         </div>
 
         {safeNumber(pending.pendingInvoiceApprovals) === 0 ? (

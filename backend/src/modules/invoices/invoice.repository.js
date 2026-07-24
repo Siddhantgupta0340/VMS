@@ -91,8 +91,12 @@ class InvoiceRepository {
   /**
    * Run a transaction.
    */
-  async transaction(callback) {
-    return prisma.$transaction(callback);
+  async transaction(callback, options = {}) {
+    return prisma.$transaction(callback, {
+      maxWait: 10000,
+      timeout: 30000,
+      ...options,
+    });
   }
 }
 

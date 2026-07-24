@@ -268,12 +268,9 @@ export const generatePurchaseOrderPdf = (po) => {
       const prNumber       = po.purchase_requisition_number || po.purchaseRequisitionNumber;
       const department     = po.department;
       const costCenter     = po.cost_center || po.costCenter;
-      const projectCode    = po.project_code || po.projectCode;
       const requester      = po.requester;
       const buyer          = po.buyer;
-      const quotRef        = po.quotation_reference || po.quotationReference;
       const quotDate       = po.quotation_date || po.quotationDate;
-      const contractRef    = po.contract_reference || po.contractReference;
       const createdAt      = po.created_at || po.createdAt;
       const createdByUser  = po.created_by;
 
@@ -403,12 +400,9 @@ export const generatePurchaseOrderPdf = (po) => {
         { label: 'Purchase Requisition:', value: prNumber },
         { label: 'Department:',           value: department },
         { label: 'Cost Center:',          value: costCenter },
-        { label: 'Project Code:',         value: projectCode },
         { label: 'Requester:',            value: requester },
         { label: 'Buyer:',                value: buyer },
-        { label: 'Quotation Reference:',  value: quotRef },
         { label: 'Quotation Date:',       value: fmtDate(quotDate) !== 'N/A' ? fmtDate(quotDate) : null },
-        { label: 'Contract Reference:',   value: contractRef },
       ].filter((r) => r.value && String(r.value).trim() !== '' && String(r.value) !== 'N/A');
 
       if (refs.length > 0) {

@@ -185,12 +185,9 @@ class PurchaseOrderService {
         purchase_requisition_number: payload.purchaseRequisitionNumber || null,
         department: payload.department || null,
         cost_center: payload.costCenter || null,
-        project_code: payload.projectCode || null,
         requester: payload.requester || null,
         buyer: payload.buyer || null,
-        quotation_reference: payload.quotationReference || null,
         quotation_date: payload.quotationDate ? new Date(payload.quotationDate) : null,
-        contract_reference: payload.contractReference || null,
       };
 
       const created = await purchaseOrderRepository.create(poData);
@@ -307,17 +304,14 @@ class PurchaseOrderService {
           purchase_requisition_number: payload.purchaseRequisitionNumber !== undefined ? payload.purchaseRequisitionNumber : existing.purchase_requisition_number,
           department: payload.department !== undefined ? payload.department : existing.department,
           cost_center: payload.costCenter !== undefined ? payload.costCenter : existing.cost_center,
-          project_code: payload.projectCode !== undefined ? payload.projectCode : existing.project_code,
           requester: payload.requester !== undefined ? payload.requester : existing.requester,
           buyer: payload.buyer !== undefined ? payload.buyer : existing.buyer,
-          quotation_reference: payload.quotationReference !== undefined ? payload.quotationReference : existing.quotation_reference,
           quotation_date: payload.quotationDate !== undefined ? (payload.quotationDate ? new Date(payload.quotationDate) : null) : existing.quotation_date,
-          contract_reference: payload.contractReference !== undefined ? payload.contractReference : existing.contract_reference,
         },
         include: { vendor: true, created_by: { select: { id: true, email: true, first_name: true, last_name: true, role: true } } },
       });
 
-      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'line_items', 'tax_summary', 'po_type', 'purchase_requisition_number', 'department', 'cost_center', 'project_code', 'requester', 'buyer', 'quotation_reference', 'quotation_date', 'contract_reference'];
+      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'line_items', 'tax_summary', 'po_type', 'purchase_requisition_number', 'department', 'cost_center', 'requester', 'buyer', 'quotation_date'];
       const summary = summarizeChanges(existing, updated, fields);
       await tx.auditLog.create({
         data: {

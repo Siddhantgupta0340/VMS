@@ -2,6 +2,7 @@ import ApiError from '../../utils/ApiError.js';
 import matchingRepository from './matching.repository.js';
 import notificationService from '../notifications/notification.service.js';
 import { ROLES } from '../../zodSchema/index.js';
+import { withDatabaseRetry } from '../../utils/dbRetry.js';
 import {
   INVOICE_STATUS,
   THREE_WAY_MATCH_STATUS,
@@ -326,231 +327,226 @@ class MatchingService {
       throw new ApiError(403, 'Only Case Managers can initiate Three-Way Matching.');
     }
 
-    // Load invoice with relations
-    const invoice = await prisma.invoice.findUnique({
-      where:   { id: invoiceId },
-      include: {
-        vendor:        true,
-        purchase_order: true,
-      },
-    });
-
-    if (!invoice) throw new ApiError(404, 'Invoice not found.');
-    if (invoice.deleted_at) throw new ApiError(400, 'Cannot run matching on a deleted invoice.');
-
-    if (invoice.status !== INVOICE_STATUS.PENDING_THREE_WAY_MATCH &&
-        invoice.status !== INVOICE_STATUS.SUBMITTED) {
-      throw new ApiError(400, `Invoice must be in PENDING_THREE_WAY_MATCH status. Current: ${invoice.status}`);
-    }
-
-    let grn = null;
-    if (grnId) {
-      grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
-      if (!grn) throw new ApiError(404, 'GRN not found.');
-      if (grn.deleted_at) throw new ApiError(400, 'Cannot use a deleted GRN for matching.');
-      if (grn.purchase_order_id !== invoice.purchase_order_id) {
-        throw new ApiError(400, 'GRN does not belong to the same Purchase Order as this Invoice.');
-      }
-    } else {
-      grn = await prisma.goodsReceiptNote.findFirst({
-        where:   { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'rejected' } },
-        orderBy: [{ status: 'desc' }, { created_at: 'desc' }],
-      });
-    }
-
-    let deliveryChallan = null;
-    if (deliveryChallanId) {
-      deliveryChallan = await prisma.deliveryChallan.findUnique({ where: { id: deliveryChallanId } });
-      if (!deliveryChallan) throw new ApiError(404, 'Delivery Challan not found.');
-      if (deliveryChallan.deleted_at) throw new ApiError(400, 'Cannot use a deleted Delivery Challan for matching.');
-      if (deliveryChallan.purchase_order_id !== invoice.purchase_order_id) {
-        throw new ApiError(400, 'Delivery Challan does not belong to the same Purchase Order as this Invoice.');
-      }
-    } else {
-      deliveryChallan = await prisma.deliveryChallan.findFirst({
-        where: { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'cancelled' } },
-        orderBy: { created_at: 'desc' },
-      });
-    }
-
-    const comparison = compareThreeWayDocuments({
-      invoice,
-      purchaseOrder: invoice.purchase_order,
-      grn,
-      deliveryChallan,
-    });
-
-    const now = new Date();
-
-    const txResult = await matchingRepository.transaction(async (tx) => {
-      const previousMatch = await tx.threeWayMatch.findFirst({
-        where: { invoice_id: invoiceId },
-        orderBy: { created_at: 'desc' },
-      });
-
-      const match = await tx.threeWayMatch.create({
-        data: {
-          invoice_id:              invoiceId,
-          purchase_order_id:       invoice.purchase_order_id,
-          grn_id:                  grn?.id || null,
-          delivery_challan_id:     deliveryChallan?.id || null,
-          status:                  comparison.status,
-          match_percentage:        comparison.match_percentage,
-          matched_fields_count:    comparison.matched_fields_count,
-          total_fields_count:      comparison.total_fields_count,
-          matched_fields:          comparison.matched_fields,
-          unmatched_fields:        comparison.unmatched_fields,
-          warnings:                comparison.warnings,
-          approval_recommendation: comparison.approval_recommendation,
-          po_snapshot:             comparison.snapshots.purchaseOrder,
-          grn_snapshot:            comparison.snapshots.goodsReceiptNote,
-          delivery_challan_snapshot: comparison.snapshots.deliveryChallan,
-          invoice_snapshot:        {
-            ...comparison.snapshots.invoice,
-            summary: comparison.summary,
-          },
-          completed_by_id:         user.id,
-          completed_at:            now,
-          admin_review_status:     comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? ADMIN_REVIEW_STATUS.PENDING : null,
-        },
-      });
-
-      const invoiceAmount = Number(invoice.amount || invoice.invoice_total || 0);
-      const requiredApprovalRole = getRequiredInvoiceApprovalRole(invoiceAmount);
-      const nextInvoiceStatus = comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
-        ? getNextApprovalStatus(invoiceAmount, INVOICE_STATUS.PENDING_THREE_WAY_MATCH)
-        : INVOICE_STATUS.PENDING_THREE_WAY_MATCH;
-      const nextApprovalLevel = comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
-        ? getCurrentApprovalLevel(nextInvoiceStatus)
-        : null;
-
-      const updatedInvoice = await tx.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          three_way_match_status:      comparison.status,
-          three_way_match_percentage:  comparison.match_percentage,
-          matching_completed_by_id:    user.id,
-          matching_completed_at:       now,
-          matching_remarks:            comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
-            ? `Matched ${comparison.matched_fields_count}/${comparison.total_fields_count} fields.`
-            : comparison.unmatched_fields.map((field) => field.reason).join(' '),
-          status:                      nextInvoiceStatus,
-          required_approval_role:      requiredApprovalRole,
-          current_approval_level:      nextApprovalLevel,
-          admin_review_status:         comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? ADMIN_REVIEW_STATUS.PENDING : null,
-        },
+    return withDatabaseRetry('startMatching', async () => {
+      // Load invoice with relations
+      const invoice = await prisma.invoice.findUnique({
+        where:   { id: invoiceId },
         include: {
-          vendor: true,
+          vendor:        true,
           purchase_order: true,
-          created_by: { select: { id: true, first_name: true, last_name: true, email: true, role: true } },
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          entity_type:     'three_way_match',
-          entity_id:       invoiceId,
-          action:          comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? 'matching_completed' : 'mismatch_detected',
-          from_status:     INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
-          to_status:       nextInvoiceStatus,
-          performed_by_id: user.id,
-          remarks:         `Three-Way Matching: ${comparison.status}. Match: ${comparison.match_percentage}%. ${comparison.unmatched_fields.map(f => f.reason).join(' ') || 'No mismatches.'}`,
-          old_value:       previousMatch ? { status: previousMatch.status, unmatched_fields: previousMatch.unmatched_fields } : null,
-          new_value:       { status: comparison.status, summary: comparison.summary, unmatched_fields: comparison.unmatched_fields },
-          ip_address:      req?.ip || null,
-          user_agent:      req?.headers?.['user-agent'] || null,
-        },
+      if (!invoice) throw new ApiError(404, 'Invoice not found.');
+      if (invoice.deleted_at) throw new ApiError(400, 'Cannot run matching on a deleted invoice.');
+
+      if (invoice.status !== INVOICE_STATUS.PENDING_THREE_WAY_MATCH &&
+          invoice.status !== INVOICE_STATUS.SUBMITTED) {
+        throw new ApiError(400, `Invoice must be in PENDING_THREE_WAY_MATCH status. Current: ${invoice.status}`);
+      }
+
+      let grn = null;
+      if (grnId) {
+        grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
+        if (!grn) throw new ApiError(404, 'GRN not found.');
+        if (grn.deleted_at) throw new ApiError(400, 'Cannot use a deleted GRN for matching.');
+        if (grn.purchase_order_id !== invoice.purchase_order_id) {
+          throw new ApiError(400, 'GRN does not belong to the same Purchase Order as this Invoice.');
+        }
+      } else {
+        grn = await prisma.goodsReceiptNote.findFirst({
+          where:   { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'rejected' } },
+          orderBy: [{ status: 'desc' }, { created_at: 'desc' }],
+        });
+      }
+
+      let deliveryChallan = null;
+      if (deliveryChallanId) {
+        deliveryChallan = await prisma.deliveryChallan.findUnique({ where: { id: deliveryChallanId } });
+        if (!deliveryChallan) throw new ApiError(404, 'Delivery Challan not found.');
+        if (deliveryChallan.deleted_at) throw new ApiError(400, 'Cannot use a deleted Delivery Challan for matching.');
+        if (deliveryChallan.purchase_order_id !== invoice.purchase_order_id) {
+          throw new ApiError(400, 'Delivery Challan does not belong to the same Purchase Order as this Invoice.');
+        }
+      } else {
+        deliveryChallan = await prisma.deliveryChallan.findFirst({
+          where: { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'cancelled' } },
+          orderBy: { created_at: 'desc' },
+        });
+      }
+
+      const comparison = compareThreeWayDocuments({
+        invoice,
+        purchaseOrder: invoice.purchase_order,
+        grn,
+        deliveryChallan,
       });
 
-      // ── Payment Approval Auto-Creation on MATCHED ──────────────────────────
-      // When Three-Way Matching is MATCHED, automatically create a PaymentApproval
-      // record INSIDE this transaction. This is the authoritative creation point.
-      // The idempotency guard in createPaymentApprovalForInvoice ensures no duplicate
-      // is ever created even if this function is called multiple times.
-      let createdApproval = null;
-      let assignedApprover = null;
+      const now = new Date();
 
-      if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED) {
-        const paService = await getPaymentApprovalService();
-        const approvalResult = await paService.createPaymentApprovalForInvoice(
-          updatedInvoice,
-          user,
-          tx,
-          match.id, // Pass the freshly-created match ID directly — no extra DB lookup needed
-        );
-        createdApproval  = approvalResult.approval;
-        assignedApprover = approvalResult.approver;
+      const txResult = await matchingRepository.transaction(async (tx) => {
+        const previousMatch = await tx.threeWayMatch.findFirst({
+          where: { invoice_id: invoiceId },
+          orderBy: { created_at: 'desc' },
+        });
 
-        // Write a supplementary audit log entry for the approval creation
+        const match = await tx.threeWayMatch.create({
+          data: {
+            invoice_id:              invoiceId,
+            purchase_order_id:       invoice.purchase_order_id,
+            grn_id:                  grn?.id || null,
+            delivery_challan_id:     deliveryChallan?.id || null,
+            status:                  comparison.status,
+            match_percentage:        comparison.match_percentage,
+            matched_fields_count:    comparison.matched_fields_count,
+            total_fields_count:      comparison.total_fields_count,
+            matched_fields:          comparison.matched_fields,
+            unmatched_fields:        comparison.unmatched_fields,
+            warnings:                comparison.warnings,
+            approval_recommendation: comparison.approval_recommendation,
+            po_snapshot:             comparison.snapshots.purchaseOrder,
+            grn_snapshot:            comparison.snapshots.goodsReceiptNote,
+            delivery_challan_snapshot: comparison.snapshots.deliveryChallan,
+            invoice_snapshot:        {
+              ...comparison.snapshots.invoice,
+              summary: comparison.summary,
+            },
+            completed_by_id:         user.id,
+            completed_at:            now,
+            admin_review_status:     comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? ADMIN_REVIEW_STATUS.PENDING : null,
+          },
+        });
+
+        const invoiceAmount = Number(invoice.amount || invoice.invoice_total || 0);
+        const requiredApprovalRole = getRequiredInvoiceApprovalRole(invoiceAmount);
+        const nextInvoiceStatus = comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
+          ? getNextApprovalStatus(invoiceAmount, INVOICE_STATUS.PENDING_THREE_WAY_MATCH)
+          : INVOICE_STATUS.PENDING_THREE_WAY_MATCH;
+        const nextApprovalLevel = comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
+          ? getCurrentApprovalLevel(nextInvoiceStatus)
+          : null;
+
+        const updatedInvoice = await tx.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            three_way_match_status:      comparison.status,
+            three_way_match_percentage:  comparison.match_percentage,
+            matching_completed_by_id:    user.id,
+            matching_completed_at:       now,
+            matching_remarks:            comparison.status === THREE_WAY_MATCH_STATUS.MATCHED
+              ? `Matched ${comparison.matched_fields_count}/${comparison.total_fields_count} fields.`
+              : comparison.unmatched_fields.map((field) => field.reason).join(' '),
+            status:                      nextInvoiceStatus,
+            required_approval_role:      requiredApprovalRole,
+            current_approval_level:      nextApprovalLevel,
+            admin_review_status:         comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? ADMIN_REVIEW_STATUS.PENDING : null,
+          },
+          include: {
+            vendor: true,
+            purchase_order: true,
+            created_by: { select: { id: true, first_name: true, last_name: true, email: true, role: true } },
+          },
+        });
+
         await tx.auditLog.create({
           data: {
-            entity_type:     'payment_approval',
-            entity_id:       createdApproval.id,
-            action:          approvalResult.alreadyExisted ? 'payment_approval_already_existed' : 'payment_approval_created',
-            from_status:     null,
-            to_status:       'PENDING',
+            entity_type:     'three_way_match',
+            entity_id:       invoiceId,
+            action:          comparison.status === THREE_WAY_MATCH_STATUS.MATCHED ? 'matching_completed' : 'mismatch_detected',
+            from_status:     INVOICE_STATUS.PENDING_THREE_WAY_MATCH,
+            to_status:       nextInvoiceStatus,
             performed_by_id: user.id,
-            remarks:         approvalResult.alreadyExisted
-              ? `Idempotency: existing PENDING approval ${createdApproval.id} reused for invoice ${invoiceId}.`
-              : `Payment approval created for invoice ${invoiceId}. Amount: ${updatedInvoice.currency} ${Number(updatedInvoice.invoice_total || updatedInvoice.amount)}. Assigned to: ${assignedApprover?.email} (${createdApproval.required_role}).`,
+            remarks:         `Three-Way Matching: ${comparison.status}. Match: ${comparison.match_percentage}%. ${comparison.unmatched_fields.map(f => f.reason).join(' ') || 'No mismatches.'}`,
+            old_value:       previousMatch ? { status: previousMatch.status, unmatched_fields: previousMatch.unmatched_fields } : null,
+            new_value:       { status: comparison.status, summary: comparison.summary, unmatched_fields: comparison.unmatched_fields },
             ip_address:      req?.ip || null,
             user_agent:      req?.headers?.['user-agent'] || null,
           },
         });
-      }
 
-      // Send notifications inside the transaction!
-      await notificationService.notifyMatchingCompleted(
-        { ...updatedInvoice, created_by_id: updatedInvoice.created_by_id },
-        comparison.status,
-        comparison.match_percentage,
-        tx
-      );
+        // ── Payment Approval Auto-Creation on MATCHED ──────────────────────────
+        let createdApproval = null;
+        let assignedApprover = null;
 
-      if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED && nextApprovalLevel) {
-        // Prevent next level notification unless PaymentApproval was successfully created! (Step 5)
-        if (createdApproval) {
-          await notificationService.notifyInvoiceNextLevel(updatedInvoice, nextApprovalLevel, {
-            requestedBy: actorName(user),
-            matchingResult: comparison.status,
-            paymentApprovalId: createdApproval.id,
-            assignedUserId: createdApproval.approver_id,
-          }, tx);
+        if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED) {
+          const paService = await getPaymentApprovalService();
+          const approvalResult = await paService.createPaymentApprovalForInvoice(
+            updatedInvoice,
+            user,
+            tx,
+            match.id,
+          );
+          createdApproval  = approvalResult.approval;
+          assignedApprover = approvalResult.approver;
 
-          if (assignedApprover) {
-            const paService = await getPaymentApprovalService();
-            await paService.sendApprovalNotification(createdApproval, assignedApprover, tx);
+          await tx.auditLog.create({
+            data: {
+              entity_type:     'payment_approval',
+              entity_id:       createdApproval.id,
+              action:          approvalResult.alreadyExisted ? 'payment_approval_already_existed' : 'payment_approval_created',
+              from_status:     null,
+              to_status:       'PENDING',
+              performed_by_id: user.id,
+              remarks:         approvalResult.alreadyExisted
+                ? `Idempotency: existing PENDING approval ${createdApproval.id} reused for invoice ${invoiceId}.`
+                : `Payment approval created for invoice ${invoiceId}. Amount: ${updatedInvoice.currency} ${Number(updatedInvoice.invoice_total || updatedInvoice.amount)}. Assigned to: ${assignedApprover?.email} (${createdApproval.required_role}).`,
+              ip_address:      req?.ip || null,
+              user_agent:      req?.headers?.['user-agent'] || null,
+            },
+          });
+        }
+
+        // Send notifications
+        await notificationService.notifyMatchingCompleted(
+          { ...updatedInvoice, created_by_id: updatedInvoice.created_by_id },
+          comparison.status,
+          comparison.match_percentage,
+          tx
+        );
+
+        if (comparison.status === THREE_WAY_MATCH_STATUS.MATCHED && nextApprovalLevel) {
+          if (createdApproval) {
+            await notificationService.notifyInvoiceNextLevel(updatedInvoice, nextApprovalLevel, {
+              requestedBy: actorName(user),
+              matchingResult: comparison.status,
+              paymentApprovalId: createdApproval.id,
+              assignedUserId: createdApproval.approver_id,
+            }, tx);
+
+            if (assignedApprover) {
+              const paService = await getPaymentApprovalService();
+              await paService.sendApprovalNotification(createdApproval, assignedApprover, tx);
+            }
           }
         }
-      }
 
-      // Stash for post-transaction use
+        return {
+          match,
+          comparison,
+          updatedInvoice,
+          nextApprovalLevel,
+          createdApproval,
+          assignedApprover,
+          message: `Three-Way Matching ${comparison.status}. Match percentage: ${comparison.match_percentage}%`,
+        };
+      });
+
       return {
-        match,
-        comparison,
-        updatedInvoice,
-        nextApprovalLevel,
-        createdApproval,
-        assignedApprover,
-        message: `Three-Way Matching ${comparison.status}. Match percentage: ${comparison.match_percentage}%`,
+        match:      txResult.match,
+        comparison: txResult.comparison,
+        message:    txResult.message,
+        paymentApproval: txResult.createdApproval
+          ? {
+              id:           txResult.createdApproval.id,
+              approverId:   txResult.createdApproval.approver_id,
+              approverEmail: txResult.assignedApprover?.email || null,
+              requiredRole: txResult.createdApproval.required_role,
+              amount:       Number(txResult.createdApproval.amount),
+              status:       txResult.createdApproval.status,
+            }
+          : null,
       };
     });
-
-    return {
-      match:      txResult.match,
-      comparison: txResult.comparison,
-      message:    txResult.message,
-      paymentApproval: txResult.createdApproval
-        ? {
-            id:           txResult.createdApproval.id,
-            approverId:   txResult.createdApproval.approver_id,
-            approverEmail: txResult.assignedApprover?.email || null,
-            requiredRole: txResult.createdApproval.required_role,
-            amount:       Number(txResult.createdApproval.amount),
-            status:       txResult.createdApproval.status,
-          }
-        : null,
-    };
   }
 
   // ────────────────────────────────────────────────────────────────────────────

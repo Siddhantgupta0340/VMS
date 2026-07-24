@@ -52,12 +52,9 @@ export const createPurchaseOrderSchema = z.object({
     purchaseRequisitionNumber: z.string().trim().optional(),
     department: z.string().trim().optional(),
     costCenter: z.string().trim().optional(),
-    projectCode: z.string().trim().optional(),
     requester: z.string().trim().optional(),
     buyer: z.string().trim().optional(),
-    quotationReference: z.string().trim().optional(),
     quotationDate: z.preprocess((val) => (val ? new Date(val) : undefined), z.date().optional()),
-    contractReference: z.string().trim().optional(),
   }),
 });
 
@@ -82,12 +79,9 @@ export const updatePurchaseOrderSchema = z.object({
     purchaseRequisitionNumber: z.string().trim().optional(),
     department: z.string().trim().optional(),
     costCenter: z.string().trim().optional(),
-    projectCode: z.string().trim().optional(),
     requester: z.string().trim().optional(),
     buyer: z.string().trim().optional(),
-    quotationReference: z.string().trim().optional(),
     quotationDate: z.preprocess((val) => (val ? new Date(val) : undefined), z.date().optional()),
-    contractReference: z.string().trim().optional(),
   }),
 });
 

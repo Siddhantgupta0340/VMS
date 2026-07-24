@@ -230,8 +230,10 @@ class PaymentApprovalService {
       return latestMatch?.id || null;
     })();
 
+    const client = tx || prisma;
+
     // 4. Create PaymentApproval record inside the transaction
-    const approval = await tx.paymentApproval.create({
+    const approval = await client.paymentApproval.create({
       data: {
         payment_id:         null, // No payment record yet — created later when payment is initiated
         invoice_id:         invoice.id,
@@ -250,7 +252,7 @@ class PaymentApprovalService {
     });
 
     // 5. Create history entries (audit trail for REQUESTED + ASSIGNED)
-    await tx.paymentApprovalHistory.createMany({
+    await client.paymentApprovalHistory.createMany({
       data: [
         {
           payment_approval_id: approval.id,
@@ -426,9 +428,12 @@ class PaymentApprovalService {
       // SUPER_ADMIN sees all approvals
       where = status ? { status } : {};
     } else if ([ROLES.TEAM_LEAD, ROLES.MANAGER, ROLES.FINANCE_HEAD].includes(user.role)) {
-      // Approvers see approvals matching their role
+      // Approvers see approvals assigned directly to them OR matching their role
       where = {
-        required_role: user.role,
+        OR: [
+          { approver_id: user.id },
+          { required_role: user.role },
+        ],
         ...(status && { status }),
       };
     } else {

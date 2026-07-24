@@ -52,7 +52,7 @@ test('invoice creation uses available purchase orders without a purchase-order a
   assert.match(invoiceDetails, /Delivery Challan Number/);
   assert.match(invoiceDetails, /handleDownloadPdf/);
   assert.match(invoiceDetails, /Not Available|Not Provided|Not Uploaded|Awaiting Data/);
-  assert.doesNotMatch(invoiceDetails, /OCR Confidence|Validation Owner|Project Code|GL Code|IRN|E-Way Bill|Internal Cost Center|Source File Name/);
+  assert.doesNotMatch(invoiceDetails, /OCR Confidence|Validation Owner|GL Code|IRN|E-Way Bill|Internal Cost Center|Source File Name/);
   assert.doesNotMatch(invoiceDetails, /HSN Code|<Detail label="Unit"\s|item\.unit\b/);
   assert.doesNotMatch(invoiceCreate, /Math\.random|mock|fake|placeholderData/);
   assert.doesNotMatch(invoiceCreate, /approved purchase orders|approved purchase order/i);

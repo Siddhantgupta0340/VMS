@@ -105,8 +105,12 @@ class MatchingRepository {
   /**
    * Transaction wrapper.
    */
-  async transaction(fn) {
-    return prisma.$transaction(fn);
+  async transaction(fn, options = {}) {
+    return prisma.$transaction(fn, {
+      maxWait: 10000,
+      timeout: 30000,
+      ...options,
+    });
   }
 }
 

@@ -237,12 +237,9 @@ model PurchaseOrder {
   purchase_requisition_number String?
   department             String?
   cost_center            String?
-  project_code           String?
   requester              String?
   buyer                  String?
-  quotation_reference    String?
   quotation_date         DateTime?
-  contract_reference     String?
   closed_at              DateTime?
   cancelled_at           DateTime?
   deleted_at             DateTime?

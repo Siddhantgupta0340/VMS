@@ -52,12 +52,9 @@ const mapPO = (po) => {
     purchaseRequisitionNumber: po.purchase_requisition_number || null,
     department: po.department || null,
     costCenter: po.cost_center || null,
-    projectCode: po.project_code || null,
     requester: po.requester || null,
     buyer: po.buyer || null,
-    quotationReference: po.quotation_reference || null,
     quotationDate: po.quotation_date || null,
-    contractReference: po.contract_reference || null,
     createdBy:
       po.created_by
         ? `${po.created_by.first_name ?? ""} ${po.created_by.last_name ?? ""}`.trim()
@@ -108,15 +105,12 @@ export const createPurchaseOrder = async (data) => {
     expectedDeliveryDate: data.expectedDelivery,
     paymentTerms: data.terms,
     poType: data.poType || 'STANDARD',
-    purchaseRequisitionNumber: data.purchaseRequisitionNumber || null,
-    department: data.department || null,
-    costCenter: data.costCenter || null,
-    projectCode: data.projectCode || null,
-    requester: data.requester || null,
-    buyer: data.buyer || null,
-    quotationReference: data.quotationReference || null,
-    quotationDate: data.quotationDate || null,
-    contractReference: data.contractReference || null,
+    ...(data.purchaseRequisitionNumber ? { purchaseRequisitionNumber: data.purchaseRequisitionNumber } : {}),
+    ...(data.department ? { department: data.department } : {}),
+    ...(data.costCenter ? { costCenter: data.costCenter } : {}),
+    ...(data.requester ? { requester: data.requester } : {}),
+    ...(data.buyer ? { buyer: data.buyer } : {}),
+    ...(data.quotationDate ? { quotationDate: data.quotationDate } : {}),
   };
 
   const res = await api.post("/v1/purchase-orders", payload);

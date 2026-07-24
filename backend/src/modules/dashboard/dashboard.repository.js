@@ -642,54 +642,228 @@ class DashboardRepository {
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
+
     const startOfWeek = new Date(startOfToday);
     startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const createdAtRange = dateRangeWhere('created_at', filters);
-    const managerWhere = managerPaymentApprovalWhere();
 
-    const [
-      pendingPaymentApprovals,
-      pendingAmount,
-      approvedPayments,
-      rejectedPayments,
-      todaysRequests,
-      weeksRequests,
-      monthsRequests,
-      recentPayments,
-      approvalHistory,
-      recentActivities,
-      notifications,
-    ] = await Promise.all([
-      prisma.payment.count({ where: managerWhere }),
-      prisma.payment.aggregate({ where: managerWhere, _sum: { amount: true } }),
-      prisma.payment.count({ where: { approved_by_id: userId, status: { in: ['INITIATED', 'PROCESSING', 'SUCCESS'] }, ...createdAtRange } }),
-      prisma.approvalLog.count({ where: { entity_type: 'payment', performed_by_id: userId, action: 'rejected', ...createdAtRange } }),
-      prisma.payment.count({ where: managerPaymentApprovalWhere({ created_at: { gte: startOfToday } }) }),
-      prisma.payment.count({ where: managerPaymentApprovalWhere({ created_at: { gte: startOfWeek } }) }),
-      prisma.payment.count({ where: managerPaymentApprovalWhere({ created_at: { gte: startOfMonth } }) }),
-      prisma.payment.findMany({
-        where: managerWhere,
-        orderBy: { created_at: 'desc' },
-        take: 8,
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const managerScopeWhere = {
+      OR: [
+        { approver_id: userId },
+        { required_role: 'MANAGER' },
+        {
+          amount: {
+            gt: TEAM_LEAD_PAYMENT_APPROVAL_MAX,
+            lt: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD,
+          },
+        },
+      ],
+    };
+
+    // 1. Pending PaymentApproval & Invoice records
+    const [pendingPAList, pendingInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: {
+          ...managerScopeWhere,
+          status: 'PENDING',
+        },
+        orderBy: { requested_at: 'desc' },
         include: {
-          invoice: { select: { invoice_number: true, three_way_match_status: true } },
+          payment: { select: { payment_number: true } },
+          invoice: { select: { id: true, invoice_number: true, three_way_match_status: true } },
+          purchase_order: { select: { po_number: true } },
+          vendor: { select: { name: true, vendor_code: true } },
+          requested_by: { select: { first_name: true, last_name: true, email: true, role: true } },
+        },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          deleted_at: null,
+          status: 'PENDING_MANAGER',
+        },
+        orderBy: { created_at: 'desc' },
+        include: {
           purchase_order: { select: { po_number: true } },
           vendor: { select: { name: true, vendor_code: true } },
           created_by: { select: { first_name: true, last_name: true, email: true, role: true } },
         },
       }),
-      prisma.approvalLog.findMany({
-        where: { entity_type: 'payment', performed_by_id: userId },
+    ]);
+
+    const paInvoiceIds = new Set(pendingPAList.map((pa) => pa.invoice_id).filter(Boolean));
+    const uniquePendingInvoices = pendingInvoicesList.filter((inv) => !paInvoiceIds.has(inv.id));
+
+    const pendingCount = pendingPAList.length + uniquePendingInvoices.length;
+    const pendingAmount =
+      pendingPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniquePendingInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    // 2. Approved PaymentApproval & Invoice records
+    const [approvedPAList, approvedInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: {
+          OR: [
+            { approved_by_id: userId },
+            { ...managerScopeWhere, status: 'APPROVED' },
+          ],
+        },
+        select: { id: true, amount: true, invoice_id: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          deleted_at: null,
+          manager_approver_id: userId,
+          status: { in: ['APPROVED', 'PAID', 'approved', 'paid'] },
+        },
+        select: { id: true, invoice_total: true, amount: true },
+      }),
+    ]);
+
+    const approvedPAIds = new Set(approvedPAList.map((a) => a.invoice_id).filter(Boolean));
+    const uniqueApprovedInvoices = approvedInvoicesList.filter((inv) => !approvedPAIds.has(inv.id));
+
+    const approvedCount = approvedPAList.length + uniqueApprovedInvoices.length;
+    const approvedAmount =
+      approvedPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniqueApprovedInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    // 3. Rejected PaymentApproval & Invoice records
+    const [rejectedPAList, rejectedInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: {
+          OR: [
+            { rejected_by_id: userId },
+            { ...managerScopeWhere, status: 'REJECTED' },
+          ],
+        },
+        select: { id: true, amount: true, invoice_id: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          deleted_at: null,
+          rejected_by_id: userId,
+          status: { in: ['REJECTED', 'rejected'] },
+        },
+        select: { id: true, invoice_total: true, amount: true },
+      }),
+    ]);
+
+    const rejectedPAIds = new Set(rejectedPAList.map((r) => r.invoice_id).filter(Boolean));
+    const uniqueRejectedInvoices = rejectedInvoicesList.filter((inv) => !rejectedPAIds.has(inv.id));
+
+    const rejectedCount = rejectedPAList.length + uniqueRejectedInvoices.length;
+    const rejectedAmount =
+      rejectedPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniqueRejectedInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    // 4. Requests created Today, Week, Month
+    const [todaysPAList, todaysInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: { ...managerScopeWhere, requested_at: { gte: startOfToday } },
+        select: { id: true, amount: true, invoice_id: true },
+      }),
+      prisma.invoice.findMany({
+        where: { deleted_at: null, status: 'PENDING_MANAGER', created_at: { gte: startOfToday } },
+        select: { id: true, invoice_total: true, amount: true },
+      }),
+    ]);
+
+    const todaysPAIds = new Set(todaysPAList.map((t) => t.invoice_id).filter(Boolean));
+    const uniqueTodaysInvoices = todaysInvoicesList.filter((inv) => !todaysPAIds.has(inv.id));
+    const todayCount = todaysPAList.length + uniqueTodaysInvoices.length;
+    const todayAmount =
+      todaysPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniqueTodaysInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    const [weeksPAList, weeksInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: { ...managerScopeWhere, requested_at: { gte: startOfWeek } },
+        select: { id: true, amount: true, invoice_id: true },
+      }),
+      prisma.invoice.findMany({
+        where: { deleted_at: null, status: 'PENDING_MANAGER', created_at: { gte: startOfWeek } },
+        select: { id: true, invoice_total: true, amount: true },
+      }),
+    ]);
+
+    const weeksPAIds = new Set(weeksPAList.map((w) => w.invoice_id).filter(Boolean));
+    const uniqueWeeksInvoices = weeksInvoicesList.filter((inv) => !weeksPAIds.has(inv.id));
+    const weekCount = weeksPAList.length + uniqueWeeksInvoices.length;
+    const weekAmount =
+      weeksPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniqueWeeksInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    const [monthsPAList, monthsInvoicesList] = await Promise.all([
+      prisma.paymentApproval.findMany({
+        where: { ...managerScopeWhere, requested_at: { gte: startOfMonth } },
+        select: { id: true, amount: true, invoice_id: true },
+      }),
+      prisma.invoice.findMany({
+        where: { deleted_at: null, status: 'PENDING_MANAGER', created_at: { gte: startOfMonth } },
+        select: { id: true, invoice_total: true, amount: true },
+      }),
+    ]);
+
+    const monthsPAIds = new Set(monthsPAList.map((m) => m.invoice_id).filter(Boolean));
+    const uniqueMonthsInvoices = monthsInvoicesList.filter((inv) => !monthsPAIds.has(inv.id));
+    const monthCount = monthsPAList.length + uniqueMonthsInvoices.length;
+    const monthAmount =
+      monthsPAList.reduce((acc, item) => acc + toNumber(item.amount), 0) +
+      uniqueMonthsInvoices.reduce((acc, item) => acc + toNumber(item.invoice_total || item.amount), 0);
+
+    // Combine Assigned Payment Approvals List
+    const combinedPaymentApprovals = [
+      ...pendingPAList.map((approval) => ({
+        id: approval.id,
+        paymentNumber: approval.payment?.payment_number || (approval.invoice?.invoice_number ? `PMT-${approval.invoice.invoice_number}` : `PA-${approval.id.slice(0, 8)}`),
+        invoiceNumber: approval.invoice?.invoice_number || null,
+        purchaseOrderNumber: approval.purchase_order?.po_number || null,
+        vendorName: approval.vendor?.name || null,
+        vendorCode: approval.vendor?.vendor_code || null,
+        requestedAmount: toNumber(approval.amount),
+        currency: approval.currency || 'INR',
+        requestedBy: approval.requested_by
+          ? `${approval.requested_by.first_name || ''} ${approval.requested_by.last_name || ''}`.trim() || approval.requested_by.email
+          : 'System',
+        requestDate: approval.requested_at,
+        currentStatus: approval.status,
+        priority: 'Normal',
+        matchingResult: approval.invoice?.three_way_match_status || null,
+      })),
+      ...uniquePendingInvoices.map((inv) => ({
+        id: inv.id,
+        paymentNumber: `PMT-${inv.invoice_number}`,
+        invoiceNumber: inv.invoice_number,
+        purchaseOrderNumber: inv.purchase_order?.po_number || null,
+        vendorName: inv.vendor?.name || null,
+        vendorCode: inv.vendor?.vendor_code || null,
+        requestedAmount: toNumber(inv.invoice_total || inv.amount),
+        currency: inv.currency || 'INR',
+        requestedBy: inv.created_by
+          ? `${inv.created_by.first_name || ''} ${inv.created_by.last_name || ''}`.trim() || inv.created_by.email
+          : 'System',
+        requestDate: inv.created_at,
+        currentStatus: inv.status,
+        priority: 'Normal',
+        matchingResult: inv.three_way_match_status || null,
+      })),
+    ];
+
+    // History & notifications
+    const [approvalHistory, notifications] = await Promise.all([
+      prisma.paymentApprovalHistory.findMany({
+        where: {
+          OR: [
+            { performed_by_id: userId },
+            { payment_approval: managerScopeWhere },
+          ],
+        },
         orderBy: { created_at: 'desc' },
         take: 10,
-        include: { performed_by: { select: { first_name: true, last_name: true, email: true, role: true } } },
-      }),
-      prisma.approvalLog.findMany({
-        where: { entity_type: 'payment' },
-        orderBy: { created_at: 'desc' },
-        take: 8,
-        include: { performed_by: { select: { first_name: true, last_name: true, email: true, role: true } } },
+        include: {
+          performed_by: { select: { first_name: true, last_name: true, email: true, role: true } },
+        },
       }),
       prisma.notification.findMany({
         where: { user_id: userId },
@@ -707,38 +881,33 @@ class DashboardRepository {
         financeHeadMin: FINANCE_HEAD_PAYMENT_APPROVAL_THRESHOLD,
       },
       summary: {
-        pendingPaymentApprovals,
-        pendingAmount: toNumber(pendingAmount._sum.amount),
-        approvedPayments,
-        rejectedPayments,
-        todaysRequests,
-        weeksRequests,
-        monthsRequests,
+        pendingPaymentApprovals: pendingCount,
+        pendingAmount,
+        approvedPayments: approvedCount,
+        approvedAmount,
+        rejectedPayments: rejectedCount,
+        rejectedAmount,
+        todaysRequests: todayCount,
+        todayAmount,
+        weeksRequests: weekCount,
+        weekAmount,
+        monthsRequests: monthCount,
+        monthAmount,
       },
-      approvalStatistics: {
-        pending: pendingPaymentApprovals,
-        approved: approvedPayments,
-        rejected: rejectedPayments,
-      },
-      paymentApprovals: recentPayments.map((payment) => ({
-        id: payment.id,
-        paymentNumber: payment.payment_number,
-        invoiceNumber: payment.invoice?.invoice_number || null,
-        purchaseOrderNumber: payment.purchase_order?.po_number || null,
-        vendorName: payment.vendor?.name || null,
-        vendorCode: payment.vendor?.vendor_code || null,
-        requestedAmount: toNumber(payment.amount),
-        currency: payment.currency,
-        requestedBy: payment.created_by
-          ? `${payment.created_by.first_name || ''} ${payment.created_by.last_name || ''}`.trim() || payment.created_by.email
-          : null,
-        requestDate: payment.created_at,
-        currentStatus: payment.status,
-        priority: 'Normal',
-        matchingResult: payment.invoice?.three_way_match_status || null,
+      pendingApprovals: { count: pendingCount, amount: pendingAmount },
+      approvedPayments: { count: approvedCount, amount: approvedAmount },
+      rejectedPayments: { count: rejectedCount, amount: rejectedAmount },
+      todayRequests: { count: todayCount, amount: todayAmount },
+      thisWeekRequests: { count: weekCount, amount: weekAmount },
+      thisMonthRequests: { count: monthCount, amount: monthAmount },
+      paymentApprovals: combinedPaymentApprovals.slice(0, 10),
+      approvalHistory: approvalHistory.map((h) => ({
+        id: h.id,
+        action: h.action,
+        remarks: h.remarks || 'No remarks',
+        created_at: h.created_at,
+        performed_by: h.performed_by,
       })),
-      approvalHistory,
-      recentActivities,
       notifications,
     };
   }

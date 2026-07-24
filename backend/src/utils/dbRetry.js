@@ -1,4 +1,4 @@
-const TRANSIENT_PRISMA_CODES = new Set(['P1001', 'P1002', 'P1017']);
+const TRANSIENT_PRISMA_CODES = new Set(['P1001', 'P1002', 'P1017', 'P2024', 'P2028']);
 const TRANSIENT_DATABASE_CODES = new Set(['08000', '08003', '08006', '53300', '57P01', '57P02', '57P03']);
 
 const TRANSIENT_MESSAGE_PATTERNS = [
@@ -12,6 +12,8 @@ const TRANSIENT_MESSAGE_PATTERNS = [
   /too many connections/i,
   /server closed the connection/i,
   /terminating connection/i,
+  /can't reach database server/i,
+  /transaction (already closed|api error|expired|timed out)/i,
 ];
 
 const sleep = (ms) => new Promise((resolve) => {
@@ -89,9 +91,9 @@ const toSafeErrorLog = (error) => ({
 });
 
 const withDatabaseRetry = async (operationName, operation, options = {}) => {
-  const attempts = options.attempts ?? 3;
-  const baseDelayMs = options.baseDelayMs ?? 250;
-  const maxDelayMs = options.maxDelayMs ?? 2000;
+  const attempts = options.attempts ?? 5;
+  const baseDelayMs = options.baseDelayMs ?? 500;
+  const maxDelayMs = options.maxDelayMs ?? 3000;
 
   let lastError;
 

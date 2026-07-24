@@ -781,8 +781,8 @@ VENDORS MODULE - APIS
   Authorization: Bearer <CASE_MANAGER_JWT>
 * Complete Request Body:
 {
-  "name": "ACME Supplies Pvt Ltd",
-  "email": "sales@acmesupplies.com",
+  "name": "ACRE Supplies Pvt Ltd",
+  "email": "sales@ACREsupplies.com",
   "phone": "9876543210",
   "address": "404, Tech Park, Sector 62",
   "city": "Noida",
@@ -809,9 +809,9 @@ VENDORS MODULE - APIS
   "message": "Vendor created successfully.",
   "data": {
     "id": "e2d5c3fa-a690-4a30-8902-6014fb501ba1",
-    "name": "ACME Supplies Pvt Ltd",
-    "vendor_code": "ACME-1782361287632",
-    "email": "sales@acmesupplies.com",
+    "name": "ACRE Supplies Pvt Ltd",
+    "vendor_code": "ACRE-1782361287632",
+    "email": "sales@ACREsupplies.com",
     "phone": "9876543210",
     "status": "pending",
     "created_by_id": "case-manager-uuid",
@@ -827,7 +827,7 @@ VENDORS MODULE - APIS
 curl -X POST http://localhost:5000/api/v1/vendors \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <CASE_MANAGER_JWT>" \
-  -d '{"name": "ACME Supplies Pvt Ltd", "email": "sales@acmesupplies.com", "phone": "9876543210", "address": "404 Tech Park", "taxId": "GSTIN9876543210F", "category": "Office Equipment"}'
+  -d '{"name": "ACRE Supplies Pvt Ltd", "email": "sales@ACREsupplies.com", "phone": "9876543210", "address": "404 Tech Park", "taxId": "GSTIN9876543210F", "category": "Office Equipment"}'
 * Expected Status Codes: 201 (Created), 409 (Email or Tax ID duplicated)
 
 ---
@@ -852,8 +852,8 @@ curl -X POST http://localhost:5000/api/v1/vendors \
   "vendors": [
     {
       "id": "e2d5c3fa-a690-4a30-8902-6014fb501ba1",
-      "name": "ACME Supplies Pvt Ltd",
-      "vendor_code": "ACME-1782361287632",
+      "name": "ACRE Supplies Pvt Ltd",
+      "vendor_code": "ACRE-1782361287632",
       "status": "pending",
       "created_by": { "id": "cm-uuid", "email": "case.manager@vms.com" }
     }
@@ -891,9 +891,9 @@ curl -X GET "http://localhost:5000/api/v1/vendors?status=pending" \
   "success": true,
   "data": {
     "id": "e2d5c3fa-a690-4a30-8902-6014fb501ba1",
-    "name": "ACME Supplies Pvt Ltd",
-    "vendor_code": "ACME-1782361287632",
-    "email": "sales@acmesupplies.com",
+    "name": "ACRE Supplies Pvt Ltd",
+    "vendor_code": "ACRE-1782361287632",
+    "email": "sales@ACREsupplies.com",
     "phone": "9876543210",
     "tax_id": "GSTIN9876543210F",
     "status": "pending",
@@ -926,7 +926,7 @@ curl -X GET http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
   - id: Required, string (UUID format)
 * Complete Request Body:
 {
-  "name": "ACME Supplies Ltd",
+  "name": "ACRE Supplies Ltd",
   "phone": "9988776655"
 }
   * Validation Rules:
@@ -941,7 +941,7 @@ curl -X GET http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
   "message": "Vendor updated successfully.",
   "data": {
     "id": "e2d5c3fa-a690-4a30-8902-6014fb501ba1",
-    "name": "ACME Supplies Ltd",
+    "name": "ACRE Supplies Ltd",
     "phone": "9988776655"
   }
 }
@@ -954,7 +954,7 @@ curl -X GET http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb5
 curl -X PUT http://localhost:5000/api/v1/vendors/e2d5c3fa-a690-4a30-8902-6014fb501ba1 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT_ACCESS_TOKEN>" \
-  -d '{"name": "ACME Supplies Ltd"}'
+  -d '{"name": "ACRE Supplies Ltd"}'
 * Expected Status Codes: 200 (Success), 400 (Invalid updates/Approved vendor CM edit block), 403 (CM ownership mismatch)
 
 ---
@@ -1236,7 +1236,7 @@ curl -X POST http://localhost:5000/api/v1/purchase-orders \
       "id": "cfa3e6d8-90f1-432a-bc9e-7164ea2b1a11",
       "po_number": "PO-2026-001",
       "status": "pending",
-      "vendor": { "id": "e2d5c3fa...", "name": "ACME Supplies Pvt Ltd" }
+      "vendor": { "id": "e2d5c3fa...", "name": "ACRE Supplies Pvt Ltd" }
     }
   ],
   "total": 1,
@@ -1275,7 +1275,7 @@ curl -X GET http://localhost:5000/api/v1/purchase-orders \
     "po_number": "PO-2026-001",
     "amount": "25000.00",
     "status": "pending",
-    "vendor": { "id": "e2d5c3fa...", "name": "ACME Supplies Pvt Ltd" }
+    "vendor": { "id": "e2d5c3fa...", "name": "ACRE Supplies Pvt Ltd" }
   }
 }
 * Business Logic: Get PO. Check ownership limits for CM.
@@ -1483,7 +1483,7 @@ curl -X GET http://localhost:5000/api/v1/invoices \
     "amount": "9500.00",
     "status": "PENDING_TEAM_LEAD",
     "required_approval_role": "TEAM_LEAD",
-    "vendor": { "id": "vendor-uuid", "name": "ACME Supplies Pvt Ltd" }
+    "vendor": { "id": "vendor-uuid", "name": "ACRE Supplies Pvt Ltd" }
   }
 }
 * Business Logic: Get invoice. Restrict CM to own files. Restrict reviewers to their designated level.
@@ -2459,7 +2459,7 @@ NOTIFICATIONS MODULE - APIS
     {
       "id": "d0a0b0c0-efaa-99bb-8201-1904bb987622",
       "title": "Vendor Approved",
-      "message": "Your vendor \"ACME Supplies Pvt Ltd\" has been approved.",
+      "message": "Your vendor \"ACRE Supplies Pvt Ltd\" has been approved.",
       "type": "vendor_approved",
       "entity_type": "vendor",
       "entity_id": "e2d5c3fa-a690-4a30-8902-6014fb501ba1",

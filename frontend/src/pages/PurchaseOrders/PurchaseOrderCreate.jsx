@@ -91,12 +91,9 @@ const PurchaseOrderCreate = () => {
     purchaseRequisitionNumber: "",
     department: "",
     costCenter: "",
-    projectCode: "",
     requester: "",
     buyer: "",
-    quotationReference: "",
     quotationDate: "",
-    contractReference: "",
   });
   const { id } = useParams();
   const isEditMode = Boolean(id);
@@ -142,12 +139,9 @@ const PurchaseOrderCreate = () => {
           purchaseRequisitionNumber: po.purchaseRequisitionNumber || "",
           department: po.department || "",
           costCenter: po.costCenter || "",
-          projectCode: po.projectCode || "",
           requester: po.requester || "",
           buyer: po.buyer || "",
-          quotationReference: po.quotationReference || "",
           quotationDate: po.quotationDate ? new Date(po.quotationDate).toISOString().split("T")[0] : "",
-          contractReference: po.contractReference || "",
         });
       } catch (err) {
         console.error(err);
@@ -489,23 +483,14 @@ const PurchaseOrderCreate = () => {
                 <FormField label="Cost Center">
                   <input type="text" name="costCenter" value={formData.costCenter} onChange={handleChange} className={input} placeholder="e.g. CC-101" />
                 </FormField>
-                <FormField label="Project Code">
-                  <input type="text" name="projectCode" value={formData.projectCode} onChange={handleChange} className={input} placeholder="e.g. PRJ-VMS" />
-                </FormField>
                 <FormField label="Requester">
                   <input type="text" name="requester" value={formData.requester} onChange={handleChange} className={input} placeholder="e.g. Alice Smith" />
                 </FormField>
                 <FormField label="Buyer">
                   <input type="text" name="buyer" value={formData.buyer} onChange={handleChange} className={input} placeholder="e.g. Bob Johnson" />
                 </FormField>
-                <FormField label="Quotation Reference">
-                  <input type="text" name="quotationReference" value={formData.quotationReference} onChange={handleChange} className={input} placeholder="e.g. QUO-987" />
-                </FormField>
                 <FormField label="Quotation Date">
                   <input type="date" name="quotationDate" value={formData.quotationDate} onChange={handleChange} className={input} />
-                </FormField>
-                <FormField label="Contract Reference">
-                  <input type="text" name="contractReference" value={formData.contractReference} onChange={handleChange} className={input} placeholder="e.g. CON-554" />
                 </FormField>
               </div>
             </div>

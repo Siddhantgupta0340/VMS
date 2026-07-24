@@ -93,7 +93,7 @@ const ManagerDashboard = () => {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-bold text-slate-950 sm:text-lg">Assigned Payment Approvals</h2>
-          <Link to="/payments" className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 sm:h-9 sm:text-sm">Open queue</Link>
+          {/* <Link to="/payments" className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 sm:h-9 sm:text-sm">Open queue</Link> */}
         </div>
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full text-sm">

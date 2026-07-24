@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download, Trash2, Edit3, Printer, Eye } from "lucide-react";
 
@@ -239,12 +239,9 @@ const PurchaseOrderDetails = () => {
       { label: "Purchase Requisition", value: po.purchaseRequisitionNumber },
       { label: "Department", value: po.department },
       { label: "Cost Center", value: po.costCenter },
-      { label: "Project Code", value: po.projectCode },
       { label: "Requester", value: po.requester },
       { label: "Buyer", value: po.buyer },
-      { label: "Quotation Reference", value: po.quotationReference },
       { label: "Quotation Date", value: fmtDate(po.quotationDate) },
-      { label: "Contract Reference", value: po.contractReference },
     ];
     return fields.filter((f) => f.value && String(f.value).trim() !== "");
   }, [po]);
