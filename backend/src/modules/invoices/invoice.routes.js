@@ -131,6 +131,12 @@ router.get('/:id/download',
   validate(invoiceIdSchema),
   invoiceController.downloadInvoicePdf,
 );
+router.get('/:id/pdf',
+  authorize(READ_ROLES),
+  validate(invoiceIdSchema),
+  invoiceController.downloadInvoicePdf,
+);
+
 
 // ─── Role-Level Approval Actions ──────────────────────────────────────────────
 router.patch('/:id/approve',

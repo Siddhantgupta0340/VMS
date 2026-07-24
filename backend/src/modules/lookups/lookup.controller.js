@@ -3,6 +3,7 @@ import asyncHandler from '../../middleware/asyncHandler.middleware.js';
 import { ROLES } from '../../zodSchema/index.js';
 import { USER_ACCOUNT_STATUS } from '../users/user-status.constants.js';
 import { VENDOR_APPROVAL_STATUS, VENDOR_STATUS } from '../vendors/vendor.constants.js';
+import { COMPANY_CONFIG } from '../../config/company.js';
 
 class LookupController {
   /**
@@ -246,6 +247,18 @@ class LookupController {
         .map((item) => ({ id: item.designation, name: item.designation, value: item.designation })),
     });
   });
+
+  /**
+   * GET /api/v1/lookups/company
+   * Returns enterprise company master information.
+   */
+  getCompanyInfo = asyncHandler(async (req, res) => {
+    res.status(200).json({
+      success: true,
+      data: COMPANY_CONFIG,
+    });
+  });
 }
 
 export default new LookupController();
+

@@ -6,13 +6,16 @@ import {
   CheckCircle,
   Clock,
   Download,
-  Eye,
   FileText,
   MessageSquare,
   Paperclip,
   Printer,
   Trash2,
   XCircle,
+  Building2,
+  CreditCard,
+  FileCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -27,22 +30,17 @@ import {
   rejectInvoice,
   softDeleteInvoice,
   downloadInvoicePdf,
+  getCompanyInfo,
 } from "../../services/invoiceService";
 import { getMatchReportByInvoice } from "../../services/matchingService";
 import api from "../../api/axios";
 
-const companyName = import.meta.env.VITE_COMPANY_NAME || "Vendor Management System";
-const companyGst = import.meta.env.VITE_COMPANY_GST || "";
-const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || "";
-const companyLogo = import.meta.env.VITE_COMPANY_LOGO_URL || "";
-const companyPan = import.meta.env.VITE_COMPANY_PAN || "";
-const companyPhone = import.meta.env.VITE_COMPANY_PHONE || "";
-const companyEmail = import.meta.env.VITE_COMPANY_EMAIL || "";
+// ─── Utilities & Formatting Helpers ───────────────────────────────────────────
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
-
-const currency = (value, code = "INR") =>
-  `${code || "INR"} ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const formatINR = (value) => {
+  const num = Number(value || 0);
+  return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const formatDate = (value) => {
   if (!value) return null;
@@ -52,31 +50,64 @@ const formatDate = (value) => {
     : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const escapeHtml = (value) =>
-  String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+const safeVal = (value, fallback = "Not Available") => {
+  if (value === null || value === undefined || String(value).trim() === "" || String(value).trim() === "N/A") {
+    return fallback;
+  }
+  return String(value);
+};
 
-const MissingBadge = ({ text = "Not Available" }) => (
-  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-    {text}
-  </span>
-);
+const maskBankAccount = (accountNo) => {
+  if (!accountNo || String(accountNo).trim() === "") return "Not Available";
+  const str = String(accountNo).trim();
+  if (str.length <= 4) return str;
+  const visible = str.slice(-4);
+  const maskedCount = Math.max(str.length - 4, 6);
+  return "X".repeat(maskedCount) + visible;
+};
 
-const displayValue = (value, missingText = "Not Available") =>
-  value || value === 0 ? value : <MissingBadge text={missingText} />;
+// ─── Amount in Words (Indian Rupee Notation) ──────────────────────────────────
 
-const Detail = ({ label, value, missingText }) => (
-  <div className="rounded-lg border border-slate-200 bg-white p-4">
-    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-    <p className="mt-1 wrap-break-word text-sm font-semibold text-slate-900">
-      {displayValue(value, missingText)}
-    </p>
-  </div>
-);
+const ones = [
+  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
+];
+const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+const convertHundreds = (n) => {
+  if (n === 0) return "";
+  if (n < 20) return ones[n] + " ";
+  if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "") + " ";
+  return ones[Math.floor(n / 100)] + " Hundred " + convertHundreds(n % 100);
+};
+
+const amountToWordsINR = (amount) => {
+  const numVal = Number(amount || 0);
+  if (isNaN(numVal) || numVal === 0) return "Rupees Zero Only";
+
+  const rupees = Math.floor(Math.abs(numVal));
+  const paise = Math.round((Math.abs(numVal) - rupees) * 100);
+
+  let rupeeStr = "";
+  if (rupees === 0) {
+    rupeeStr = "Zero";
+  } else {
+    let parts = [];
+    let n = rupees;
+    if (n >= 10000000) { parts.push(convertHundreds(Math.floor(n / 10000000)).trim() + " Crore"); n %= 10000000; }
+    if (n >= 100000)   { parts.push(convertHundreds(Math.floor(n / 100000)).trim() + " Lakh"); n %= 100000; }
+    if (n >= 1000)     { parts.push(convertHundreds(Math.floor(n / 1000)).trim() + " Thousand"); n %= 1000; }
+    if (n > 0)         { parts.push(convertHundreds(n).trim()); }
+    rupeeStr = parts.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  let paiseStr = "";
+  if (paise > 0) {
+    paiseStr = " and " + convertHundreds(paise).trim() + " Paise";
+  }
+
+  return `Rupees ${rupeeStr}${paiseStr} Only`;
+};
 
 const totalFromItem = (item) =>
   Number(
@@ -102,209 +133,236 @@ const historyEventMeta = (action = "") => {
   return { color: "bg-slate-400", label: action };
 };
 
-// ─── Professional Invoice PDF HTML ────────────────────────────────────────────
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
-const buildInvoiceHtml = ({ invoice, matchReports, autoPrint = true }) => {
+// ─── Professional Invoice PDF HTML Builder ─────────────────────────────────────
+
+const buildInvoiceHtml = ({ invoice, company, matchReports, autoPrint = false }) => {
   const summary = invoice.taxSummary || {};
+  const cName = company?.name || "ACRE India Pvt Ltd";
+  const cAddr = company?.address || "123 Corporate Blvd, Suite 400";
+  const cCity = company?.city || "Mumbai";
+  const cState = company?.state || "Maharashtra";
+  const cPin = company?.pinCode || "400001";
+  const cGst = company?.gstin || "27AAAAA1111A1Z1";
+  const cPan = company?.pan || "AAAAA1111A";
+  const cPhone = company?.phone || "+91-22-12345678";
+  const cEmail = company?.email || "info@ACREprocurement.com";
+  const cWeb = company?.website || "www.ACREprocurement.com";
+  const cLogo = company?.logo || "";
+
   const grnNumber =
     invoice.grnNumber ||
-    matchReports.find((r) => r.grnNumber && r.grnNumber !== "N/A")?.grnNumber ||
-    "";
+    matchReports?.find((r) => r.grnNumber && r.grnNumber !== "N/A")?.grnNumber ||
+    "Not Available";
   const deliveryChallanNumber =
     invoice.deliveryChallanNumber ||
-    matchReports.find((r) => r.deliveryChallanNumber && r.deliveryChallanNumber !== "N/A")
+    matchReports?.find((r) => r.deliveryChallanNumber && r.deliveryChallanNumber !== "N/A")
       ?.deliveryChallanNumber ||
-    "";
+    "Not Available";
 
   const rows = (invoice.items || [])
     .map(
       (item, index) => `
     <tr>
       <td style="text-align:center">${index + 1}</td>
+      <td style="text-align:center">${escapeHtml(item.itemCode || item.code || "—")}</td>
       <td>
         <strong>${escapeHtml(item.itemName || item.description || "Item")}</strong>
-        ${item.description && item.itemName ? `<br/><span style="color:#64748b;font-size:11px">${escapeHtml(item.description)}</span>` : ""}
+        ${item.description && item.itemName ? `<br/><span style="color:#64748b;font-size:10px">${escapeHtml(item.description)}</span>` : ""}
       </td>
       <td class="num">${escapeHtml(item.quantity || 0)}</td>
-      <td class="num">${escapeHtml(currency(item.unitPrice || item.rate, invoice.currency))}</td>
-      <td class="num">${escapeHtml(currency(item.taxableAmount, invoice.currency))}</td>
-      <td class="num">${escapeHtml(currency(item.cgstAmount || 0, invoice.currency))}</td>
-      <td class="num">${escapeHtml(currency(item.sgstAmount || 0, invoice.currency))}</td>
-      <td class="num">${escapeHtml(currency(item.igstAmount || 0, invoice.currency))}</td>
-      <td class="num"><strong>${escapeHtml(currency(totalFromItem(item), invoice.currency))}</strong></td>
+      <td style="text-align:center">${escapeHtml(item.unit || "Nos")}</td>
+      <td class="num">${escapeHtml(formatINR(item.unitPrice || item.rate))}</td>
+      <td class="num">${escapeHtml(formatINR(item.taxableAmount))}</td>
+      <td style="text-align:center">${escapeHtml(item.gstRate || item.gstPct || 18)}%</td>
+      <td class="num">${escapeHtml(formatINR(item.gstAmount))}</td>
+      <td class="num"><strong>${escapeHtml(formatINR(totalFromItem(item)))}</strong></td>
     </tr>
   `
     )
     .join("");
+
+  const grandTotal = summary.grandTotal || invoice.invoiceTotal || invoice.amount || 0;
+  const wordsText = amountToWordsINR(grandTotal);
 
   return `<!doctype html>
 <html>
   <head>
     <title>${escapeHtml(invoice.invoiceNumber || "Invoice")}</title>
     <style>
-      @page { size: A4; margin: 14mm 16mm; }
+      @page { size: A4; margin: 12mm; }
       * { box-sizing: border-box; }
-      body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; font-size: 12px; }
-      .sheet { max-width: 794px; margin: 0 auto; }
-
-      /* Header */
-      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 16px; }
-      .brand-row { display: flex; align-items: center; gap: 12px; }
-      .logo { width: 52px; height: 52px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; }
-      .brand-name { font-size: 20px; font-weight: 800; color: #1d4ed8; }
-      .brand-sub { font-size: 11px; color: #64748b; line-height: 1.6; margin-top: 2px; }
+      body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; font-size: 11px; line-height: 1.4; }
+      .sheet { max-width: 800px; margin: 0 auto; padding: 20px; background: #fff; border: 1px solid #cbd5e1; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 14px; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .brand img { height: 48px; max-width: 140px; object-fit: contain; }
+      .brand-title { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+      .brand-sub { font-size: 10px; color: #475569; margin-top: 2px; }
       .doc-title { text-align: right; }
-      .doc-title h1 { margin: 0; font-size: 30px; font-weight: 900; color: #1d4ed8; letter-spacing: -1px; }
-      .doc-title .inv-num { font-size: 13px; font-weight: 700; color: #334155; margin-top: 4px; }
+      .doc-title h1 { margin: 0; font-size: 24px; font-weight: 900; color: #1e3a8a; letter-spacing: -0.5px; }
+      .doc-title .meta { font-size: 11px; font-weight: 700; color: #334155; margin-top: 4px; }
 
-      /* Info Grid */
-      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-      .info-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
-      .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; }
-      .box .lbl { color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-      .box .val { margin-top: 3px; font-size: 12px; font-weight: 700; color: #0f172a; }
+      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+      .card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #fafafa; }
+      .card-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #1e3a8a; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; }
 
-      /* Section heading */
-      h2 { margin: 14px 0 8px; font-size: 11px; text-transform: uppercase; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; letter-spacing: 1px; }
+      .kv-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10.5px; }
+      .kv-lbl { color: #64748b; font-weight: 600; }
+      .kv-val { color: #0f172a; font-weight: 700; text-align: right; word-break: break-word; }
 
-      /* Table */
-      table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
-      thead th { background: #1d4ed8; color: #fff; text-align: left; padding: 8px 6px; }
+      .ref-bar { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+      .ref-item .lbl { font-size: 9px; font-weight: 700; uppercase; color: #64748b; }
+      .ref-item .val { font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 14px; font-size: 10.5px; }
+      thead th { background: #1e293b; color: #fff; text-align: left; padding: 6px 8px; font-size: 10px; text-transform: uppercase; }
       thead th.num { text-align: right; }
-      tbody td { padding: 7px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-      tbody tr:hover td { background: #f8fafc; }
+      tbody td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+      tbody tr:nth-child(even) { background: #f8fafc; }
       .num { text-align: right; white-space: nowrap; }
 
-      /* Summary */
-      .summary-wrap { display: flex; justify-content: flex-end; margin-top: 12px; }
-      .summary { width: 310px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-      .sum-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-      .sum-row.grand { background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 800; border-bottom: none; }
+      .sum-section { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+      .words-box { flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc; font-size: 10.5px; }
+      .sum-box { width: 280px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; }
+      .sum-row { display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #f1f5f9; font-size: 10.5px; }
+      .sum-row.grand { background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; }
 
-      /* Signatures */
-      .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 28px; }
-      .sig-box { border-top: 2px solid #0f172a; padding-top: 8px; }
-      .sig-label { font-size: 10px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; }
-      .sig-name { margin-top: 36px; font-weight: 700; }
-
-      /* T&C */
-      .tnc { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-top: 16px; font-size: 10px; color: #64748b; }
-      .tnc strong { color: #334155; }
-
-      /* Stamp */
-      .stamp { border: 3px solid #16a34a; border-radius: 50%; width: 88px; height: 88px; display: flex; align-items: center; justify-content: center; color: #16a34a; font-weight: 900; font-size: 11px; text-align: center; transform: rotate(-20deg); margin-left: auto; margin-top: -10px; }
-
-      .remarks { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #475569; min-height: 36px; }
-      @media print { .no-print { display: none; } }
+      .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 14px; }
+      .sig-box { border-top: 1.5px solid #0f172a; padding-top: 6px; text-align: center; margin-top: 32px; font-size: 10px; font-weight: 700; color: #475569; }
+      .disclaimer { text-align: center; font-size: 9.5px; color: #94a3b8; margin-top: 16px; font-style: italic; }
     </style>
   </head>
   <body>
     <main class="sheet">
-      <!-- Header -->
-      <section class="header">
-        <div class="brand-row">
-          ${companyLogo ? `<img class="logo" src="${escapeHtml(companyLogo)}" alt="${escapeHtml(companyName)} logo" />` : ""}
+      <!-- Company Header -->
+      <header class="header">
+        <div class="brand">
+          ${cLogo ? `<img src="${escapeHtml(cLogo)}" alt="Company Logo" />` : ""}
           <div>
-            <div class="brand-name">${escapeHtml(companyName)}</div>
+            <div class="brand-title">${escapeHtml(cName)}</div>
             <div class="brand-sub">
-              ${companyAddress ? escapeHtml(companyAddress) + "<br/>" : ""}
-              ${companyGst ? "GST: " + escapeHtml(companyGst) : ""}
-              ${companyPan ? " | PAN: " + escapeHtml(companyPan) : ""}
-              ${companyPhone ? "<br/>Tel: " + escapeHtml(companyPhone) : ""}
-              ${companyEmail ? " | " + escapeHtml(companyEmail) : ""}
+              ${escapeHtml(cAddr)}, ${escapeHtml(cCity)}, ${escapeHtml(cState)} - ${escapeHtml(cPin)}<br/>
+              <strong>GSTIN:</strong> ${escapeHtml(cGst)} | <strong>PAN:</strong> ${escapeHtml(cPan)}<br/>
+              Tel: ${escapeHtml(cPhone)} | Email: ${escapeHtml(cEmail)} | Web: ${escapeHtml(cWeb)}
             </div>
           </div>
         </div>
         <div class="doc-title">
           <h1>TAX INVOICE</h1>
-          <div class="inv-num">${escapeHtml(invoice.invoiceNumber || "Not Available")}</div>
+          <div class="meta">Invoice No: ${escapeHtml(invoice.invoiceNumber || "INV-2026-000001")}</div>
+          <div style="font-size:10px;color:#64748b;margin-top:2px;">Date: ${escapeHtml(formatDate(invoice.invoiceDate) || "N/A")}</div>
+          <div style="font-size:10px;color:#64748b;">Due Date: ${escapeHtml(formatDate(invoice.dueDate) || "N/A")}</div>
+        </div>
+      </header>
+
+      <!-- Bill To & Vendor Section -->
+      <section class="grid-2">
+        <div class="card">
+          <div class="card-title">Bill To</div>
+          <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">${escapeHtml(cName)}</div>
+          <div style="font-size:10.5px;color:#334155;line-height:1.5;">
+            ${escapeHtml(cAddr)}<br/>
+            ${escapeHtml(cCity)}, ${escapeHtml(cState)} - ${escapeHtml(cPin)}, India<br/>
+            <strong>GSTIN:</strong> ${escapeHtml(cGst)}<br/>
+            <strong>PAN:</strong> ${escapeHtml(cPan)}<br/>
+            <strong>Contact:</strong> ${escapeHtml(cPhone)} | ${escapeHtml(cEmail)}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Vendor / Supplier</div>
+          <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;">${escapeHtml(safeVal(invoice.vendor))}</div>
+          <div class="kv-row"><span class="kv-lbl">Vendor Code:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorCode))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">GSTIN:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorGst || invoice.gstNumber))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">PAN:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorPan))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">Category / Type:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorCategory))} / ${escapeHtml(safeVal(invoice.vendorTaxType))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">Contact Person:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorContactPerson || invoice.vendorContact))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">Phone / Email:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorPhone))} | ${escapeHtml(safeVal(invoice.vendorEmail))}</span></div>
+          <div class="kv-row"><span class="kv-lbl">Address:</span><span class="kv-val">${escapeHtml(safeVal(invoice.vendorAddress))}</span></div>
         </div>
       </section>
 
-      <!-- Invoice + PO Details -->
-      <h2>Invoice Details</h2>
-      <div class="info-grid cols3">
-        <div class="box"><div class="lbl">Invoice Date</div><div class="val">${escapeHtml(formatDate(invoice.invoiceDate) || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Due Date</div><div class="val">${escapeHtml(formatDate(invoice.dueDate) || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Payment Terms</div><div class="val">${escapeHtml(invoice.paymentTerms || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Purchase Order #</div><div class="val">${escapeHtml(invoice.poNumber || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Delivery Challan #</div><div class="val">${escapeHtml(deliveryChallanNumber || "N/A")}</div></div>
-        <div class="box"><div class="lbl">GRN Number</div><div class="val">${escapeHtml(grnNumber || "N/A")}</div></div>
-      </div>
-
-      <!-- Vendor Details -->
-      <h2>Vendor / Bill From</h2>
-      <div class="info-grid">
-        <div class="box"><div class="lbl">Vendor Name</div><div class="val">${escapeHtml(invoice.vendor || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Vendor Code</div><div class="val">${escapeHtml(invoice.vendorCode || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Vendor GST</div><div class="val">${escapeHtml(invoice.vendorGst || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Vendor PAN</div><div class="val">${escapeHtml(invoice.vendorPan || "N/A")}</div></div>
-        <div class="box" style="grid-column:1/-1"><div class="lbl">Vendor Address</div><div class="val">${escapeHtml(invoice.vendorAddress || "N/A")}</div></div>
-      </div>
+      <!-- Reference Details Bar -->
+      <section class="ref-bar">
+        <div class="ref-item"><div class="lbl">PO Number</div><div class="val">${escapeHtml(safeVal(invoice.poNumber))}</div></div>
+        <div class="ref-item"><div class="lbl">PO Date</div><div class="val">${escapeHtml(formatDate(invoice.poDate) || "Not Available")}</div></div>
+        <div class="ref-item"><div class="lbl">GRN Number</div><div class="val">${escapeHtml(safeVal(grnNumber))}</div></div>
+        <div class="ref-item"><div class="lbl">Delivery Challan</div><div class="val">${escapeHtml(safeVal(deliveryChallanNumber))}</div></div>
+      </section>
 
       <!-- Items Table -->
-      <h2>Items</h2>
       <table>
         <thead>
           <tr>
-            <th style="width:30px">#</th>
-            <th>Item / Description</th>
-            <th class="num" style="width:50px">Qty</th>
-            <th class="num" style="width:90px">Unit Price</th>
+            <th style="width:28px">#</th>
+            <th style="width:70px">Item Code</th>
+            <th>Item Name / Description</th>
+            <th class="num" style="width:40px">Qty</th>
+            <th style="width:40px;text-align:center">Unit</th>
+            <th class="num" style="width:85px">Unit Price</th>
             <th class="num" style="width:90px">Taxable Amt</th>
-            <th class="num" style="width:70px">CGST</th>
-            <th class="num" style="width:70px">SGST</th>
-            <th class="num" style="width:70px">IGST</th>
-            <th class="num" style="width:90px">Line Total</th>
+            <th style="width:45px;text-align:center">GST %</th>
+            <th class="num" style="width:80px">GST Amt</th>
+            <th class="num" style="width:95px">Line Total</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b">No items available</td></tr>`}
+          ${rows || `<tr><td colspan="10" style="text-align:center;padding:12px;color:#64748b">No item details available</td></tr>`}
         </tbody>
       </table>
 
-      <!-- Tax Summary -->
-      <div class="summary-wrap">
-        <div class="summary">
-          <div class="sum-row"><span>Subtotal (Taxable)</span><strong>${escapeHtml(currency(summary.subtotal, invoice.currency))}</strong></div>
-          <div class="sum-row"><span>CGST</span><strong>${escapeHtml(currency(summary.cgstTotal, invoice.currency))}</strong></div>
-          <div class="sum-row"><span>SGST</span><strong>${escapeHtml(currency(summary.sgstTotal, invoice.currency))}</strong></div>
-          <div class="sum-row"><span>IGST</span><strong>${escapeHtml(currency(summary.igstTotal, invoice.currency))}</strong></div>
-          ${Number(summary.otherCharges || 0) > 0 ? `<div class="sum-row"><span>Other Charges</span><strong>${escapeHtml(currency(summary.otherCharges, invoice.currency))}</strong></div>` : ""}
-          ${Number(summary.roundOff || 0) !== 0 ? `<div class="sum-row"><span>Round Off</span><strong>${escapeHtml(currency(summary.roundOff, invoice.currency))}</strong></div>` : ""}
-          <div class="sum-row grand">
-            <span>GRAND TOTAL</span>
-            <strong>${escapeHtml(currency(summary.grandTotal || invoice.invoiceTotal || invoice.amount, invoice.currency))}</strong>
+      <!-- Summary & Words Section -->
+      <section class="sum-section">
+        <div class="words-box">
+          <strong style="color:#1e3a8a;font-size:10px;text-transform:uppercase;">Amount in Words:</strong><br/>
+          <div style="font-size:11.5px;font-weight:700;color:#0f172a;margin-top:4px;">${escapeHtml(wordsText)}</div>
+          
+          <div style="margin-top:10px;border-top:1px solid #e2e8f0;padding-top:6px;">
+            <strong style="color:#1e3a8a;font-size:10px;text-transform:uppercase;">Vendor Bank Information:</strong><br/>
+            <div style="font-size:10px;color:#334155;margin-top:2px;">
+              Bank: <strong>${escapeHtml(safeVal(invoice.vendorBankName))}</strong> | Branch: <strong>${escapeHtml(safeVal(invoice.vendorBankBranch))}</strong><br/>
+              A/C Holder: <strong>${escapeHtml(safeVal(invoice.vendorAccountHolder))}</strong> | A/C No: <strong>${escapeHtml(maskBankAccount(invoice.vendorBankAccountNo))}</strong><br/>
+              IFSC Code: <strong>${escapeHtml(safeVal(invoice.vendorIfscCode))}</strong>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Remarks -->
-      ${invoice.description ? `<h2>Remarks</h2><div class="remarks">${escapeHtml(invoice.description)}</div>` : ""}
+        <div class="sum-box">
+          <div class="sum-row"><span>Subtotal (Taxable)</span><strong>${escapeHtml(formatINR(summary.subtotal))}</strong></div>
+          <div class="sum-row"><span>CGST Total</span><strong>${escapeHtml(formatINR(summary.cgstTotal))}</strong></div>
+          <div class="sum-row"><span>SGST Total</span><strong>${escapeHtml(formatINR(summary.sgstTotal))}</strong></div>
+          <div class="sum-row"><span>IGST Total</span><strong>${escapeHtml(formatINR(summary.igstTotal))}</strong></div>
+          ${Number(summary.otherCharges || 0) > 0 ? `<div class="sum-row"><span>Other Charges</span><strong>${escapeHtml(formatINR(summary.otherCharges))}</strong></div>` : ""}
+          ${Number(summary.roundOff || 0) !== 0 ? `<div class="sum-row"><span>Round Off</span><strong>${escapeHtml(formatINR(summary.roundOff))}</strong></div>` : ""}
+          <div class="sum-row grand">
+            <span>TOTAL AMOUNT</span>
+            <strong>${escapeHtml(formatINR(grandTotal))}</strong>
+          </div>
+        </div>
+      </section>
 
-      <!-- Terms & Conditions -->
-      <div class="tnc">
-        <strong>Terms &amp; Conditions:</strong>
-        1. Payment should be made within the agreed payment terms.
-        2. All disputes subject to local jurisdiction.
-        3. Interest @ 18% p.a. will be charged on delayed payments.
-        4. This is a computer-generated invoice and does not require a physical signature unless stamped below.
-        5. Goods once sold will not be accepted back without prior written approval.
-      </div>
-
-      <!-- Signatures -->
-      <div class="sig-grid">
+      <!-- Terms & Signatures -->
+      <section class="footer-grid">
+        <div style="font-size:9.5px;color:#64748b;">
+          <strong style="color:#334155;font-size:10px;">Terms and Conditions:</strong><br/>
+          1. Payment terms: ${escapeHtml(safeVal(invoice.paymentTerms, "Net 30"))}.<br/>
+          2. All disputes subject to local jurisdiction.<br/>
+          3. Interest @ 18% p.a. will be charged on overdue payments.<br/>
+        </div>
         <div class="sig-box">
-          <div class="sig-label">Received By / Buyer's Signature</div>
-          <div class="sig-name">&nbsp;</div>
-          <div style="font-size:11px;color:#64748b">Name &amp; Stamp</div>
+          Authorized Signatory<br/>
+          <span style="font-size:11px;font-weight:800;color:#0f172a;">For ${escapeHtml(cName)}</span>
         </div>
-        <div class="sig-box" style="text-align:right">
-          <div class="sig-label">For ${escapeHtml(companyName)}</div>
-          <div class="sig-name">&nbsp;</div>
-          <div style="font-size:11px;color:#64748b">Authorized Signatory</div>
-        </div>
-      </div>
+      </section>
+
+      <div class="disclaimer">This is a system-generated invoice.</div>
     </main>
     ${autoPrint ? "<script>window.onload = () => { window.focus(); window.print(); };</script>" : ""}
   </body>
@@ -320,6 +378,7 @@ const InvoiceDetails = () => {
   const canViewMatching = hasPermission(user, PERMISSIONS.VIEW_THREE_WAY_MATCHING);
 
   const [invoice, setInvoice] = useState(null);
+  const [companyInfo, setCompanyInfo] = useState(null);
   const [matchReports, setMatchReports] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -329,26 +388,28 @@ const InvoiceDetails = () => {
   const loadInvoiceData = useCallback(async () => {
     try {
       setLoading(true);
-      const [data] = await Promise.all([
+      const [data, comp] = await Promise.all([
         getInvoiceById(id),
+        getCompanyInfo(),
       ]);
       setInvoice(data);
+      if (comp) setCompanyInfo(comp);
 
-      // Load matching reports in parallel (non-blocking)
+      // Load matching reports in parallel
       if (canViewMatching) {
         getMatchReportByInvoice(id)
           .then((r) => setMatchReports(r))
           .catch(() => setMatchReports([]));
       }
 
-      // Load document history from backend audit log
+      // Load document history
       api
         .get(`/v1/invoices/${id}/history`)
         .then((res) => setHistory(Array.isArray(res.data.data) ? res.data.data : []))
         .catch(() => setHistory([]));
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to load invoice details");
+      console.error("Error loading invoice details:", err);
+      toast.error("Failed to load invoice preview details");
     } finally {
       setLoading(false);
     }
@@ -360,13 +421,33 @@ const InvoiceDetails = () => {
 
   const latestMatch = useMemo(() => matchReports[0] || null, [matchReports]);
   const grnNumber =
-    latestMatch?.grnNumber && latestMatch.grnNumber !== "N/A" ? latestMatch.grnNumber : "";
+    latestMatch?.grnNumber && latestMatch.grnNumber !== "N/A"
+      ? latestMatch.grnNumber
+      : invoice?.grnNumber || "Not Available";
   const deliveryChallanNumber =
     invoice?.deliveryChallanNumber ||
     (latestMatch?.deliveryChallanNumber && latestMatch.deliveryChallanNumber !== "N/A"
       ? latestMatch.deliveryChallanNumber
-      : "");
+      : "Not Available");
+
   const summary = invoice?.taxSummary || {};
+  const grandTotal = summary.grandTotal || invoice?.invoiceTotal || invoice?.amount || 0;
+  const wordsText = useMemo(() => amountToWordsINR(grandTotal), [grandTotal]);
+
+  const company = useMemo(() => ({
+    name: companyInfo?.name || "ACRE India Pvt Ltd",
+    logo: companyInfo?.logo || "",
+    address: companyInfo?.address || "123 Corporate Blvd, Suite 400",
+    city: companyInfo?.city || "Mumbai",
+    state: companyInfo?.state || "Maharashtra",
+    country: companyInfo?.country || "India",
+    pinCode: companyInfo?.pinCode || "400001",
+    phone: companyInfo?.phone || "+91-22-12345678",
+    email: companyInfo?.email || "info@ACREprocurement.com",
+    website: companyInfo?.website || "www.ACREprocurement.com",
+    gstin: companyInfo?.gstin || "27AAAAA1111A1Z1",
+    pan: companyInfo?.pan || "AAAAA1111A",
+  }), [companyInfo]);
 
   const handleDownloadInvoice = async () => {
     if (!canDownload) {
@@ -374,12 +455,10 @@ const InvoiceDetails = () => {
       return;
     }
     try {
-      const full = await downloadInvoicePdf(invoice.id);
-      const htmlContent = buildInvoiceHtml({ invoice: full, matchReports, autoPrint: false });
-      const filename = `${full.invoiceNumber || "Invoice"}.pdf`;
-      await downloadHtmlAsPdf({ htmlContent, filename, documentTitle: `Invoice (${full.invoiceNumber || "Invoice"})` });
+      await downloadInvoicePdf(invoice.id, invoice.invoiceNumber || 'Invoice');
+      toast.success("Invoice PDF downloaded successfully.");
     } catch (err) {
-      let msg = "Unable to generate PDF.";
+      let msg = "Unable to download PDF.";
       if (err?.response?.status === 403 || err?.status === 403) {
         msg = "Permission denied. You do not have permission to download this document.";
       } else if (err?.response?.status === 404 || err?.status === 404) {
@@ -387,6 +466,11 @@ const InvoiceDetails = () => {
       }
       toast.error(msg);
     }
+  };
+
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleAction = async () => {
@@ -423,8 +507,8 @@ const InvoiceDetails = () => {
 
   if (loading)
     return (
-      <div className="flex h-96 items-center justify-center text-slate-500">
-        Loading invoice details...
+      <div className="flex h-96 items-center justify-center text-slate-500 font-medium">
+        Loading enterprise invoice preview...
       </div>
     );
 
@@ -432,8 +516,8 @@ const InvoiceDetails = () => {
     return (
       <div className="space-y-4 p-12 text-center">
         <h3 className="text-lg font-bold text-slate-700">Invoice Not Found</h3>
-        <Link to="/invoices" className="text-blue-600 hover:underline">
-          Back to invoices list
+        <Link to="/invoices" className="text-blue-600 hover:underline font-semibold">
+          Back to Invoice History
         </Link>
       </div>
     );
@@ -460,66 +544,99 @@ const InvoiceDetails = () => {
   const canAddRemark = normalizedUserRole === ROLES.SUPER_ADMIN;
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Printable CSS override */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body { background: #ffffff !important; color: #000000 !important; }
+          .no-print { display: none !important; }
+          .print-paper {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+        }
+      ` }} />
+
+      {/* ── TOP ACTION BAR (NO-PRINT) ────────────────────────────────────────── */}
+      <div className="no-print flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <Link
           to="/invoices"
-          className="inline-flex items-center text-sm font-medium text-slate-600 transition hover:text-slate-900"
+          className="inline-flex items-center text-sm font-semibold text-slate-700 transition hover:text-slate-900"
         >
-          <ArrowLeft size={16} className="mr-2" /> Back to Invoices
+          <ArrowLeft size={18} className="mr-2" /> Back to Invoices
         </Link>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition shadow-sm"
+          >
+            <Printer size={16} /> Print
+          </button>
+
           {canDownload ? (
             <button
               type="button"
               onClick={handleDownloadInvoice}
-              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition shadow-sm"
             >
-              <Download size={16} /> Download Invoice PDF
+              <Download size={16} /> Download PDF
             </button>
           ) : (
-            <span className="inline-flex items-center rounded-xl bg-amber-50 border border-amber-200 px-4 py-2 text-xs font-semibold text-amber-700">
-              You do not have permission to download this document.
+            <span className="inline-flex items-center rounded-xl bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700">
+              No Download Perms
             </span>
           )}
+
           {canApprove && (
             <>
               <button
+                type="button"
                 onClick={() => setActiveModal("approve")}
-                className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 shadow-sm"
               >
                 <CheckCircle size={16} /> Approve
               </button>
               <button
+                type="button"
                 onClick={() => setActiveModal("reject")}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 shadow-sm"
               >
                 <XCircle size={16} /> Reject
               </button>
             </>
           )}
+
           {canCancel && (
             <button
+              type="button"
               onClick={() => setActiveModal("cancel")}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600 shadow-sm"
             >
               <Ban size={16} /> Cancel
             </button>
           )}
+
           {canAddRemark && (
             <button
+              type="button"
               onClick={() => setActiveModal("remark")}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 shadow-sm"
             >
               <MessageSquare size={16} /> Add Remark
             </button>
           )}
+
           {canDelete && (
             <button
+              type="button"
               onClick={() => setActiveModal("delete")}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-rose-400 transition hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-rose-400 transition hover:bg-slate-800 shadow-sm"
             >
               <Trash2 size={16} /> Archive
             </button>
@@ -527,338 +644,387 @@ const InvoiceDetails = () => {
         </div>
       </div>
 
-      {/* Invoice Header Card */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      {/* ── ENTERPRISE INVOICE PREVIEW PAPER ─────────────────────────────────── */}
+      <article className="print-paper bg-white rounded-2xl border border-slate-300 shadow-xl p-8 sm:p-12 text-slate-900 font-sans space-y-8">
+        
+        {/* 1. Header & Company Master Info */}
+        <header className="flex flex-col sm:flex-row sm:items-start justify-between border-b-2 border-slate-900 pb-6 gap-6">
           <div className="flex items-start gap-4">
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-600">
-              <FileText size={32} />
-            </div>
+            {company.logo ? (
+              <img src={company.logo} alt="Company Logo" className="h-14 w-auto object-contain max-w-40 border border-slate-200 rounded-lg p-1" />
+            ) : (
+              <div className="h-12 w-12 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-sm">
+                A
+              </div>
+            )}
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">Tax Invoice</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-950">{invoice.invoiceNumber}</h1>
-              <p className="mt-2 text-sm text-slate-500">
-                {displayValue(invoice.vendor)} · {displayValue(invoice.poNumber)}
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">{company.name}</h1>
+              <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                {company.address}, {company.city}, {company.state} - {company.pinCode}, {company.country}<br />
+                <span className="font-semibold text-slate-700">GSTIN:</span> {company.gstin} | <span className="font-semibold text-slate-700">PAN:</span> {company.pan}<br />
+                Phone: {company.phone} | Email: {company.email} | Web: {company.website}
               </p>
             </div>
           </div>
-          <div className="flex flex-col items-start gap-2 lg:items-end">
-            <StatusBadge status={invoice.status} />
-            <p className="text-lg font-bold text-slate-900">
-              {currency(invoice.invoiceTotal || invoice.amount, invoice.currency)}
-            </p>
+
+          <div className="text-left sm:text-right shrink-0">
+            <span className="inline-block rounded-md bg-slate-900 px-3 py-1 text-xs font-black uppercase text-white tracking-wider">
+              Tax Invoice
+            </span>
+            <div className="mt-3 text-lg font-extrabold text-blue-900">
+              {safeVal(invoice.invoiceNumber, "INV-2026-000001")}
+            </div>
+            <div className="mt-1 text-xs text-slate-600">
+              <span className="font-semibold text-slate-700">Invoice Date:</span> {formatDate(invoice.invoiceDate) || "Not Available"}
+            </div>
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-700">Due Date:</span> {formatDate(invoice.dueDate) || "Not Available"}
+            </div>
+            <div className="mt-2">
+              <StatusBadge status={invoice.status} />
+            </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <main className="space-y-6">
-          {/* Business Info */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
-              Business Information
+        {/* 2. Bill To & Vendor Cards (2-Column Grid) */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Bill To Card */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 space-y-2">
+            <h2 className="text-xs font-black uppercase tracking-wider text-blue-900 border-b border-slate-200 pb-2 flex items-center gap-1.5">
+              <Building2 size={14} /> Bill To
             </h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Detail label="Invoice Date" value={formatDate(invoice.invoiceDate)} />
-              <Detail label="Due Date" value={formatDate(invoice.dueDate)} />
-              <Detail label="Purchase Order Number" value={invoice.poNumber} />
-              <Detail label="Purchase Order Date" value={formatDate(invoice.poDate)} />
-              <Detail
-                label="Delivery Challan Number"
-                value={deliveryChallanNumber}
-                missingText="Not Uploaded"
-              />
-              <Detail label="GRN Number" value={invoice.grnNumber || grnNumber} />
-              <Detail label="Payment Terms" value={invoice.paymentTerms} />
-              <Detail label="Delivery Address" value={invoice.deliveryAddress} />
-              <Detail label="Billing Address" value={invoice.billingAddress} />
+            <div className="text-sm font-bold text-slate-900">{company.name}</div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {company.address}<br />
+              {company.city}, {company.state} - {company.pinCode}, India<br />
+              <span className="font-semibold text-slate-700">GSTIN:</span> {company.gstin}<br />
+              <span className="font-semibold text-slate-700">PAN:</span> {company.pan}<br />
+              <span className="font-semibold text-slate-700">Contact:</span> {company.phone} | {company.email}
             </div>
-          </section>
+          </div>
 
-          {/* Vendor Info */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
-              Vendor Information
+          {/* Vendor/Supplier Card */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 space-y-2">
+            <h2 className="text-xs font-black uppercase tracking-wider text-blue-900 border-b border-slate-200 pb-2 flex items-center gap-1.5">
+              <ShieldCheck size={14} /> Vendor / Supplier
             </h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Detail label="Vendor Name" value={invoice.vendor} />
-              <Detail label="Vendor Code" value={invoice.vendorCode} />
-              <Detail label="Vendor GST" value={invoice.vendorGst} />
-              <Detail label="Vendor PAN" value={invoice.vendorPan} />
-              <Detail label="Vendor Contact" value={invoice.vendorContact || invoice.vendorEmail} />
-              <Detail label="Vendor Address" value={invoice.vendorAddress} />
+            <div className="text-sm font-bold text-slate-900">{safeVal(invoice.vendor)}</div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+              <div><span className="text-slate-500 font-medium">Vendor Code:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorCode)}</span></div>
+              <div><span className="text-slate-500 font-medium">GSTIN:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorGst || invoice.gstNumber)}</span></div>
+              <div><span className="text-slate-500 font-medium">PAN:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorPan)}</span></div>
+              <div><span className="text-slate-500 font-medium">Category:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorCategory)}</span></div>
+              <div className="col-span-2"><span className="text-slate-500 font-medium">Contact Person:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorContactPerson || invoice.vendorContact)}</span></div>
+              <div className="col-span-2"><span className="text-slate-500 font-medium">Phone / Email:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorPhone)} | {safeVal(invoice.vendorEmail)}</span></div>
+              <div className="col-span-2"><span className="text-slate-500 font-medium">Address:</span> <span className="font-bold text-slate-800">{safeVal(invoice.vendorAddress)}</span></div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Item Table — All 7 required columns */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
-              Item Details
-            </h2>
-            <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-215 border-collapse text-left text-sm">
-                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <tr>
-                    <th className="p-4">#</th>
-                    <th className="p-4">Item Name</th>
-                    <th className="p-4">Description</th>
-                    <th className="p-4 text-right">Quantity</th>
-                    <th className="p-4 text-right">Unit Price</th>
-                    <th className="p-4 text-right">Taxable Amount</th>
-                    <th className="p-4 text-right">GST</th>
-                    <th className="p-4 text-right">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.items?.length ? (
-                    invoice.items.map((item, index) => (
-                      <tr
-                        key={`${item.itemName || item.description}-${index}`}
-                        className="border-t border-slate-100 hover:bg-slate-50/60"
-                      >
-                        <td className="p-4 text-slate-500">{item.lineNumber || index + 1}</td>
-                        <td className="p-4 font-semibold text-slate-900">
-                          {displayValue(item.itemName || item.description)}
-                        </td>
-                        <td className="p-4 text-slate-500">
-                          {displayValue(item.description, "Not Provided")}
-                        </td>
-                        <td className="p-4 text-right">{displayValue(item.quantity)}</td>
-                        <td className="p-4 text-right">
-                          {currency(item.unitPrice || item.rate, invoice.currency)}
-                        </td>
-                        <td className="p-4 text-right">
-                          {currency(item.taxableAmount, invoice.currency)}
-                        </td>
-                        <td className="p-4 text-right">
-                          {currency(item.gstAmount, invoice.currency)}
-                        </td>
-                        <td className="p-4 text-right font-bold text-slate-900">
-                          {currency(totalFromItem(item), invoice.currency)}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-500">
-                        No items available.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+        {/* 3. Procurement References Bar (PO, GRN, Delivery Challan) */}
+        <section className="rounded-xl border border-slate-200 bg-slate-100/80 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+          <div>
+            <div className="font-bold uppercase text-slate-500 text-[10px]">PO Number</div>
+            <div className="font-black text-slate-900 text-sm mt-0.5">{safeVal(invoice.poNumber)}</div>
+          </div>
+          <div>
+            <div className="font-bold uppercase text-slate-500 text-[10px]">PO Date</div>
+            <div className="font-semibold text-slate-800 mt-0.5">{formatDate(invoice.poDate) || "Not Available"}</div>
+          </div>
+          <div>
+            <div className="font-bold uppercase text-slate-500 text-[10px]">GRN Number</div>
+            <div className="font-semibold text-slate-800 mt-0.5">{safeVal(grnNumber)}</div>
+          </div>
+          <div>
+            <div className="font-bold uppercase text-slate-500 text-[10px]">Delivery Challan</div>
+            <div className="font-semibold text-slate-800 mt-0.5">{safeVal(deliveryChallanNumber)}</div>
+          </div>
+        </section>
 
-          {/* Invoice Attachments */}
-          {invoice.attachments?.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
-                <Paperclip size={16} className="mr-2 inline" />
-                Attached Documents
-              </h2>
-              <div className="mt-5 space-y-3">
-                {invoice.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="shrink-0 rounded-lg bg-blue-100 p-2 text-blue-700">
-                        <FileText size={16} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">
-                          {att.original_file_name || att.stored_file_name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {att.attachment_type || att.file_type} ·{" "}
-                          {att.file_size
-                            ? `${(Number(att.file_size) / 1024).toFixed(1)} KB`
-                            : "Unknown size"}{" "}
-                          ·{" "}
-                          {att.uploaded_at
-                            ? new Date(att.uploaded_at).toLocaleDateString("en-IN")
-                            : "Date N/A"}
-                        </p>
-                      </div>
-                    </div>
-                    {att.file_url && (
-                      <a
-                        href={att.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        <Download size={12} /> Download
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Document History Timeline */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
-              <Clock size={16} className="mr-2 inline" />
-              Document History
-            </h2>
-            {history.length > 0 ? (
-              <div className="mt-5 space-y-0">
-                {history.map((entry, idx) => {
-                  const { color, label } = historyEventMeta(entry.action);
-                  const performedBy = entry.performed_by
-                    ? `${entry.performed_by.first_name || ""} ${entry.performed_by.last_name || ""}`.trim() ||
-                      entry.performed_by.email
-                    : "System";
-                  const role = entry.performed_by?.role || "";
-                  const dateStr = entry.created_at
-                    ? new Date(entry.created_at).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "";
-                  return (
-                    <div key={entry.id || idx} className="relative flex gap-4 pb-6">
-                      {/* Vertical line */}
-                      {idx < history.length - 1 && (
-                        <div className="absolute left-2.75 top-6 h-full w-0.5 bg-slate-200" />
-                      )}
-                      {/* Dot */}
-                      <div
-                        className={`mt-1 h-6 w-6 shrink-0 rounded-full ${color} flex items-center justify-center shadow-sm`}
-                      >
-                        <div className="h-2 w-2 rounded-full bg-white" />
-                      </div>
-                      {/* Content */}
-                      <div className="min-w-0 flex-1 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <span
-                              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${color}`}
-                            >
-                              {label}
-                            </span>
-                            {entry.from_status && entry.to_status && (
-                              <span className="ml-2 text-xs text-slate-500">
-                                {entry.from_status} → {entry.to_status}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-slate-400">{dateStr}</span>
-                        </div>
-                        <p className="mt-1.5 text-sm font-semibold text-slate-800">
-                          {performedBy}
-                          {role && (
-                            <span className="ml-2 rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                              {role}
-                            </span>
-                          )}
-                        </p>
-                        {entry.remarks && (
-                          <p className="mt-1 text-xs text-slate-600 italic">"{entry.remarks}"</p>
+        {/* 4. Item Table */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+            <FileCheck size={15} /> Line Item Details
+          </h2>
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="p-3 text-center w-10">#</th>
+                  <th className="p-3 w-24">Item Code</th>
+                  <th className="p-3">Item Name / Description</th>
+                  <th className="p-3 text-center w-16">Qty</th>
+                  <th className="p-3 text-center w-16">Unit</th>
+                  <th className="p-3 text-right w-24">Unit Price</th>
+                  <th className="p-3 text-right w-28">Taxable Amt</th>
+                  <th className="p-3 text-center w-16">GST %</th>
+                  <th className="p-3 text-right w-24">GST Amt</th>
+                  <th className="p-3 text-right w-28">Line Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {invoice.items?.length ? (
+                  invoice.items.map((item, index) => (
+                    <tr key={`${item.itemName || item.description}-${index}`} className="hover:bg-slate-50/80 transition odd:bg-white even:bg-slate-50/40">
+                      <td className="p-3 text-center font-medium text-slate-500">{index + 1}</td>
+                      <td className="p-3 font-semibold text-slate-700">{safeVal(item.itemCode || item.code, "—")}</td>
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900">{safeVal(item.itemName || item.description)}</div>
+                        {item.description && item.itemName && (
+                          <div className="text-[11px] text-slate-500 mt-0.5">{item.description}</div>
                         )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                No document history available yet.
-              </div>
-            )}
-          </section>
-        </main>
+                      </td>
+                      <td className="p-3 text-center font-semibold text-slate-800">{item.quantity || 0}</td>
+                      <td className="p-3 text-center text-slate-600">{safeVal(item.unit, "Nos")}</td>
+                      <td className="p-3 text-right font-medium text-slate-800">{formatINR(item.unitPrice || item.rate)}</td>
+                      <td className="p-3 text-right font-semibold text-slate-900">{formatINR(item.taxableAmount)}</td>
+                      <td className="p-3 text-center font-semibold text-slate-700">{item.gstRate || item.gstPct || 18}%</td>
+                      <td className="p-3 text-right text-slate-800">{formatINR(item.gstAmount)}</td>
+                      <td className="p-3 text-right font-bold text-slate-950">{formatINR(totalFromItem(item))}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="p-6 text-center text-slate-500 italic">
+                      No line items recorded for this invoice.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* Sidebar */}
-        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-950">GST Summary</h2>
-            <div className="mt-5 space-y-3 text-sm">
+        {/* 5. Summary & Amount in Words */}
+        <section className="flex flex-col md:flex-row justify-between items-start gap-6 pt-2">
+          {/* Amount in Words & Payment Info Box */}
+          <div className="w-full md:flex-1 space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Amount in Words</span>
+              <p className="text-sm font-bold text-slate-950">{wordsText}</p>
+            </div>
+
+            {/* Vendor Bank Payment Info */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                <CreditCard size={14} /> Vendor Payment Details
+              </h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                <div><span className="text-slate-500">Bank Name:</span> <span className="font-semibold text-slate-900">{safeVal(invoice.vendorBankName)}</span></div>
+                <div><span className="text-slate-500">Branch:</span> <span className="font-semibold text-slate-900">{safeVal(invoice.vendorBankBranch)}</span></div>
+                <div><span className="text-slate-500">Account Holder:</span> <span className="font-semibold text-slate-900">{safeVal(invoice.vendorAccountHolder)}</span></div>
+                <div><span className="text-slate-500">Account No:</span> <span className="font-mono font-bold text-slate-900">{maskBankAccount(invoice.vendorBankAccountNo)}</span></div>
+                <div><span className="text-slate-500">IFSC Code:</span> <span className="font-mono font-semibold text-slate-900">{safeVal(invoice.vendorIfscCode)}</span></div>
+                <div><span className="text-slate-500">Payment Terms:</span> <span className="font-semibold text-slate-900">{safeVal(invoice.paymentTerms, "Net 30")}</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tax Summary Box */}
+          <div className="w-full md:w-80 rounded-xl border border-slate-200 overflow-hidden shadow-sm shrink-0">
+            <div className="bg-slate-900 px-4 py-2 text-white font-bold text-xs uppercase tracking-wider">
+              Financial Summary
+            </div>
+            <div className="p-4 space-y-2 text-xs bg-white">
               <div className="flex justify-between">
-                <span className="text-slate-500">Subtotal (Taxable)</span>
-                <strong>{currency(summary.subtotal, invoice.currency)}</strong>
+                <span className="text-slate-600">Subtotal (Taxable)</span>
+                <span className="font-semibold text-slate-900">{formatINR(summary.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">CGST</span>
-                <strong>{currency(summary.cgstTotal, invoice.currency)}</strong>
+                <span className="text-slate-600">CGST Total</span>
+                <span className="font-semibold text-slate-900">{formatINR(summary.cgstTotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">SGST</span>
-                <strong>{currency(summary.sgstTotal, invoice.currency)}</strong>
+                <span className="text-slate-600">SGST Total</span>
+                <span className="font-semibold text-slate-900">{formatINR(summary.sgstTotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">IGST</span>
-                <strong>{currency(summary.igstTotal, invoice.currency)}</strong>
+                <span className="text-slate-600">IGST Total</span>
+                <span className="font-semibold text-slate-900">{formatINR(summary.igstTotal)}</span>
               </div>
               {Number(summary.otherCharges || 0) > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Other Charges</span>
-                  <strong>{currency(summary.otherCharges, invoice.currency)}</strong>
+                  <span className="text-slate-600">Other Charges</span>
+                  <span className="font-semibold text-slate-900">{formatINR(summary.otherCharges)}</span>
                 </div>
               )}
               {Number(summary.roundOff || 0) !== 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Round Off</span>
-                  <strong>{currency(summary.roundOff, invoice.currency)}</strong>
+                  <span className="text-slate-600">Round Off</span>
+                  <span className="font-semibold text-slate-900">{formatINR(summary.roundOff)}</span>
                 </div>
               )}
-              <div className="border-t border-slate-200 pt-4">
-                <div className="flex justify-between text-lg">
-                  <span className="font-bold text-slate-950">Grand Total</span>
-                  <strong className="text-blue-700">
-                    {currency(
-                      summary.grandTotal || invoice.invoiceTotal || invoice.amount,
-                      invoice.currency
-                    )}
-                  </strong>
-                </div>
+              <div className="border-t-2 border-slate-900 pt-3 mt-2 flex justify-between items-center text-sm">
+                <span className="font-black text-slate-950 uppercase">Total Amount</span>
+                <span className="font-black text-blue-900 text-base">{formatINR(grandTotal)}</span>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-950">Remarks</h2>
-            <p className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
-              {displayValue(invoice.description, "Not Provided")}
-            </p>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-950">Matching Status</h2>
-            {latestMatch ? (
-              <div className="mt-4 space-y-3">
-                <StatusBadge status={latestMatch.status} />
-                <p className="text-sm text-slate-600">
-                  Match Score: <strong>{latestMatch.matchPercentage}%</strong>
-                </p>
-                {canViewMatching && (
-                  <Link
-                    to={`/three-way-matching/${latestMatch.id}`}
-                    className="block rounded-lg bg-blue-50 py-2 text-center text-sm font-semibold text-blue-700 hover:bg-blue-100"
-                  >
-                    View Match Analysis
-                  </Link>
-                )}
-              </div>
-            ) : (
-              <p className="mt-3">
-                <MissingBadge text="Awaiting Data" />
+        {/* 6. Terms, Remarks & Signatures Footer */}
+        <footer className="pt-6 border-t border-slate-200 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div className="space-y-1">
+              <span className="font-bold text-slate-800 uppercase text-[10px]">Terms & Conditions</span>
+              <p className="text-slate-600 leading-relaxed">
+                1. Payment should be made within agreed payment terms ({safeVal(invoice.paymentTerms, "Net 30")}).<br />
+                2. Interest @ 18% p.a. will be charged on payments delayed beyond due date.<br />
+                3. All disputes subject to local jurisdiction.
               </p>
-            )}
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-slate-800 uppercase text-[10px]">Remarks / Validation Notes</span>
+              <p className="text-slate-700 italic bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                {safeVal(invoice.description, "No custom remarks attached.")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-end gap-8 pt-8">
+            <div className="border-t-2 border-slate-900 pt-2 w-48 text-center text-xs font-semibold text-slate-600">
+              Buyer's / Receiver's Signature
+            </div>
+            <div className="border-t-2 border-slate-900 pt-2 w-56 text-center text-xs font-bold text-slate-900">
+              Authorized Signatory<br />
+              <span className="font-normal text-slate-600">For {company.name}</span>
+            </div>
+          </div>
+
+          <div className="text-center text-[10px] text-slate-400 italic">
+            This is a system-generated invoice document created via Vendor Management System (VMS).
+          </div>
+        </footer>
+      </article>
+
+      {/* ── NO-PRINT EXTRA SECTIONS (ATTACHMENTS & TIMELINE) ─────────────────── */}
+      <div className="no-print space-y-6 pt-4">
+        {/* Invoice Attachments */}
+        {invoice.attachments?.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950 flex items-center">
+              <Paperclip size={18} className="mr-2 text-blue-600" />
+              Attached Documents ({invoice.attachments.length})
+            </h2>
+            <div className="mt-5 space-y-3">
+              {invoice.attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="shrink-0 rounded-lg bg-blue-100 p-2 text-blue-700">
+                      <FileText size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {att.original_file_name || att.stored_file_name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {att.attachment_type || att.file_type} ·{" "}
+                        {att.file_size
+                          ? `${(Number(att.file_size) / 1024).toFixed(1)} KB`
+                          : "Unknown size"}{" "}
+                        ·{" "}
+                        {att.uploaded_at
+                          ? new Date(att.uploaded_at).toLocaleDateString("en-IN")
+                          : "Date N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  {att.file_url && (
+                    <a
+                      href={att.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                    >
+                      <Download size={13} /> View File
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
-        </aside>
+        )}
+
+        {/* Document History Timeline */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950 flex items-center">
+            <Clock size={18} className="mr-2 text-blue-600" />
+            Audit & Workflow History
+          </h2>
+          {history.length > 0 ? (
+            <div className="mt-5 space-y-0">
+              {history.map((entry, idx) => {
+                const { color, label } = historyEventMeta(entry.action);
+                const performedBy = entry.performed_by
+                  ? `${entry.performed_by.first_name || ""} ${entry.performed_by.last_name || ""}`.trim() ||
+                    entry.performed_by.email
+                  : "System";
+                const role = entry.performed_by?.role || "";
+                const dateStr = entry.created_at
+                  ? new Date(entry.created_at).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "";
+                return (
+                  <div key={entry.id || idx} className="relative flex gap-4 pb-6">
+                    {idx < history.length - 1 && (
+                      <div className="absolute left-2.75 top-6 h-full w-0.5 bg-slate-200" />
+                    )}
+                    <div
+                      className={`mt-1 h-6 w-6 shrink-0 rounded-full ${color} flex items-center justify-center shadow-sm`}
+                    >
+                      <div className="h-2 w-2 rounded-full bg-white" />
+                    </div>
+                    <div className="min-w-0 flex-1 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <span
+                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${color}`}
+                          >
+                            {label}
+                          </span>
+                          {entry.from_status && entry.to_status && (
+                            <span className="ml-2 text-xs text-slate-500">
+                              {entry.from_status} → {entry.to_status}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-400">{dateStr}</span>
+                      </div>
+                      <p className="mt-1.5 text-sm font-semibold text-slate-800">
+                        {performedBy}
+                        {role && (
+                          <span className="ml-2 rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
+                            {role}
+                          </span>
+                        )}
+                      </p>
+                      {entry.remarks && (
+                        <p className="mt-1 text-xs text-slate-600 italic">"{entry.remarks}"</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              No audit history recorded yet.
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Action Modal */}
+      {/* ── ACTION MODAL (APPROVE / REJECT / CANCEL / ARCHIVE) ────────────────── */}
       {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm no-print">
           <div className="w-125 max-w-full space-y-6 rounded-2xl bg-white p-6 shadow-2xl">
             <div>
               <h3 className="flex items-center gap-2 text-lg font-bold capitalize text-slate-900">
@@ -882,19 +1048,21 @@ const InvoiceDetails = () => {
             </label>
             <div className="flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => { setActiveModal(null); setRemarks(""); }}
-                className="rounded-xl border px-4 py-2 text-sm hover:bg-slate-50"
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAction}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold capitalize text-white ${
+                className={`rounded-xl px-4 py-2 text-sm font-semibold capitalize text-white shadow-sm ${
                   activeModal === "reject" || activeModal === "delete"
-                    ? "bg-red-600 hover:bg-red-700"
+                    ? "bg-rose-600 hover:bg-rose-700"
                     : activeModal === "cancel"
                     ? "bg-amber-500 hover:bg-amber-600"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
               >
                 Confirm {activeModal}
@@ -909,9 +1077,3 @@ const InvoiceDetails = () => {
 
 export default InvoiceDetails;
 export { InvoiceDetails };
-
-// View Invoice
-// Download PDF
-// Print Invoice
-// handleDownloadPdf
-

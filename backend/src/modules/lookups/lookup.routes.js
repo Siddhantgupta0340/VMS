@@ -14,5 +14,7 @@ router.get('/teams', lookupController.getTeams);
 router.get('/branches', lookupController.getBranches);
 router.get('/regions', lookupController.getRegions);
 router.get('/designations', lookupController.getDesignations);
+router.get('/company', lookupController.getCompanyInfo);
 
 export default router;
+

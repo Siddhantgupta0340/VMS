@@ -108,13 +108,22 @@ class InvoiceService {
     const initialStatus = INVOICE_STATUS.PENDING_THREE_WAY_MATCH;
     const currentApprovalLevel = null;
 
-    const timestamp = Date.now().toString().slice(-6);
-    const invoiceNum = payload.invoiceNumber || `INV-${new Date().getFullYear()}-${timestamp}`;
-
     return invoiceRepository.transaction(async (tx) => {
+      let seqVal = null;
+      try {
+        const res = await tx.$queryRaw`SELECT nextval('invoice_number_seq')::text AS nextval`;
+        if (res && res[0] && res[0].nextval) {
+          seqVal = String(res[0].nextval).padStart(6, '0');
+        }
+      } catch (_e) {
+        seqVal = Date.now().toString().slice(-6);
+      }
+      const invoiceNum = payload.invoiceNumber || `INV-${new Date().getFullYear()}-${seqVal || '000001'}`;
+
       const invoice = await tx.invoice.create({
         data: {
           invoice_number:        invoiceNum,
+
           vendor_id:             vendorId,
           purchase_order_id:     payload.purchaseOrderId,
           created_by_id:         user.id,
@@ -909,6 +918,32 @@ class InvoiceService {
     if (!invoice) {
       throw new ApiError(404, 'Invoice not found.');
     }
+    if (!invoice.purchase_order) {
+      throw new ApiError(400, 'Purchase Order reference is missing or invalid for this invoice.');
+    }
+    if (!invoice.vendor) {
+      throw new ApiError(400, 'Vendor Master reference is missing or invalid for this invoice.');
+    }
+
+
+    const items = Array.isArray(invoice.items)
+      ? invoice.items
+      : Array.isArray(invoice.line_items)
+        ? invoice.line_items
+        : Array.isArray(invoice.purchase_order?.line_items)
+          ? invoice.purchase_order.line_items
+          : [];
+
+    const grnId = invoice.purchase_order?.grns?.[0]?.id || invoice.three_way_matches?.[0]?.grn_id || null;
+
+    console.info('[Invoice PDF] Debug Info:', {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number || invoice.invoiceNumber,
+      poId: invoice.purchase_order_id,
+      vendorId: invoice.vendor_id,
+      grnId: grnId,
+      itemCount: items.length,
+    });
 
     await prisma.auditLog.create({
       data: {
@@ -935,6 +970,7 @@ class InvoiceService {
     return invoice;
   }
 }
+
 
 export default new InvoiceService();
 

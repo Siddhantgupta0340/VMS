@@ -1,5 +1,9 @@
 import asyncHandler from '../../middleware/asyncHandler.middleware.js';
 import invoiceService from './invoice.service.js';
+import { generateInvoicePdf } from './invoice.pdf.js';
+import { COMPANY_CONFIG } from '../../config/company.js';
+import ApiError from '../../utils/ApiError.js';
+
 
 class InvoiceController {
   // ─── Create ────────────────────────────────────────────────────────────────
@@ -130,12 +134,38 @@ class InvoiceController {
 
   downloadInvoicePdf = asyncHandler(async (req, res) => {
     const invoice = await invoiceService.downloadInvoicePdf(req.params.id, req.user, req);
-    res.status(200).json({
-      success: true,
-      message: 'Invoice download authorized.',
-      data: invoice,
+
+    if (!invoice) {
+      throw new ApiError(404, 'Invoice not found.');
+    }
+
+    let pdfBuffer;
+    try {
+      pdfBuffer = await generateInvoicePdf(invoice, COMPANY_CONFIG);
+    } catch (pdfError) {
+      console.error('[Invoice PDF] Generation failed:', pdfError);
+      throw new ApiError(500, 'PDF generation failed. Please try again.');
+    }
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new ApiError(500, 'PDF generation produced an empty document. Please contact support.');
+    }
+
+    const safeNumber = String(invoice.invoice_number || invoice.invoiceNumber || 'INV-2026-000001').replace(/[/\\?%*:|"<>]/g, '_');
+    const filename = `${safeNumber}.pdf`;
+
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length':      pdfBuffer.length,
+      'Cache-Control':       'no-cache, no-store, must-revalidate',
+      'Pragma':              'no-cache',
+      'Expires':             '0',
     });
+
+    res.end(pdfBuffer);
   });
 }
 
 export default new InvoiceController();
+

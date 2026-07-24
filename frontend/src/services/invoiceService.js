@@ -355,7 +355,42 @@ export const getFinanceHeadInvoiceApprovals = async (params = {}) => {
   };
 };
 
-export const downloadInvoicePdf = async (id) => {
-  const res = await api.get(`/v1/invoices/${id}/download`);
-  return mapInvoice(res.data.data);
+export const downloadInvoicePdf = async (id, fallbackInvoiceNumber = 'Invoice') => {
+  const res = await api.get(`/v1/invoices/${id}/pdf`, {
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+
+  let filename = `${fallbackInvoiceNumber}.pdf`;
+  const disposition = res.headers?.['content-disposition'];
+  if (disposition && disposition.includes('filename=')) {
+    const matches = /filename="?([^";]+)"?/.exec(disposition);
+    if (matches && matches[1]) {
+      filename = matches[1];
+    }
+  }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+
+  return true;
 };
+
+
+export const getCompanyInfo = async () => {
+  try {
+    const res = await api.get("/v1/lookups/company");
+    return res.data.data;
+  } catch (err) {
+    console.error("Failed to fetch company info from API:", err);
+    return null;
+  }
+};
+
