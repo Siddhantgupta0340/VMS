@@ -741,7 +741,70 @@ const InvoiceDetails = () => {
           </div>
         </section>
 
-        {/* 4. Item Table */}
+        {/* 3.5 3-Way Match Verification Card */}
+        {latestMatch || invoice.threeWayMatchStatus ? (
+          <section className="space-y-3">
+            {(latestMatch?.overallStatus === "MATCHED" || invoice.threeWayMatchStatus === "MATCHED") ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-5 text-xs text-emerald-900">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <span className="font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-900">
+                    <CheckCircle size={16} className="text-emerald-600" /> 3-Way Match Verification: MATCHED
+                  </span>
+                  <span className="rounded-full bg-emerald-700 px-3 py-1 font-bold text-white text-[11px]">
+                    100% Verified
+                  </span>
+                </div>
+                <p className="mt-3 text-slate-700 leading-relaxed font-medium">
+                  PO ({safeVal(invoice.poNumber)}), GRN ({safeVal(grnNumber)}), and Invoice ({safeVal(invoice.invoiceNumber)}) vendor, quantities, unit prices, taxes, and totals match PostgreSQL live database records.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-5 text-xs text-rose-950">
+                <div className="flex items-center justify-between border-b border-rose-200 pb-2">
+                  <span className="font-black uppercase tracking-wider flex items-center gap-1.5 text-rose-900">
+                    <AlertCircle size={16} className="text-rose-600" /> 3-Way Matching Result: MISMATCHED
+                  </span>
+                  <span className="rounded-full bg-rose-600 px-3 py-1 font-bold text-white text-[11px]">
+                    Action Required
+                  </span>
+                </div>
+                <p className="mt-3 text-slate-800 font-medium">
+                  Automated payment approval is blocked because the document values do not match live PostgreSQL records. Below is the exact failure breakdown:
+                </p>
+                {latestMatch?.unmatchedFields?.length ? (
+                  <div className="mt-3 overflow-x-auto rounded-lg border border-rose-200 bg-white p-3">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-rose-100 text-[11px] font-bold text-slate-500 uppercase">
+                          <th className="pb-2">Field</th>
+                          <th className="pb-2">PO Record</th>
+                          <th className="pb-2">GRN Record</th>
+                          <th className="pb-2">Invoice Record</th>
+                          <th className="pb-2 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-rose-50 text-xs font-semibold text-slate-800">
+                        {latestMatch.unmatchedFields.map((field, idx) => (
+                          <tr key={idx}>
+                            <td className="py-2 text-rose-900 font-bold">{field.label || field.field}</td>
+                            <td className="py-2">{safeVal(field.po_value || field.poValue)}</td>
+                            <td className="py-2">{safeVal(field.grn_value || field.grnValue)}</td>
+                            <td className="py-2">{safeVal(field.invoice_value || field.invoiceValue)}</td>
+                            <td className="py-2 text-right text-rose-600 font-bold">✗ Mismatch</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-rose-700 italic">Discrepancy detected in quantities or amounts between PO, GRN, and Invoice.</p>
+                )}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {/* 4. Line Item Table */}
         <section className="space-y-3">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
             <FileCheck size={15} /> Line Item Details

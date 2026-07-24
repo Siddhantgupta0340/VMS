@@ -1,8 +1,11 @@
 import asyncHandler from '../../middleware/asyncHandler.middleware.js';
 import invoiceService from './invoice.service.js';
 import { generateInvoicePdf } from './invoice.pdf.js';
+import { processInvoiceOcr as processInvoiceOcrService } from './invoice.ocr.service.js';
 import { COMPANY_CONFIG } from '../../config/company.js';
 import ApiError from '../../utils/ApiError.js';
+import prisma from '../../config/prisma.js';
+
 
 
 class InvoiceController {
@@ -165,7 +168,66 @@ class InvoiceController {
 
     res.end(pdfBuffer);
   });
+
+  processInvoiceOcr = asyncHandler(async (req, res) => {
+    const file = req.file || (req.files && req.files.invoiceFile && req.files.invoiceFile[0]);
+    if (!file) {
+      throw new ApiError(400, 'Please upload an invoice document file (PDF, PNG, JPG, JPEG).');
+    }
+
+    const ocrResult = await processInvoiceOcrService(file);
+
+    let matchedPurchaseOrder = null;
+    const poNum = ocrResult.extractedData?.references?.poNumber;
+    const vendorGst = ocrResult.extractedData?.vendor?.gstin;
+
+    if (poNum) {
+      const po = await prisma.purchaseOrder.findFirst({
+        where: { po_number: { equals: poNum, mode: 'insensitive' }, deleted_at: null },
+        include: {
+          vendor: true,
+          grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+          delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+        },
+      });
+      if (po) matchedPurchaseOrder = po;
+    }
+
+    if (!matchedPurchaseOrder && vendorGst) {
+      const po = await prisma.purchaseOrder.findFirst({
+        where: {
+          vendor: {
+            OR: [
+              { gst_number: { equals: vendorGst, mode: 'insensitive' } },
+              { tax_id: { equals: vendorGst, mode: 'insensitive' } },
+            ],
+          },
+          status: 'APPROVED',
+          deleted_at: null,
+        },
+        orderBy: { created_at: 'desc' },
+        include: {
+          vendor: true,
+          grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+          delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+        },
+      });
+      if (po) matchedPurchaseOrder = po;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OCR document extraction complete.',
+      data: {
+        ocrStatus: ocrResult.status,
+        ocrConfidence: ocrResult.confidence,
+        extractedData: ocrResult.extractedData,
+        matchedPurchaseOrder: matchedPurchaseOrder,
+      },
+    });
+  });
 }
 
 export default new InvoiceController();
+
 

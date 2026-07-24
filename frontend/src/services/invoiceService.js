@@ -394,3 +394,21 @@ export const getCompanyInfo = async () => {
   }
 };
 
+export const processInvoiceOcr = async (file) => {
+  const formData = new FormData();
+  formData.append("invoiceFile", file);
+
+  const res = await api.post("/v1/invoices/process-ocr", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  const data = res.data.data;
+  if (data?.matchedPurchaseOrder) {
+    data.matchedPurchaseOrder = mapApprovedPurchaseOrder(data.matchedPurchaseOrder);
+  }
+
+  return data;
+};
+
+
+

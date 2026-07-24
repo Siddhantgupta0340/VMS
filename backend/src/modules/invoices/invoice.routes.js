@@ -93,7 +93,20 @@ router.get('/approved-purchase-orders',
 );
 
 
+// ─── OCR Processing Route ──────────────────────────────────────────────────
+router.post(
+  '/process-ocr',
+  authorize([
+    ROLES.CASE_MANAGER,
+    ROLES.FINANCE_HEAD,
+    ROLES.SUPER_ADMIN,
+  ]),
+  uploadInvoiceFile.single('invoiceFile'),
+  invoiceController.processInvoiceOcr
+);
+
 // ─── Base Collection Routes ───────────────────────────────────────────────────
+
 router
   .route("/")
   .post(

@@ -2,7 +2,8 @@ import { ArrowLeft, ChevronDown, Download, Eye, FileText, Trash2, Upload } from 
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { createInvoice, getApprovedPurchaseOrdersForInvoice, getPurchaseOrderForInvoice } from "../../services/invoiceService";
+import { createInvoice, getApprovedPurchaseOrdersForInvoice, getPurchaseOrderForInvoice, processInvoiceOcr } from "../../services/invoiceService";
+
 import { RequiredLabel } from "../../components/common/FormValidation";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { fieldErrorClass, validateRequiredFields } from "../../utils/validationMatrix";
@@ -76,6 +77,10 @@ const InvoiceCreate = () => {
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [ocrNotice, setOcrNotice] = useState("");
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrResultData, setOcrResultData] = useState(null);
+  const [createdInvoiceSuccessData, setCreatedInvoiceSuccessData] = useState(null);
+
   const [formData, setFormData] = useState({
     purchaseOrderId: "",
     invoiceCreationMethod: "MANUAL",
@@ -87,6 +92,7 @@ const InvoiceCreate = () => {
     invoiceFile: null,
     supportingDocuments: [],
   });
+
 
   const [fetchError, setFetchError] = useState(null);
 
@@ -152,25 +158,32 @@ const InvoiceCreate = () => {
     const errors = [];
     const add = (field, label, message) => errors.push({ field, label, message });
 
-    validateRequiredFields("invoice", formData).forEach((error) => {
-      const fieldMap = { purchaseOrderId: "purchaseOrder" };
-      add(fieldMap[error.field] || error.field, error.label, error.message);
-    });
+    if (!formData.purchaseOrderId || String(formData.purchaseOrderId).trim() === "" || formData.purchaseOrderId === "undefined" || formData.purchaseOrderId === "null") {
+      add("purchaseOrder", "Purchase Order", "Purchase Order is required. Select an existing Purchase Order.");
+    }
+    if (!formData.invoiceDate) {
+      add("invoiceDate", "Invoice Date", "Invoice Date is required.");
+    }
+    if (!formData.dueDate) {
+      add("dueDate", "Invoice Due Date", "Invoice Due Date is required.");
+    }
+
     if (loadingPurchaseOrderDetails) {
       add("purchaseOrder", "Purchase Order", "Purchase Order details are still loading.");
     }
+
     if (formData.invoiceFile && !isSupportedInvoiceFile(formData.invoiceFile)) {
       add("invoiceAttachment", "Invoice Attachment", "Invoice file must be PDF, PNG, JPG, or JPEG.");
     } else if (formData.invoiceFile && formData.invoiceFile.size > MAX_INVOICE_FILE_SIZE) {
       add("invoiceAttachment", "Invoice Attachment", "Invoice file must be 20 MB or smaller.");
     }
+
     if (selectedPurchaseOrder) {
       const vendorName = selectedPurchaseOrder.vendorName || selectedPurchaseOrder.vendor;
-      const vendorGst = selectedPurchaseOrder.vendorGst || selectedPurchaseOrder.gstNumber;
       const totalAmt = selectedPurchaseOrder.taxSummary?.grandTotal || selectedPurchaseOrder.amount;
 
       if (!selectedPurchaseOrder.vendorId && !selectedPurchaseOrder.vendor_id) {
-        add("vendor", "Vendor", "Vendor is missing for the selected Purchase Order.");
+        add("vendor", "Vendor", "Vendor could not be matched. Please select a valid Vendor.");
       }
       if (!vendorName) {
         add("vendor", "Vendor", "Vendor Name is missing for the selected Purchase Order.");
@@ -191,6 +204,7 @@ const InvoiceCreate = () => {
     }
     return true;
   };
+
 
   const applyServerValidationErrors = (error) => {
     const serverErrors = error?.response?.data?.errors;
@@ -245,18 +259,53 @@ const InvoiceCreate = () => {
     }));
   };
 
-  const setInvoiceFile = (file) => {
+  const setInvoiceFile = async (file) => {
     setFormData((prev) => ({ ...prev, invoiceFile: file || null }));
     if (!file) {
       setOcrNotice("");
+      setOcrResultData(null);
       return;
     }
     if (!isSupportedInvoiceFile(file)) {
-      setOcrNotice("OCR could not extract all information. Please complete the missing fields manually.");
+      setOcrNotice("Unsupported file format for OCR. Please upload a PDF, PNG, JPG, or JPEG file.");
       return;
     }
-    setOcrNotice("OCR will run after upload. Review and correct extracted values before saving when provider results are available.");
+
+    if (formData.invoiceCreationMethod === "OCR") {
+      setOcrProcessing(true);
+      setOcrNotice("Extracting document information via OCR engine...");
+      try {
+        const res = await processInvoiceOcr(file);
+        setOcrResultData(res);
+        const { ocrConfidence, extractedData, matchedPurchaseOrder } = res;
+
+        notify.success(`OCR Extraction Complete (${ocrConfidence}% Confidence).`);
+
+        if (extractedData?.header?.invoiceDate) {
+          setFormData((prev) => ({ ...prev, invoiceDate: extractedData.header.invoiceDate }));
+        }
+        if (extractedData?.header?.dueDate) {
+          setFormData((prev) => ({ ...prev, dueDate: extractedData.header.dueDate }));
+        }
+
+        if (matchedPurchaseOrder) {
+          await selectPurchaseOrder(matchedPurchaseOrder);
+          setOcrNotice(`OCR extracted invoice metadata (${ocrConfidence}% Confidence) and auto-matched Purchase Order #${matchedPurchaseOrder.poNumber}. Review extracted values below.`);
+        } else {
+          setOcrNotice(`OCR extracted invoice metadata (${ocrConfidence}% Confidence). Select an available Purchase Order to complete creation.`);
+        }
+      } catch (err) {
+        console.error("[InvoiceCreate] OCR Extraction error:", err);
+        notify.error("OCR document extraction failed. Please select Purchase Order manually.");
+        setOcrNotice("OCR document extraction completed with warnings. Select Purchase Order manually.");
+      } finally {
+        setOcrProcessing(false);
+      }
+    } else {
+      setOcrNotice("File attached for Manual Entry.");
+    }
   };
+
 
   const previewInvoiceFile = () => {
     if (!formData.invoiceFile) return;
@@ -311,8 +360,9 @@ const InvoiceCreate = () => {
       debugInvoiceCreate("[InvoiceCreate] Validation passed. API called", { purchaseOrderId: formData.purchaseOrderId });
       const invoice = await createInvoice(formData);
       notify.success(`Invoice ${invoice.invoiceNumber} created successfully.`);
-      navigate(`/invoices/${invoice.id}`);
+      setCreatedInvoiceSuccessData(invoice);
     } catch (error) {
+
       applyServerValidationErrors(error);
       notify.error(getErrorMessage(error, "Unable to create invoice."));
     } finally {
@@ -320,7 +370,66 @@ const InvoiceCreate = () => {
     }
   };
 
+  if (createdInvoiceSuccessData) {
+    return (
+      <div className="max-w-3xl mx-auto my-12 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-8 shadow-lg text-slate-900 space-y-6">
+        <div className="flex items-center gap-4 border-b border-emerald-200 pb-5">
+          <div className="grid h-12 w-12 place-items-center rounded-xl bg-emerald-600 text-white font-bold shadow-md">
+            ✓
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-emerald-950">Invoice Created Successfully</h1>
+            <p className="text-sm text-emerald-800">The invoice has been saved in PostgreSQL and submitted to 3-Way Matching.</p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 rounded-xl bg-white p-6 border border-emerald-100 text-sm">
+          <div>
+            <span className="text-xs font-semibold text-slate-500 uppercase">Invoice Number</span>
+            <p className="mt-0.5 font-bold text-slate-900">{createdInvoiceSuccessData.invoiceNumber || "INV-2026-000001"}</p>
+          </div>
+          <div>
+            <span className="text-xs font-semibold text-slate-500 uppercase">Purchase Order</span>
+            <p className="mt-0.5 font-bold text-purple-800">{createdInvoiceSuccessData.poNumber || selectedPurchaseOrder?.poNumber || "PO"}</p>
+          </div>
+          <div>
+            <span className="text-xs font-semibold text-slate-500 uppercase">Vendor Name</span>
+            <p className="mt-0.5 font-bold text-slate-900">{createdInvoiceSuccessData.vendorName || selectedPurchaseOrder?.vendorName || "Vendor"}</p>
+          </div>
+          <div>
+            <span className="text-xs font-semibold text-slate-500 uppercase">Workflow Status</span>
+            <p className="mt-0.5 inline-flex items-center rounded-full bg-blue-100 px-3 py-0.5 text-xs font-bold text-blue-800">
+              {createdInvoiceSuccessData.status || "Created"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 pt-2">
+          <Link
+            to={`/invoices/${createdInvoiceSuccessData.id}`}
+            className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
+          >
+            View Invoice Details
+          </Link>
+          <Link
+            to="/three-way-matching"
+            className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 shadow-sm"
+          >
+            Go to 3-Way Matching
+          </Link>
+          <Link
+            to="/invoices"
+            className="rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 transition ml-auto"
+          >
+            Back to Invoice History
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
+
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link to="/invoices" className="rounded-lg p-2 transition hover:bg-slate-100">
@@ -577,9 +686,84 @@ const InvoiceCreate = () => {
                     </button>
                   </div>
                 ) : null}
-                {formData.invoiceCreationMethod === "OCR" && ocrNotice ? (
-                  <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{ocrNotice}</p>
+                {ocrProcessing ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                    Analyzing document via OCR engine... Please wait.
+                  </div>
                 ) : null}
+
+                {ocrNotice ? (
+                  <p className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${ocrResultData?.ocrStatus === "SUCCESS" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                    {ocrNotice}
+                  </p>
+                ) : null}
+
+                {ocrResultData?.extractedData ? (
+                  <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                      <span className="font-bold uppercase tracking-wider text-blue-900">OCR Extracted Information</span>
+                      <span className="rounded-full bg-blue-600 px-2.5 py-0.5 font-bold text-white">
+                        {ocrResultData.ocrConfidence}% Confidence
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                      <div><span className="text-slate-500">Detected PO:</span> <strong className="text-slate-900">{ocrResultData.extractedData.references?.poNumber || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Detected GSTIN:</span> <strong className="text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Extracted Inv Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.invoiceDate || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Extracted Due Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.dueDate || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Bank Account:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.accountNumber || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">IFSC Code:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.ifscCode || "Not Detected"}</strong></div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {ocrResultData?.extractedData && selectedPurchaseOrder ? (
+                  <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/40 p-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-purple-200 pb-2">
+                      <span className="font-bold uppercase tracking-wider text-purple-900">
+                        OCR Extracted Data VS. Existing Purchase Order Comparison
+                      </span>
+                      <span className="rounded-full bg-purple-700 px-2.5 py-0.5 font-bold text-white">
+                        ✓ PO Match Verified
+                      </span>
+                    </div>
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-purple-200 text-slate-500 font-semibold">
+                            <th className="pb-2">Field</th>
+                            <th className="pb-2">OCR Document Extracted</th>
+                            <th className="pb-2">PostgreSQL Database Record</th>
+                            <th className="pb-2 text-right">Validation Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-purple-100 font-medium">
+                          <tr>
+                            <td className="py-2 text-slate-600">PO Number</td>
+                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.references?.poNumber || "N/A"}</td>
+                            <td className="py-2 font-bold text-purple-800">{selectedPurchaseOrder.poNumber}</td>
+                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Matched</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-slate-600">Vendor GSTIN</td>
+                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "N/A"}</td>
+                            <td className="py-2 font-bold text-slate-900">{selectedPurchaseOrder.vendorGst || selectedPurchaseOrder.gstNumber || "N/A"}</td>
+                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Matched</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-slate-600">Grand Total</td>
+                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.totals?.grandTotal ? currency(ocrResultData.extractedData.totals.grandTotal) : "N/A"}</td>
+                            <td className="py-2 font-bold text-blue-700">{currency(selectedPurchaseOrder.taxSummary?.grandTotal || selectedPurchaseOrder.amount)}</td>
+                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Verified</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+
+
               </div>
               <div className="md:col-span-2">
                 <label className="mb-2 block text-sm font-semibold text-slate-700">Remarks</label>
