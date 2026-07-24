@@ -167,6 +167,32 @@ app.get('/health/ready', async (req, res) => {
   }
 });
 
+app.get('/api/v1/health/database', async (req, res) => {
+  const requestId = getRequestId(req);
+  try {
+    await withTimeout(prisma.$connect(), HEALTH_QUERY_TIMEOUT_MS);
+    const [result] = await withTimeout(prisma.$queryRawUnsafe('SELECT 1::int AS ok'), HEALTH_QUERY_TIMEOUT_MS);
+    if (result?.ok !== 1) {
+      throw new Error('HEALTH_CHECK_FAILED');
+    }
+
+    res.status(200).json({
+      success: true,
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      requestId,
+    });
+  } catch {
+    res.status(503).json({
+      success: false,
+      database: 'unavailable',
+      message: 'The service is temporarily unavailable.',
+      timestamp: new Date().toISOString(),
+      requestId,
+    });
+  }
+});
+
 app.use('/api/v1/auth',               authRoutes);
 app.use('/api/v1/users',              userRoutes);
 app.use('/api/v1/vendors',            vendorRoutes);

@@ -35,15 +35,25 @@ const normalizeDatabaseUrl = (url) => {
   return parsed.toString();
 };
 
-const buildPoolConfig = () => ({
-  connectionString: normalizeDatabaseUrl(process.env.DATABASE_URL),
-  max: parsePositiveInt(process.env.DB_POOL_MAX, DEFAULT_POOL_MAX),
-  idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, 30000),
-  connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECTION_TIMEOUT_MS, 15000),
-  query_timeout: parsePositiveInt(process.env.DB_QUERY_TIMEOUT_MS, 15000),
-  statement_timeout: parsePositiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 15000),
-  keepAlive: process.env.DB_KEEP_ALIVE !== 'false',
-});
+const buildPoolConfig = () => {
+  const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
+  let isNeonHost = false;
+  try {
+    const parsed = new URL(connectionString);
+    isNeonHost = parsed.hostname.endsWith('.neon.tech');
+  } catch {}
+
+  return {
+    connectionString,
+    max: parsePositiveInt(process.env.DB_POOL_MAX, DEFAULT_POOL_MAX),
+    idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, 30000),
+    connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECTION_TIMEOUT_MS, 20000),
+    query_timeout: parsePositiveInt(process.env.DB_QUERY_TIMEOUT_MS, 15000),
+    statement_timeout: parsePositiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 15000),
+    keepAlive: process.env.DB_KEEP_ALIVE !== 'false',
+    ...(isNeonHost ? { ssl: { rejectUnauthorized: true } } : {}),
+  };
+};
 
 const getDatabaseUrlInfo = () => {
   try {
