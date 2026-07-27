@@ -1,42 +1,220 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------
+   DESIGN TOKENS — CSS Variables & Theme Setup
+------------------------------------------------------------ */
+:root {
+  /* --- Colors --- */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93b5e8;
+  --color-primary-400: #6090c8;
+  --color-primary-500: #1a6bb0;
+  --color-primary-600: #155a94;
+  --color-primary-700: #104878;
+  --color-primary-800: #0c375c;
+  --color-primary-900: #082540;
+
+  --color-success-50: #ecfdf5;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  --color-error-50: #fef2f2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+
+  --color-info-50: #eff6ff;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+
+  --color-neutral-50: #f9fafb;
+  --color-neutral-100: #f3f4f6;
+  --color-neutral-200: #e5e7eb;
+  --color-neutral-300: #d1d5db;
+  --color-neutral-400: #9ca3af;
+  --color-neutral-500: #6b7280;
+  --color-neutral-600: #4b5563;
+  --color-neutral-700: #374151;
+  --color-neutral-800: #1f2937;
+  --color-neutral-900: #111827;
+
+  /* --- Semantic --- */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-border: #e5e7eb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #ffffff;
+
+  /* --- Legacy fallback aliases --- */
+  --color-primary: #1a6bb0;
+  --color-primary-hover: #155a94;
+  --color-secondary: #104878;
+  --color-accent: #2563eb;
+  --color-background: var(--color-bg);
+
+  /* --- Typography --- */
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-display: 30px;
+  --font-size-section: 22px;
+  --font-size-card: 18px;
+  --font-size-body-lg: 16px;
+  --font-size-body: 14px;
+  --font-size-body-sm: 13px;
+  --font-size-caption: 12px;
+  --line-height-display: 36px;
+  --line-height-section: 28px;
+  --line-height-card: 24px;
+
+  /* --- Spacing --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* --- Radius --- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+
+  /* --- Component Heights --- */
+  --input-height: 42px;
+  --button-height: 42px;
+}
+
+/* ------------------------------------------------------------
+   DARK MODE TOKENS
+------------------------------------------------------------ */
+[data-theme="dark"] {
+  --color-bg: #0f1117;
+  --color-surface: #181b23;
+  --color-surface-elevated: #1f232e;
+  --color-border: #2d313e;
+  --color-text-primary: #e5e7eb;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #111827;
+
+  --color-neutral-50: #1f232e;
+  --color-neutral-100: #2d313e;
+  --color-neutral-200: #3d4252;
+  --color-neutral-300: #4d5366;
+  --color-neutral-400: #6b7280;
+  --color-neutral-500: #9ca3af;
+  --color-neutral-600: #c9cdd6;
+  --color-neutral-700: #e5e7eb;
+  --color-neutral-800: #f3f4f6;
+  --color-neutral-900: #f9fafb;
+
+  --color-primary-50: #082540;
+  --color-primary-100: #0c375c;
+  --color-primary-200: #104878;
+  --color-primary-300: #155a94;
+  --color-primary-400: #1a6bb0;
+  --color-primary-500: #4a8bc8;
+  --color-primary-600: #7aacd8;
+  --color-primary-700: #aacce8;
+  --color-primary-800: #d4e5f2;
+  --color-primary-900: #eff6ff;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* ------------------------------------------------------------
+   BASE RESET & TYPOGRAPHY
+------------------------------------------------------------ */
 html,
 body,
 #root {
   height: 100%;
-  max-height: 100vh;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
 }
 
 body {
-  font-family: "Inter", sans-serif;
-  overflow: hidden;
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--motion-duration, 200ms) ease-in-out, color var(--motion-duration, 200ms) ease-in-out;
 }
 
-/* Scrollbar styling for smooth custom scrollbars without horizontal overflow */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
+/* Custom Scrollbars */
+::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--color-neutral-800);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-600);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 9999px;
+/* Enterprise status badge helpers */
+.badge-success {
+  background-color: var(--color-success-50);
+  color: var(--color-success-700);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
+.badge-warning {
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-700);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
+
+.badge-danger {
+  background-color: var(--color-error-50);
+  color: var(--color-error-700);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-neutral {
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+  border: 1px solid var(--color-border);
+}
+
+.badge-info {
+  background-color: var(--color-info-50);
+  color: var(--color-info-600);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+
 

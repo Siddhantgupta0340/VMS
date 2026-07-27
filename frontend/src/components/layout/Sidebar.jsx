@@ -73,7 +73,7 @@ const Sidebar = () => {
           min-h-0
           flex-col
           overflow-hidden
-          bg-slate-950
+          bg-[#0F2747]
           text-white
           shadow-2xl
           transition-all
@@ -88,7 +88,7 @@ const Sidebar = () => {
           w-72
         `}
       >
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-800 px-4">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-[#163A63] px-4">
           <div
             className={`min-w-0 overflow-hidden transition-all duration-300 ${
               compact ? "md:w-0 md:opacity-0" : "opacity-100"

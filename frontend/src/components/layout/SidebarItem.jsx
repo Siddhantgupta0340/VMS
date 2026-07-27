@@ -75,18 +75,18 @@ const SidebarItem = ({
     ${compact ? "" : sidebarItemStyles.itemPadding}
     ${sidebarItemStyles.radius}
     text-left
-    transition-colors
-    duration-150
+    transition-all
+    duration-200
     focus-visible:outline
     focus-visible:outline-2
     focus-visible:outline-offset-2
     focus-visible:outline-blue-300
     ${
       disabled
-        ? "cursor-not-allowed text-slate-600"
+        ? "cursor-not-allowed text-slate-600 opacity-60"
         : isPathActive(isActive)
-          ? "bg-blue-600 text-white shadow-sm"
-          : "text-slate-300 hover:bg-slate-900 hover:text-white"
+          ? "bg-[#163A63] text-white font-semibold border-l-4 border-[#2F80ED] rounded-l-none"
+          : "text-slate-300 hover:bg-[#163A63]/60 hover:text-white"
     }
   `;
 
