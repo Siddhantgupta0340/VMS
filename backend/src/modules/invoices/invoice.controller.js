@@ -182,8 +182,16 @@ class InvoiceController {
     const vendorGst = ocrResult.extractedData?.vendor?.gstin;
 
     if (poNum) {
+      const altPoNum = poNum.includes('-') ? poNum.replace(/-/g, '/') : poNum.replace(/\//g, '-');
       const po = await prisma.purchaseOrder.findFirst({
-        where: { po_number: { equals: poNum, mode: 'insensitive' }, deleted_at: null },
+        where: {
+          OR: [
+            { po_number: { equals: poNum, mode: 'insensitive' } },
+            { po_number: { equals: altPoNum, mode: 'insensitive' } },
+            { po_number: { contains: poNum, mode: 'insensitive' } },
+          ],
+          deleted_at: null,
+        },
         include: {
           vendor: true,
           grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },

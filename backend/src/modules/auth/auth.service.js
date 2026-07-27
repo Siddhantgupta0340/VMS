@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import userRepository from "../users/user.repository.js";
 import {
@@ -410,29 +411,44 @@ class AuthService {
    * - Saves password_reset_otp + expires
    * - Emails OTP + expiry time + security warning
    */
+  /**
+   * FORGOT PASSWORD
+   * - Generates secure OTP using crypto.randomInt
+   * - Saves password_reset_otp + expires
+   * - Emails OTP + expiry time + security warning
+   */
   async forgotPassword(payload) {
-    // Accept either string email or { email }
-    const email =
-      typeof payload === "string" ? payload : payload?.email;
+    const rawEmail = typeof payload === "string" ? payload : payload?.email;
 
-    if (!email || typeof email !== "string") {
-      throw new ApiError(400, "Email is required.");
+    if (!rawEmail || typeof rawEmail !== "string") {
+      throw new ApiError(400, "Email address is required.");
     }
+
+    const email = rawEmail.toLowerCase().trim();
+    console.log(`[AUTH] Forgot password request received for: ${email}`);
 
     const user = await userRepository.findByEmail(email);
 
-    // Do NOT reveal existence
-    if (!user) {
+    // Prevent account enumeration by returning generic success if user does not exist or is inactive
+    if (!user || !isActiveAccount(user)) {
+      console.log(`[AUTH] User lookup completed for: ${email} (Account inactive or not found)`);
       return AUTH_MESSAGES.FORGOT_PASSWORD_SENT;
     }
 
-    const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[AUTH] User lookup successful for: ${email}`);
+
+    // Cryptographically secure 6-digit OTP generation
+    const resetOtp = crypto.randomInt(100000, 1000000).toString();
     const resetExpires = new Date(Date.now() + 10 * 60 * 1000);
+    console.log(`[OTP] OTP generated for user ID: ${user[UserEntity.columns.ID]}`);
 
     await userRepository.updateUser(user[UserEntity.columns.ID], {
       [UserEntity.columns.PASSWORD_RESET_OTP]: resetOtp,
       [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: resetExpires,
     });
+    console.log(`[OTP] OTP stored in database for user ID: ${user[UserEntity.columns.ID]}`);
+
+    const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'User';
 
     const emailHtml = `<!DOCTYPE html>
 <html>
@@ -443,35 +459,44 @@ class AuthService {
   <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:10px;padding:35px;box-shadow:0 0 20px rgba(0,0,0,.15);">
     <h2 style="text-align:center;color:#2563eb;">Vendor Management System</h2>
 
-    <p>Hello <b>${user.first_name || "User"}</b>,</p>
+    <p>Hello <b>${userName}</b>,</p>
 
-    <p>We received a request to reset your password.</p>
-
-    <p style="font-weight:bold;">Your OTP is:</p>
+    <p>Your OTP for resetting your VMS account password is:</p>
 
     <div style="margin:20px 0;background:#2563eb;color:white;font-size:34px;font-weight:bold;letter-spacing:10px;text-align:center;padding:18px;border-radius:8px;">
       ${resetOtp}
     </div>
 
-    <p><b>OTP Expiry Time:</b> ${resetExpires.toISOString()}</p>
+    <p>This OTP will expire in 10 minutes.</p>
 
     <div style="background:#fef3c7;border:1px solid #f59e0b;padding:14px;border-radius:8px;margin-top:14px;">
-      <p style="margin:0;"><b>Security Warning:</b> If you didn’t request this reset, ignore this email. Do not share this OTP with anyone.</p>
+      <p style="margin:0;font-size:13px;color:#92400e;"><b>Security Warning:</b> If you did not request a password reset, please ignore this email.</p>
     </div>
 
-    <hr />
+    <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0;" />
 
-    <p style="font-size:12px;color:gray;margin:0;">Vendor Management System</p>
+    <p style="font-size:12px;color:gray;margin-top:12px;">Regards,<br/>VMS Team</p>
   </div>
 </body>
 </html>`;
 
-    await sendEmail({
-      to: user[UserEntity.columns.EMAIL],
-      subject: "Vendor Management System - Password Reset OTP",
-      html: emailHtml,
-      text: `Vendor Management System - Password Reset OTP\nOTP: ${resetOtp}\nExpiry: ${resetExpires.toISOString()}\nSecurity Warning: Do not share OTP with anyone.`,
-    });
+    try {
+      await sendEmail({
+        to: user[UserEntity.columns.EMAIL],
+        subject: "Password Reset OTP",
+        html: emailHtml,
+        text: `Hello ${userName},\n\nYour OTP for resetting your VMS account password is:\n\n${resetOtp}\n\nThis OTP will expire in 10 minutes.\n\nIf you did not request a password reset, please ignore this email.\n\nRegards,\nVMS Team`,
+      });
+      console.log(`[EMAIL] OTP email sent successfully to ${email}`);
+    } catch (emailErr) {
+      console.error(`[EMAIL] OTP email failed for ${email}:`, emailErr?.message || emailErr);
+      // Clean up incomplete state in database
+      await userRepository.updateUser(user[UserEntity.columns.ID], {
+        [UserEntity.columns.PASSWORD_RESET_OTP]: null,
+        [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: null,
+      }).catch(() => {});
+      throw new ApiError(502, "Failed to send the OTP email. Please check your email configuration or try again shortly.");
+    }
 
     return AUTH_MESSAGES.FORGOT_PASSWORD_SENT;
   }
@@ -481,26 +506,34 @@ class AuthService {
    */
   async verifyOtp(email, otp) {
     if (!email || typeof email !== "string") {
-      throw new ApiError(400, "Email is required.");
+      throw new ApiError(400, "Email address is required.");
     }
 
     if (!otp || typeof otp !== "string") {
       throw new ApiError(400, "OTP is required.");
     }
 
-    const user = await userRepository.findByResetOtp(email, otp);
+    const normalizedEmail = email.toLowerCase().trim();
+    const cleanOtp = otp.trim();
+
+    console.log(`[AUTH] OTP verification attempt for: ${normalizedEmail}`);
+
+    const user = await userRepository.findByResetOtp(normalizedEmail, cleanOtp);
 
     if (!user) {
-      throw new ApiError(400, "OTP is invalid.");
+      console.warn(`[AUTH] OTP verification failed: Invalid OTP for ${normalizedEmail}`);
+      throw new ApiError(400, "Invalid OTP. Please check and try again.");
     }
 
     const expiryField = UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES;
 
     if (!user[expiryField] || user[expiryField] < new Date()) {
-      throw new ApiError(400, "OTP has expired.");
+      console.warn(`[AUTH] OTP verification failed: Expired OTP for ${normalizedEmail}`);
+      throw new ApiError(400, "Your OTP has expired. Please request a new OTP.");
     }
 
-    return "OTP verified";
+    console.log(`[AUTH] OTP verified successfully for: ${normalizedEmail}`);
+    return "OTP verified successfully.";
   }
 
   /**
@@ -508,7 +541,7 @@ class AuthService {
    */
   async resetPassword(email, otp, newPassword) {
     if (!email || typeof email !== "string") {
-      throw new ApiError(400, "Email is required.");
+      throw new ApiError(400, "Email address is required.");
     }
 
     if (!otp || typeof otp !== "string") {
@@ -519,28 +552,43 @@ class AuthService {
       throw new ApiError(400, "New password is required.");
     }
 
-    const user = await userRepository.findByResetOtp(email, otp);
+    const normalizedEmail = email.toLowerCase().trim();
+    const cleanOtp = otp.trim();
+
+    console.log(`[AUTH] Password reset attempt for: ${normalizedEmail}`);
+
+    const user = await userRepository.findByResetOtp(normalizedEmail, cleanOtp);
 
     if (!user) {
-      throw new ApiError(400, "Invalid OTP.");
+      console.warn(`[AUTH] Password reset failed: Invalid OTP for ${normalizedEmail}`);
+      throw new ApiError(400, "Invalid OTP. Please check and try again.");
     }
 
     const expiryField = UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES;
 
     if (!user[expiryField] || user[expiryField] < new Date()) {
-      throw new ApiError(400, "OTP has expired.");
+      console.warn(`[AUTH] Password reset failed: Expired OTP for ${normalizedEmail}`);
+      throw new ApiError(400, "Your OTP has expired. Please request a new OTP.");
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const now = new Date();
 
     await userRepository.updateUser(user[UserEntity.columns.ID], {
       [UserEntity.columns.PASSWORD]: hashedPassword,
       [UserEntity.columns.PASSWORD_RESET_OTP]: null,
       [UserEntity.columns.PASSWORD_RESET_OTP_EXPIRES]: null,
+      [UserEntity.columns.MUST_CHANGE_PASSWORD]: false,
+      [UserEntity.columns.TEMPORARY_PASSWORD_EXPIRES_AT]: null,
+      [UserEntity.columns.PASSWORD_CHANGED_AT]: now,
+      [UserEntity.columns.FAILED_LOGIN_ATTEMPTS]: 0,
+      [UserEntity.columns.LOCKED_UNTIL]: null,
     });
 
+    console.log(`[AUTH] Password reset successful for: ${normalizedEmail}`);
     return AUTH_MESSAGES.PASSWORD_RESET_SUCCESS;
   }
+
 
   /**
    * ADMIN RESET PASSWORD

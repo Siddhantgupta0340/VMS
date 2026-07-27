@@ -1,6 +1,7 @@
 import prisma from '../../config/prisma.js';
 import { UserEntity } from '../../zodSchema/index.js';
 import { USER_ACCOUNT_STATUS } from './user-status.constants.js';
+import { withDatabaseRetry } from '../../utils/dbRetry.js';
 
 const AUTH_USER_SELECT = {
   [UserEntity.columns.ID]: true,
@@ -179,94 +180,112 @@ class UserRepository {
    * Find a single user by ID, excluding soft-deleted records.
    */
   async findById(id) {
-    return await prisma.user.findFirst({
-      where: {
-        [UserEntity.columns.ID]: id,
-        [UserEntity.columns.DELETED_AT]: null,
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findById', () =>
+      prisma.user.findFirst({
+        where: {
+          [UserEntity.columns.ID]: id,
+          [UserEntity.columns.DELETED_AT]: null,
+        },
+      })
+    );
   }
   /**
    * Find a single user by ID, including soft-deleted records.
    */
   async findAnyById(id) {
-    return await prisma.user.findFirst({
-      where: {
-        [UserEntity.columns.ID]: id,
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findAnyById', () =>
+      prisma.user.findFirst({
+        where: {
+          [UserEntity.columns.ID]: id,
+        },
+      })
+    );
   }
   /**
    * Find a single user by email.
    */
   async findByEmail(email) {
-    return await prisma.user.findFirst({
-      where: {
-        email: email.toLowerCase().trim(),
-        deleted_at: null,
-      },
-      select: AUTH_USER_SELECT,
-    });
+    return await withDatabaseRetry('UserRepository.findByEmail', () =>
+      prisma.user.findFirst({
+        where: {
+          email: email.toLowerCase().trim(),
+          deleted_at: null,
+        },
+        select: AUTH_USER_SELECT,
+      })
+    );
   }
 
   async findSeedUserByEmail(email) {
-    return await prisma.user.findFirst({
-      where: {
-        [UserEntity.columns.EMAIL]: email.toLowerCase().trim(),
-      },
-      select: {
-        [UserEntity.columns.ID]: true,
-        [UserEntity.columns.EMPLOYEE_ID]: true,
-        [UserEntity.columns.EMAIL]: true,
-        [UserEntity.columns.ROLE]: true,
-        [UserEntity.columns.STATUS]: true,
-        [UserEntity.columns.DELETED_AT]: true,
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findSeedUserByEmail', () =>
+      prisma.user.findFirst({
+        where: {
+          [UserEntity.columns.EMAIL]: email.toLowerCase().trim(),
+        },
+        select: {
+          [UserEntity.columns.ID]: true,
+          [UserEntity.columns.EMPLOYEE_ID]: true,
+          [UserEntity.columns.EMAIL]: true,
+          [UserEntity.columns.ROLE]: true,
+          [UserEntity.columns.STATUS]: true,
+          [UserEntity.columns.DELETED_AT]: true,
+        },
+      })
+    );
   }
 
   async findAnyByEmail(email) {
-    return await prisma.user.findFirst({
-      where: {
-        email: email.toLowerCase().trim(),
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findAnyByEmail', () =>
+      prisma.user.findFirst({
+        where: {
+          email: email.toLowerCase().trim(),
+        },
+      })
+    );
   }
 
   async findByActivationTokenHash(tokenHash) {
-    return await prisma.user.findFirst({
-      where: {
-        [UserEntity.columns.ACTIVATION_TOKEN_HASH]: tokenHash,
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findByActivationTokenHash', () =>
+      prisma.user.findFirst({
+        where: {
+          [UserEntity.columns.ACTIVATION_TOKEN_HASH]: tokenHash,
+        },
+      })
+    );
   }
 
   /**
    * Find a user by their refresh token.
    */
   async findByRefreshToken(refreshToken) {
-    return await prisma.user.findFirst({
-      where: { [UserEntity.columns.REFRESH_TOKEN]: refreshToken },
-    });
+    return await withDatabaseRetry('UserRepository.findByRefreshToken', () =>
+      prisma.user.findFirst({
+        where: { [UserEntity.columns.REFRESH_TOKEN]: refreshToken },
+      })
+    );
   }
 
   async findByResetOtp(email, otp) {
-    return await prisma.user.findFirst({
-      where: {
-        [UserEntity.columns.EMAIL]: email,
-        [UserEntity.columns.PASSWORD_RESET_OTP]: otp,
-        [UserEntity.columns.DELETED_AT]: null,
-      },
-    });
+    return await withDatabaseRetry('UserRepository.findByResetOtp', () =>
+      prisma.user.findFirst({
+        where: {
+          [UserEntity.columns.EMAIL]: email,
+          [UserEntity.columns.PASSWORD_RESET_OTP]: otp,
+          [UserEntity.columns.DELETED_AT]: null,
+        },
+      })
+    );
   }
 
   /**
    * Create a new user.
    */
   async createUser(userData) {
-    return await prisma.user.create({
-      data: userData,
-    });
+    return await withDatabaseRetry('UserRepository.createUser', () =>
+      prisma.user.create({
+        data: userData,
+      })
+    );
   }
 
   /**
@@ -275,10 +294,12 @@ class UserRepository {
   async updateUser(id, updateData) {
     const safeUpdateData = this.sanitizeUpdateData(updateData);
 
-    return await prisma.user.update({
-      where: { [UserEntity.columns.ID]: id },
-      data: safeUpdateData,
-    });
+    return await withDatabaseRetry('UserRepository.updateUser', () =>
+      prisma.user.update({
+        where: { [UserEntity.columns.ID]: id },
+        data: safeUpdateData,
+      })
+    );
   }
 
   /**
