@@ -277,72 +277,87 @@ const PurchaseOrderDetails = () => {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+        <div className="flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 self-end sm:self-auto overflow-x-visible">
           {/* View PO / Preview PO Toggle */}
           <button
             type="button"
+            title={isPreviewMode ? "Standard View" : "Document Preview"}
             onClick={() => setIsPreviewMode(!isPreviewMode)}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold shadow-sm transition duration-150 ${
-              isPreviewMode 
-                ? "bg-slate-900 border-slate-900 text-white hover:bg-slate-800" 
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold shadow-sm transition duration-150 shrink-0 ${isPreviewMode
+                ? "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-            }`}
+              }`}
           >
-            <Eye size={14} /> {isPreviewMode ? "Standard View" : "Document Preview"}
+            <Eye size={14} className="shrink-0" />
+            <span className="hidden md:inline">
+              {isPreviewMode ? "Standard View" : "Document Preview"}
+            </span>
           </button>
 
           {canEdit && (
             <Link
               to={`/purchase-orders/${po.id}/edit`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              title="Edit PO"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 shrink-0"
             >
-              <Edit3 size={14} /> Edit PO
+              <Edit3 size={14} className="shrink-0" />
+              <span className="hidden md:inline">Edit PO</span>
             </Link>
           )}
 
           {canDownload && (
             <button
               type="button"
+              title="Download PDF"
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
             >
               {downloading ? (
-                <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-t-slate-700" /> Generating...</>
+                <>
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-t-slate-700 shrink-0" />
+                  <span className="hidden md:inline">Generating...</span>
+                </>
               ) : (
-                <><Download size={14} /> Download PDF</>
+                <>
+                  <Download size={14} className="shrink-0" />
+                  <span className="hidden md:inline">Download PDF</span>
+                </>
               )}
             </button>
           )}
 
           <button
             type="button"
+            title="Open &amp; Print PDF"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 sm:px-4 sm:py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 shrink-0"
           >
-            <Printer size={14} /> Open &amp; Print PDF
+            <Printer size={14} className="shrink-0" />
+            <span className="hidden md:inline">Open &amp; Print PDF</span>
           </button>
 
           {canDelete && (
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-bold text-red-600 shadow-sm transition hover:bg-red-50"
+              title="Delete PO"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-red-600 shadow-sm transition hover:bg-red-50 shrink-0"
               onClick={() => setDeleteTarget(po)}
             >
-              <Trash2 size={14} /> Delete PO
+              <Trash2 size={14} className="shrink-0" />
+              <span className="hidden md:inline">Delete PO</span>
             </button>
           )}
         </div>
       </div>
 
       {/* DOCUMENT CANVAS SHEET */}
-      <div className={`mx-auto bg-white border border-slate-200 print:border-none shadow-xl print:shadow-none transition-all duration-200 ${
-        isPreviewMode 
-          ? "max-w-4xl p-8 sm:p-12 md:p-16 border-t-4 border-t-slate-900" 
+      <div className={`mx-auto bg-white border border-slate-200 print:border-none shadow-xl print:shadow-none transition-all duration-200 ${isPreviewMode
+          ? "max-w-4xl p-8 sm:p-12 md:p-16 border-t-4 border-t-slate-900"
           : "max-w-6xl p-6 sm:p-8 md:p-10"
-      }`}>
+        }`}>
         <article className="space-y-8 print:space-y-6">
-          
+
           {/* SECTION 1: COMPANY HEADER */}
           <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between border-b-2 border-slate-900 pb-6 print:pb-4">
             <div className="space-y-3">

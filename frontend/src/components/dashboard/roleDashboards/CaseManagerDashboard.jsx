@@ -1,14 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  CreditCard,
-  FileText,
-  RefreshCw,
-  ShoppingCart,
-  XCircle,
-} from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -22,20 +13,16 @@ import {
   YAxis,
 } from "recharts";
 
+import { useAuth } from "../../../context/AuthContext";
 import {
   DATE_PRESETS,
-  GROUP_OPTIONS,
   getMyDashboard,
 } from "../../../services/dashboardService";
+import GlobalStatCard from "../StatCard";
 
-const COLORS = ["#2563eb", "#0f766e", "#f59e0b", "#dc2626", "#64748b", "#7c3aed"];
+const COLORS = ["#0090B8", "#1E3A5F", "#0EA5E9", "#2DD4BF", "#F59E0B", "#EF4444"];
 
 const numberFormat = new Intl.NumberFormat("en-IN");
-const currencyFormat = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 const safeNumber = (value) => {
   const numeric = Number(value || 0);
@@ -43,113 +30,143 @@ const safeNumber = (value) => {
 };
 
 const formatNumber = (value) => numberFormat.format(safeNumber(value));
-const formatCurrency = (value, currency = "INR") =>
-  currency === "INR" ? currencyFormat.format(safeNumber(value)) : `${currency} ${formatNumber(value)}`;
 
 const normalizeChart = (items = []) =>
   Array.isArray(items)
     ? items.filter((item) => safeNumber(item.value) > 0)
     : [];
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
+
 const EmptyState = ({ message = "No data available yet" }) => (
-  <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-xs font-medium text-slate-500 sm:text-sm">
+  <div className="flex min-h-36 items-center justify-center rounded-[20px] border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-center text-xs font-medium text-slate-400">
     {message}
   </div>
 );
 
-const StatCard = ({ icon: Icon, title, value, tone = "blue" }) => {
-  const tones = {
-    blue: "border-blue-100 bg-blue-50 text-blue-700",
-    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    amber: "border-amber-100 bg-amber-50 text-amber-700",
-    red: "border-red-100 bg-red-50 text-red-700",
-    slate: "border-slate-200 bg-slate-50 text-slate-700",
-  };
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-slate-500 sm:text-sm">{title}</p>
-          <p className="mt-2 truncate text-2xl font-bold text-slate-950 sm:text-3xl">{formatNumber(value)}</p>
-        </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-11 sm:w-11 ${tones[tone]}`}>
-          <Icon size={19} />
-        </div>
-      </div>
-    </section>
-  );
-};
-
 const ChartCard = ({ children, title, hasData }) => (
-  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <h2 className="truncate text-base font-bold text-slate-950">{title}</h2>
-    <div className="mt-4 h-64 min-w-0 w-full overflow-hidden sm:h-72">
+  <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm flex flex-col justify-between">
+    <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 font-heading mb-2">{title}</h2>
+    <div className="min-w-0 w-full flex-1">
       {hasData ? children : <EmptyState />}
     </div>
   </section>
 );
 
-const DataTable = ({ columns, rows, emptyMessage = "No data available yet" }) => (
-  <div className="overflow-x-auto rounded-xl border border-slate-200">
-    {rows?.length ? (
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <tr>
-            {columns.map((column) => (
-              <th key={column.key} className="px-4 py-3">{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {rows.map((row) => (
-            <tr key={row.id} className="transition hover:bg-slate-50/50">
-              {columns.map((column) => (
-                <td key={column.key} className="px-4 py-3 text-slate-700">
-                  {column.render ? column.render(row) : row[column.key] || "-"}
-                </td>
+/* Clean, Non-Overlapping Donut/Pie Chart Component with Formatted Legend Grid */
+const PieStatusChart = ({ data }) => {
+  const total = Array.isArray(data) ? data.reduce((sum, item) => sum + safeNumber(item.value), 0) : 0;
+
+  if (!data || data.length === 0 || total === 0) {
+    return <EmptyState message="No chart data available" />;
+  }
+
+  return (
+    <div className="flex flex-col justify-between h-full min-h-[260px] pt-1">
+      <div className="relative h-40 w-full flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const item = payload[0];
+                  const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
+                  return (
+                    <div className="rounded-xl border border-slate-700 bg-[#1E3A5F] p-2.5 shadow-xl text-white backdrop-blur-md">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.payload?.fill || item.color }} />
+                        <span className="text-xs font-bold">{item.name}</span>
+                      </div>
+                      <p className="mt-1 text-xs font-extrabold text-sky-300">
+                        {item.value} ({pct}%)
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={68}
+              innerRadius={44}
+              paddingAngle={3}
+              stroke="none"
+              isAnimationActive={true}
+            >
+              {data.map((entry, index) => (
+                <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    ) : (
-      <EmptyState message={emptyMessage} />
-    )}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-heading">{total}</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+        {data.map((entry, index) => {
+          const color = COLORS[index % COLORS.length];
+          const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
+          return (
+            <div key={entry.name || index} className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title={entry.name}>
+                  {entry.name}
+                </span>
+              </div>
+              <span className="shrink-0 text-xs font-extrabold text-slate-900 dark:text-white">
+                {entry.value} <span className="text-[10px] text-slate-400 font-medium">({pct}%)</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const BarCountChart = ({ data }) => (
+  <div className="h-56 w-full pt-2">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data}>
+        <defs>
+          <linearGradient id="caseBarGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0090B8" />
+            <stop offset="100%" stopColor="#1E3A5F" />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} dy={6} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748B" }} dx={-6} />
+        <Tooltip contentStyle={{ backgroundColor: "#1E3A5F", borderRadius: "12px", color: "#FFF", fontSize: "11px" }} />
+        <Bar dataKey="value" fill="url(#caseBarGrad)" radius={[8, 8, 0, 0]} barSize={26} />
+      </BarChart>
+    </ResponsiveContainer>
   </div>
 );
 
-const PieStatusChart = ({ data }) => (
-  <ResponsiveContainer width="100%" height="100%">
-    <PieChart>
-      <Tooltip />
-      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} stroke="none">
-        {data.map((entry, index) => (
-          <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
-        ))}
-      </Pie>
-    </PieChart>
-  </ResponsiveContainer>
-);
-
-const BarCountChart = ({ data }) => (
-  <ResponsiveContainer width="100%" height="100%">
-    <BarChart data={data}>
-      <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-      <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-      <Tooltip />
-      <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} />
-    </BarChart>
-  </ResponsiveContainer>
-);
-
 const CaseManagerDashboard = () => {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({ preset: "last30", groupBy: "day", startDate: "", endDate: "" });
+
+  const displayName = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.name || user?.email || "User";
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -170,39 +187,18 @@ const CaseManagerDashboard = () => {
     loadDashboard();
   }, [loadDashboard]);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => loadDashboard({ silent: true }), 60000);
-    return () => window.clearInterval(intervalId);
-  }, [loadDashboard]);
-
   const cards = data?.cards || {};
   const charts = data?.charts || {};
-  const tables = data?.tables || {};
 
-  const statCards = [
-    ["Total Vendors", cards.totalVendors, Building2, "blue"],
-    ["Active Vendors", cards.activeVendors, CheckCircle2, "green"],
-    ["Inactive Vendors", cards.inactiveVendors, XCircle, "red"],
-    ["Pending Vendors", cards.pendingVendors, ClipboardList, "amber"],
-    ["Total Purchase Orders", cards.totalPurchaseOrders, ShoppingCart, "blue"],
-    ["Pending Purchase Orders", cards.pendingPurchaseOrders, ClipboardList, "amber"],
-    ["Approved Purchase Orders", cards.approvedPurchaseOrders, CheckCircle2, "green"],
-    ["Total Invoices", cards.totalInvoices, FileText, "blue"],
-    ["Draft Invoices", cards.draftInvoices, FileText, "slate"],
-    ["Submitted Invoices", cards.submittedInvoices, FileText, "blue"],
-    ["Pending Invoices", cards.pendingInvoices, ClipboardList, "amber"],
-    ["Approved Invoices", cards.approvedInvoices, CheckCircle2, "green"],
-    ["Rejected Invoices", cards.rejectedInvoices, XCircle, "red"],
-    ["Total Payments", cards.totalPayments, CreditCard, "blue"],
-    ["Pending Payments", cards.pendingPayments, ClipboardList, "amber"],
-    ["Completed Payments", cards.completedPayments, CheckCircle2, "green"],
-  ];
+  const totalVendorsCount = safeNumber(cards.totalVendors);
+  const activeVendorsCount = safeNumber(cards.activeVendors);
+  const vendorRatio = totalVendorsCount > 0 ? Math.round((activeVendorsCount / totalVendorsCount) * 100) : 0;
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+      <div className="grid gap-5 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="h-44 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
         ))}
       </div>
     );
@@ -210,134 +206,93 @@ const CaseManagerDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Case Manager Dashboard</h1>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">Live operational data from your vendors, purchase orders, invoices, and payments.</p>
-          </div>
-          <div className="flex flex-wrap items-end gap-2.5">
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Period</span>
-              <select className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 sm:h-10 sm:px-3 sm:text-sm" value={filters.preset} onChange={(event) => setFilters((current) => ({ ...current, preset: event.target.value }))}>
-                {DATE_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
-              </select>
-            </label>
-            {filters.preset === "custom" && (
-              <>
-                <input className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 sm:h-10 sm:px-3 sm:text-sm" type="date" value={filters.startDate} onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))} />
-                <input className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 sm:h-10 sm:px-3 sm:text-sm" type="date" value={filters.endDate} onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))} />
-              </>
-            )}
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Group</span>
-              <select className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 sm:h-10 sm:px-3 sm:text-sm" value={filters.groupBy} onChange={(event) => setFilters((current) => ({ ...current, groupBy: event.target.value }))}>
-                {GROUP_OPTIONS.map((group) => <option key={group.value} value={group.value}>{group.label}</option>)}
-              </select>
-            </label>
-            <button className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 sm:h-10 sm:px-4 sm:text-sm" disabled={refreshing} onClick={() => loadDashboard({ silent: true })} type="button">
-              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
+      {/* Header Toolbar with Warm Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+            {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            Live operational metrics derived directly from system databases
+          </p>
         </div>
-      </section>
 
-      {error && <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-xs font-semibold text-red-700 sm:text-sm">{error}</section>}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select
+            className="h-10 rounded-full border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm outline-none cursor-pointer"
+            value={filters.preset}
+            onChange={(e) => setFilters((current) => ({ ...current, preset: e.target.value }))}
+          >
+            {DATE_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>{preset.label}</option>
+            ))}
+          </select>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
-        {statCards.map(([title, value, Icon, tone]) => (
-          <StatCard key={title} title={title} value={value} icon={Icon} tone={tone} />
-        ))}
+          <button
+            type="button"
+            onClick={() => loadDashboard({ silent: true })}
+            className="flex h-10 items-center gap-2 rounded-full bg-[#0090B8] hover:bg-[#007799] text-white px-5 text-xs font-bold shadow-md shadow-sky-500/20 transition cursor-pointer"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ChartCard title="Vendor Status" hasData={normalizeChart(charts.vendorStatus).length > 0}><PieStatusChart data={normalizeChart(charts.vendorStatus)} /></ChartCard>
-        <ChartCard title="Invoice Status" hasData={normalizeChart(charts.invoiceStatus).length > 0}><PieStatusChart data={normalizeChart(charts.invoiceStatus)} /></ChartCard>
-        <ChartCard title="Payment Status" hasData={normalizeChart(charts.paymentStatus).length > 0}><PieStatusChart data={normalizeChart(charts.paymentStatus)} /></ChartCard>
-        <ChartCard title="Monthly Vendor Registration" hasData={normalizeChart(charts.monthlyVendorRegistration).length > 0}><BarCountChart data={normalizeChart(charts.monthlyVendorRegistration)} /></ChartCard>
-        <ChartCard title="Monthly Invoice Count" hasData={normalizeChart(charts.monthlyInvoiceCount).length > 0}><BarCountChart data={normalizeChart(charts.monthlyInvoiceCount)} /></ChartCard>
-        <ChartCard title="Monthly Payment Count" hasData={normalizeChart(charts.monthlyPaymentCount).length > 0}><BarCountChart data={normalizeChart(charts.monthlyPaymentCount)} /></ChartCard>
-      </div>
+      {error ? (
+        <section className="rounded-[20px] border border-red-500/20 bg-red-50 dark:bg-red-950/30 p-4 text-xs font-bold text-red-700 dark:text-red-400">
+          {error}
+        </section>
+      ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-bold text-slate-950">Top Vendors by Payment Value</h2>
-            <p className="mt-0.5 text-xs text-slate-500">Ranked by total payment value in selected period</p>
-          </div>
-        </div>
-        <DataTable
-          emptyMessage="No vendor data available yet"
-          rows={charts.topVendors || []}
-          columns={[
-            { key: "name", label: "Vendor", render: (row) => <div><p className="font-semibold text-slate-900">{row.name}</p><p className="text-xs text-slate-500">{row.vendorCode}</p></div> },
-            { key: "value", label: "Total Payment Value", render: (row) => formatCurrency(row.value) },
-            { key: "count", label: "Payments Count" },
-          ]}
+      {/* Top 3 Hero Cards (Pure 100% Real Database Metrics) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+        <GlobalStatCard
+          variant="hero"
+          title="Total Purchase Orders"
+          value={formatNumber(cards.totalPurchaseOrders)}
+          change="Live DB Record"
+          subtitle="Total purchase order requisitions in system"
         />
-      </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-bold text-slate-950">Latest Vendors</h2>
-          <div className="mt-4">
-            <DataTable
-              emptyMessage="No vendor data available yet"
-              rows={tables.latestVendors || []}
-              columns={[
-                { key: "name", label: "Vendor" },
-                { key: "vendor_code", label: "Code" },
-                { key: "status", label: "Status" }
-              ]}
-            />
-          </div>
-        </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-bold text-slate-950">Latest Purchase Orders</h2>
-          <div className="mt-4">
-            <DataTable
-              emptyMessage="No purchase orders available yet"
-              rows={tables.latestPurchaseOrders || []}
-              columns={[
-                { key: "po_number", label: "PO Number" },
-                { key: "vendor", label: "Vendor", render: (row) => row.vendor?.name || "-" },
-                { key: "amount", label: "Amount", render: (row) => formatCurrency(row.amount, row.currency) },
-                { key: "status", label: "Status" }
-              ]}
-            />
-          </div>
-        </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-bold text-slate-950">Latest Invoices</h2>
-          <div className="mt-4">
-            <DataTable
-              emptyMessage="No invoices available yet"
-              rows={tables.latestInvoices || []}
-              columns={[
-                { key: "invoice_number", label: "Invoice Number" },
-                { key: "vendor", label: "Vendor", render: (row) => row.vendor?.name || "-" },
-                { key: "amount", label: "Amount", render: (row) => formatCurrency(row.amount, row.currency) },
-                { key: "status", label: "Status" }
-              ]}
-            />
-          </div>
-        </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-bold text-slate-950">Latest Payments</h2>
-          <div className="mt-4">
-            <DataTable
-              emptyMessage="No payments available yet"
-              rows={tables.latestPayments || []}
-              columns={[
-                { key: "payment_number", label: "Payment Number" },
-                { key: "vendor", label: "Vendor", render: (row) => row.vendor?.name || "-" },
-                { key: "amount", label: "Amount", render: (row) => formatCurrency(row.amount, row.currency) },
-                { key: "status", label: "Status" }
-              ]}
-            />
-          </div>
-        </section>
+        <GlobalStatCard
+          variant="progress"
+          title="Vendor Pipeline"
+          value={formatNumber(cards.totalVendors)}
+          change={`${cards.activeVendors || 0} Active`}
+          progressPercent={vendorRatio}
+          progressLabel="Active ratio"
+          progressSubtext="System active vendors"
+        />
+
+        <GlobalStatCard
+          variant="gauge"
+          title="Total Invoices Cleared"
+          gaugeValue={safeNumber(cards.totalInvoices)}
+          gaugeSubtext={`${cards.approvedInvoices || 0} Approved & cleared`}
+        />
+      </div>
+
+      {/* Pie & Bar Charts Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ChartCard title="Vendor Status" hasData={normalizeChart(charts.vendorStatus).length > 0}>
+          <PieStatusChart data={normalizeChart(charts.vendorStatus)} />
+        </ChartCard>
+        <ChartCard title="Invoice Status" hasData={normalizeChart(charts.invoiceStatus).length > 0}>
+          <PieStatusChart data={normalizeChart(charts.invoiceStatus)} />
+        </ChartCard>
+        <ChartCard title="Payment Status" hasData={normalizeChart(charts.paymentStatus).length > 0}>
+          <PieStatusChart data={normalizeChart(charts.paymentStatus)} />
+        </ChartCard>
+        <ChartCard title="Monthly Vendor Registration" hasData={normalizeChart(charts.monthlyVendorRegistration).length > 0}>
+          <BarCountChart data={normalizeChart(charts.monthlyVendorRegistration)} />
+        </ChartCard>
+        <ChartCard title="Monthly Invoice Count" hasData={normalizeChart(charts.monthlyInvoiceCount).length > 0}>
+          <BarCountChart data={normalizeChart(charts.monthlyInvoiceCount)} />
+        </ChartCard>
+        <ChartCard title="Monthly Payment Count" hasData={normalizeChart(charts.monthlyPaymentCount).length > 0}>
+          <BarCountChart data={normalizeChart(charts.monthlyPaymentCount)} />
+        </ChartCard>
       </div>
     </div>
   );

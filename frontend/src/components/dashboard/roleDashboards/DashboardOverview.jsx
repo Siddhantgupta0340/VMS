@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   Building2,
@@ -10,7 +10,11 @@ import {
   ShieldCheck,
   Users,
   Wallet,
-  Trophy,
+  ChevronDown,
+  Download,
+  Filter,
+  MapPin,
+  TrendingUp,
 } from "lucide-react";
 import {
   Area,
@@ -19,6 +23,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -27,14 +32,15 @@ import {
   YAxis,
 } from "recharts";
 
+import { useAuth } from "../../../context/AuthContext";
 import {
   DATE_PRESETS,
   GROUP_OPTIONS,
   getDashboardAnalytics,
 } from "../../../services/dashboardService";
+import StatCard from "../StatCard";
 
-const COMPANY_NAME = "VMS Enterprise";
-const STATUS_PALETTE = ["#2563eb", "#0ea5e9", "#f43f5e", "#64748b"];
+const STATUS_PALETTE = ["#0090B8", "#1E3A5F", "#0EA5E9", "#2DD4BF", "#F59E0B", "#EF4444"];
 
 function safeNumber(value, fallback = 0) {
   const numberValue = typeof value === "number" ? value : Number(value);
@@ -68,125 +74,125 @@ function normalizeSeries(source) {
     .filter((item) => item.label);
 }
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
+
 function EmptyPanel({ message = "No data available yet" }) {
   return (
-    <div className="flex h-full min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm font-medium text-slate-500">
+    <div className="flex h-full min-h-44 items-center justify-center rounded-[20px] border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-center text-sm font-medium text-slate-400">
       {message}
     </div>
   );
 }
 
-function ChartShell({ title, children, hasData, subtitle }) {
+function ChartShell({ title, children, hasData, subtitle, actionPills }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-slate-900">{title}</h2>
-          {subtitle ? <p className="mt-1 truncate text-xs text-slate-500 sm:text-sm">{subtitle}</p> : null}
+          <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 font-heading">{title}</h2>
+          {subtitle ? <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
         </div>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 sm:h-10 sm:w-10">
-          <Activity size={18} />
-        </div>
+        
+        {actionPills ? (
+          <div className="flex items-center gap-1.5">{actionPills}</div>
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[#0090B8]">
+            <Activity size={18} />
+          </div>
+        )}
       </div>
-      <div className="mt-4 h-64 min-w-0 w-full overflow-hidden sm:h-72">
+      <div className="mt-4 min-w-0 w-full flex-1">
         {hasData ? children : <EmptyPanel />}
       </div>
     </section>
   );
 }
 
-function StatCard({ title, value, subtitle, index, icon: Icon }) {
-  const accent =
-    index % 4 === 0
-      ? "bg-blue-50 border-blue-100 text-blue-700"
-      : index % 4 === 1
-        ? "bg-slate-50 border-slate-200 text-slate-700"
-        : index % 4 === 2
-          ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-          : "bg-amber-50 border-amber-100 text-amber-700";
+const CleanPieChart = ({ data, colors = STATUS_PALETTE }) => {
+  const total = Array.isArray(data) ? data.reduce((sum, item) => sum + safeNumber(item.value), 0) : 0;
 
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-slate-500 sm:text-sm">{title}</p>
-          <h2 className="mt-2 truncate text-2xl font-bold leading-tight text-slate-950 sm:text-3xl">{value}</h2>
-          {subtitle ? <p className="mt-1.5 truncate text-xs text-slate-500">{subtitle}</p> : null}
-        </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-12 sm:w-12 ${accent}`}>
-          <Icon size={20} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TopVendorTable({ vendors }) {
-  if (!vendors || vendors.length === 0) {
-    return <EmptyPanel message="No vendor data available yet" />;
+  if (!data || data.length === 0 || total === 0) {
+    return <EmptyPanel message="No chart data available" />;
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-4 py-3">#</th>
-            <th className="px-4 py-3">Vendor</th>
-            <th className="px-4 py-3">Category</th>
-            <th className="px-4 py-3 text-right">POs (Count / Value)</th>
-            <th className="px-4 py-3 text-right">Invoices (Count / Value)</th>
-            <th className="px-4 py-3 text-right">Recognized Revenue</th>
-            <th className="px-4 py-3 text-center">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {vendors.map((vendor, index) => (
-            <tr key={vendor.id} className="transition hover:bg-slate-50/50">
-              <td className="px-4 py-3 font-semibold text-slate-400">{index + 1}</td>
-              <td className="px-4 py-3">
-                <p className="font-semibold text-slate-900">{vendor.name}</p>
-                <p className="text-xs font-mono text-slate-500">{vendor.vendorCode}</p>
-              </td>
-              <td className="px-4 py-3">
-                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {vendor.category || "N/A"}
+    <div className="flex flex-col justify-between h-full min-h-[260px] pt-1">
+      <div className="relative h-44 w-full flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const item = payload[0];
+                  const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
+                  return (
+                    <div className="rounded-xl border border-slate-700 bg-[#1E3A5F] p-2.5 shadow-xl text-white backdrop-blur-md">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.payload?.fill || item.color }} />
+                        <span className="text-xs font-bold">{item.name}</span>
+                      </div>
+                      <p className="mt-1 text-xs font-extrabold text-sky-300">
+                        {item.value} ({pct}%)
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={70}
+              innerRadius={44}
+              paddingAngle={3}
+              stroke="none"
+            >
+              {data.map((entry, index) => (
+                <Cell key={entry.name || index} fill={colors[index % colors.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-extrabold text-[#1E3A5F] dark:text-white font-heading">{total}</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+        {data.map((entry, index) => {
+          const color = colors[index % colors.length];
+          const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
+          return (
+            <div key={entry.name || index} className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title={entry.name}>
+                  {entry.name}
                 </span>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <p className="font-semibold text-slate-900">{formatCurrency(vendor.poTotalValue)}</p>
-                <p className="text-xs text-slate-500">{vendor.poCount} PO(s)</p>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <p className="font-semibold text-slate-900">{formatCurrency(vendor.invoiceTotalValue)}</p>
-                <p className="text-xs text-slate-500">{vendor.invoiceCount} Invoice(s)</p>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <p className="font-bold text-blue-700">{formatCurrency(vendor.revenue)}</p>
-                <p className="text-xs text-slate-500">{vendor.paymentCount} Paid</p>
-              </td>
-              <td className="px-4 py-3 text-center">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    vendor.approvalStatus === "APPROVED" || vendor.status === "ACTIVE"
-                      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : vendor.approvalStatus === "REJECTED" || vendor.status === "INACTIVE"
-                      ? "border border-red-200 bg-red-50 text-red-700"
-                      : "border border-amber-200 bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  {vendor.approvalStatus || vendor.status || "PENDING"}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              <span className="shrink-0 text-xs font-extrabold text-slate-900 dark:text-white">
+                {entry.value} <span className="text-[10px] text-slate-400 font-medium">({pct}%)</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
-}
+};
 
 const DashboardOverview = () => {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -197,6 +203,8 @@ const DashboardOverview = () => {
     startDate: "",
     endDate: "",
   });
+
+  const displayName = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.name || user?.email || "User";
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -221,13 +229,9 @@ const DashboardOverview = () => {
   const summary = data?.summary ?? {};
   const users = summary.users ?? {};
   const vendors = summary.vendors ?? {};
-  const purchaseOrders = summary.purchaseOrders ?? {};
   const invoices = summary.invoices ?? {};
-  const payments = summary.payments ?? {};
   const revenue = summary.revenue ?? {};
-  const threeWayMatching = summary.threeWayMatching ?? {};
   const revenueTrend = normalizeSeries(data?.trends?.revenue);
-  const vendorGrowth = normalizeSeries(data?.trends?.vendorGrowth);
   const purchaseOrderTrend = normalizeSeries(data?.trends?.purchaseOrders);
   const invoiceStatus = Array.isArray(data?.charts?.invoiceStatusDistribution)
     ? data.charts.invoiceStatusDistribution.filter((item) => safeNumber(item.value) > 0)
@@ -235,62 +239,6 @@ const DashboardOverview = () => {
   const paymentStatus = Array.isArray(data?.charts?.paymentStatusDistribution)
     ? data.charts.paymentStatusDistribution.filter((item) => safeNumber(item.value) > 0)
     : [];
-  const topVendors = Array.isArray(data?.topVendors) ? data.topVendors : [];
-
-  const kpiCards = [
-    {
-      title: "Recognized Revenue",
-      value: formatCurrency(revenue.recognized),
-      subtitle: "Successful payments only",
-      Icon: DollarSign,
-    },
-    {
-      title: "Total Users",
-      value: formatCompact(users.total),
-      subtitle: `${formatCompact(users.active)} active, ${formatCompact(users.deactivated)} deactivated`,
-      Icon: Users,
-    },
-    {
-      title: "Approved Vendors",
-      value: formatCompact(vendors.approved),
-      subtitle: `${formatCompact(vendors.total)} total vendor records`,
-      Icon: Building2,
-    },
-    {
-      title: "Purchase Orders",
-      value: formatCompact(purchaseOrders.total),
-      subtitle: formatCurrency(purchaseOrders.totalValue),
-      Icon: Package,
-    },
-    {
-      title: "Invoices",
-      value: formatCompact(invoices.total),
-      subtitle: `${formatCompact(invoices.approved)} approved, ${formatCompact(invoices.pending)} pending`,
-      Icon: Receipt,
-    },
-    {
-      title: "Outstanding Amount",
-      value: formatCurrency(invoices.outstandingAmount),
-      subtitle: `${formatCurrency(invoices.overdueAmount)} overdue`,
-      Icon: Wallet,
-    },
-    {
-      title: "Payment Success",
-      value: formatCompact(payments.success),
-      subtitle: `${formatCompact(payments.pending)} pending, ${formatCompact(payments.failed)} failed`,
-      Icon: ShieldCheck,
-    },
-    {
-      title: "Three-Way Matches",
-      value: formatCompact(threeWayMatching.total),
-      subtitle: `${formatCompact(threeWayMatching.matched)} matched`,
-      Icon: FileSearch,
-    },
-  ];
-
-  const metadataRange = data?.filters
-    ? `${new Date(data.filters.startDate).toLocaleDateString()} - ${new Date(data.filters.endDate).toLocaleDateString()}`
-    : "";
 
   const handleFilterChange = (key, value) => {
     setFilters((current) => ({
@@ -301,11 +249,11 @@ const DashboardOverview = () => {
 
   if (loading) {
     return (
-      <div className="grid gap-5 sm:gap-6">
-        <div className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+      <div className="grid gap-6">
+        <div className="h-32 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+        <div className="grid gap-5 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-44 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
           ))}
         </div>
       </div>
@@ -314,202 +262,121 @@ const DashboardOverview = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{COMPANY_NAME}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl md:text-4xl">
-              Analytics Dashboard
-            </h1>
-            <p className="mt-1 max-w-3xl text-xs text-slate-500 sm:text-sm">
-              Live metrics from secured backend analytics queries across users, vendors, purchase orders, invoices, and payments.
-            </p>
-            {metadataRange ? (
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Reporting period: {metadataRange}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-end gap-2.5">
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Period</span>
-              <select
-                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                value={filters.preset}
-                onChange={(event) => handleFilterChange("preset", event.target.value)}
-              >
-                {DATE_PRESETS.map((preset) => (
-                  <option key={preset.value} value={preset.value}>{preset.label}</option>
-                ))}
-              </select>
-            </label>
-
-            {filters.preset === "custom" && (
-              <>
-                <label className="grid gap-1 text-xs sm:text-sm">
-                  <span className="font-medium text-slate-600">Start</span>
-                  <input
-                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(event) => handleFilterChange("startDate", event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs sm:text-sm">
-                  <span className="font-medium text-slate-600">End</span>
-                  <input
-                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(event) => handleFilterChange("endDate", event.target.value)}
-                  />
-                </label>
-              </>
-            )}
-
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Group</span>
-              <select
-                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                value={filters.groupBy}
-                onChange={(event) => handleFilterChange("groupBy", event.target.value)}
-              >
-                {GROUP_OPTIONS.map((group) => (
-                  <option key={group.value} value={group.value}>{group.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <button
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:h-10 sm:px-4 sm:text-sm disabled:opacity-60"
-              disabled={refreshing}
-              onClick={() => loadDashboard({ silent: true })}
-              type="button"
-            >
-              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
+      {/* Top Header Toolbar with Warm Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+            {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            Live system performance summary and verified analytics
+          </p>
         </div>
-      </section>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select
+            className="h-10 rounded-full border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm outline-none cursor-pointer hover:bg-slate-50 appearance-none"
+            value={filters.preset}
+            onChange={(e) => handleFilterChange("preset", e.target.value)}
+          >
+            {DATE_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>{preset.label}</option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => loadDashboard({ silent: true })}
+            className="flex h-10 items-center gap-2 rounded-full bg-[#0090B8] hover:bg-[#007799] text-white px-5 text-xs font-bold shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
 
       {error ? (
-        <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
-          <h2 className="text-sm font-semibold sm:text-base">Dashboard unavailable</h2>
-          <p className="mt-1 text-xs sm:text-sm">{error}</p>
+        <section className="rounded-[20px] border border-red-500/20 bg-red-50 dark:bg-red-950/30 p-4 text-xs font-bold text-red-700 dark:text-red-400">
+          <h2 className="text-xs font-bold">Dashboard unavailable</h2>
+          <p className="mt-1 text-xs">{error}</p>
         </section>
       ) : null}
 
-      {/* KPI Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
-        {kpiCards.map((card, index) => (
-          <StatCard
-            key={card.title}
-            title={card.title}
-            value={card.value}
-            subtitle={card.subtitle}
-            index={index}
-            icon={card.Icon}
-          />
-        ))}
+      {/* Top Row Hero Cards (100% Real DB Data) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+        <StatCard
+          variant="hero"
+          title="Recognized Revenue"
+          value={formatCurrency(revenue.recognized)}
+          change="Verified DB"
+          subtitle="Total verified cleared revenue across active PO settlements"
+        />
+
+        <StatCard
+          variant="progress"
+          title="System Users"
+          value={formatCompact(users.total)}
+          change={`${users.active || users.total || 0} Active`}
+          progressPercent={users.total > 0 ? Math.round(((users.active || users.total || 0) / users.total) * 100) : 100}
+          progressLabel="Active users"
+          progressSubtext="Verified profiles"
+        />
+
+        <StatCard
+          variant="gauge"
+          title="Invoices Cleared"
+          gaugeValue={invoices.total || 0}
+          gaugeSubtext={`${invoices.approved || 0} Approved invoices`}
+        />
       </div>
 
-      {/* Charts Section */}
-      <div className="space-y-6">
-        <ChartShell title="Recognized Revenue Trend" subtitle="Successful payments grouped by the selected period." hasData={revenueTrend.length > 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={revenueTrend}>
-              <defs>
-                <linearGradient id="revenueTrend" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0.03} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2.5} fill="url(#revenueTrend)" />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* Pie Chart Distribution Row with Clean Status Legend Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartShell title="Invoice Status Distribution" subtitle="Breakdown of invoices by current status." hasData={invoiceStatus.length > 0}>
+          <CleanPieChart data={invoiceStatus} />
         </ChartShell>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartShell title="Vendor Growth" subtitle="New vendor records in the selected period." hasData={vendorGrowth.length > 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vendorGrowth}>
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartShell>
-
-          <ChartShell title="Purchase Order Value" subtitle="PO value grouped by the selected period." hasData={purchaseOrderTrend.length > 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={purchaseOrderTrend}>
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartShell>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartShell title="Invoice Status Distribution" subtitle="Only statuses present in database records are shown." hasData={invoiceStatus.length > 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip />
-                <Pie data={invoiceStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={50} paddingAngle={3} stroke="none">
-                  {invoiceStatus.map((entry, index) => (
-                    <Cell key={entry.name} fill={STATUS_PALETTE[index % STATUS_PALETTE.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartShell>
-
-          <ChartShell title="Payment Status Summary" subtitle="Counts by real payment status." hasData={paymentStatus.length > 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip />
-                <Pie data={paymentStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={50} paddingAngle={3} stroke="none">
-                  {paymentStatus.map((entry, index) => (
-                    <Cell key={entry.name} fill={STATUS_PALETTE[index % STATUS_PALETTE.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartShell>
-        </div>
+        <ChartShell title="Payment Status Summary" subtitle="Counts by payment resolution status." hasData={paymentStatus.length > 0}>
+          <CleanPieChart data={paymentStatus} />
+        </ChartShell>
       </div>
 
-      {/* Top Vendors Enterprise ERP Table */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <Trophy size={18} className="text-amber-500" />
-              <h2 className="text-base font-bold text-slate-950">
-                Top Vendors by Recognized Payment Revenue
-              </h2>
-            </div>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Ranked by total successful payment value from PostgreSQL.
-            </p>
+      {/* Additional Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+        <ChartShell title="Recognized Revenue Trend" subtitle="Cleared payment values by period." hasData={revenueTrend.length > 0}>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueTrend}>
+                <defs>
+                  <linearGradient id="revenueTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0090B8" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#0090B8" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} dy={8} />
+                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} dx={-8} />
+                <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: "#1E3A5F", borderColor: "#162E4C", borderRadius: "14px", color: "#FFF" }} />
+                <Area type="monotone" dataKey="value" stroke="#0090B8" strokeWidth={3} fill="url(#revenueTrendGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-100">
-            Top 8 Vendors
-          </span>
-        </div>
-        <TopVendorTable vendors={topVendors} />
-      </section>
+        </ChartShell>
+
+        <ChartShell title="Purchase Order Value" subtitle="PO totals grouped by selected period." hasData={purchaseOrderTrend.length > 0}>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={purchaseOrderTrend}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} dy={8} />
+                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} dx={-8} />
+                <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: "#1E3A5F", borderColor: "#162E4C", borderRadius: "14px", color: "#FFF" }} />
+                <Bar dataKey="value" fill="#1E3A5F" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartShell>
+      </div>
     </div>
   );
 };

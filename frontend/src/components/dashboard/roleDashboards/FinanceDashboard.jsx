@@ -6,6 +6,8 @@ import {
   RefreshCw,
   Users,
   Wallet,
+  Download,
+  Filter,
 } from "lucide-react";
 import {
   Bar,
@@ -20,13 +22,15 @@ import {
   YAxis,
 } from "recharts";
 
+import { useAuth } from "../../../context/AuthContext";
 import {
   DATE_PRESETS,
   GROUP_OPTIONS,
   getFinanceHeadDashboard,
 } from "../../../services/dashboardService";
+import StatCard from "../StatCard";
 
-const STATUS_COLORS = ["#2563eb", "#f59e0b", "#16a34a", "#dc2626"];
+const STATUS_COLORS = ["#0090B8", "#1E3A5F", "#0EA5E9", "#2DD4BF", "#F59E0B"];
 
 const safeNumber = (value) => {
   const parsed = Number(value || 0);
@@ -50,46 +54,107 @@ const normalizeSeries = (source) =>
         .filter((item) => item.label)
     : [];
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
+
 const EmptyPanel = ({ message = "No data available yet" }) => (
-  <div className="flex h-full min-h-44 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm font-medium text-slate-500">
+  <div className="flex h-full min-h-44 items-center justify-center rounded-[20px] border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 text-center text-sm font-medium text-slate-400">
     {message}
   </div>
 );
 
-const StatCard = ({ icon: Icon, title, value, subtitle, tone = "blue" }) => {
-  const tones = {
-    blue: "border-blue-100 bg-blue-50 text-blue-700",
-    amber: "border-amber-100 bg-amber-50 text-amber-700",
-    green: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    red: "border-red-100 bg-red-50 text-red-700",
-    slate: "border-slate-200 bg-slate-50 text-slate-700",
-  };
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-slate-500 sm:text-sm">{title}</p>
-          <h2 className="mt-2 truncate text-2xl font-bold leading-none text-slate-950 sm:text-3xl">{value}</h2>
-          {subtitle ? <p className="mt-1.5 truncate text-xs text-slate-500">{subtitle}</p> : null}
-        </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-12 sm:w-12 ${tones[tone]}`}>
-          <Icon size={20} />
-        </div>
-      </div>
-    </section>
-  );
-};
-
 const ChartCard = ({ title, subtitle, hasData, children }) => (
-  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-    <h2 className="truncate text-base font-semibold text-slate-900">{title}</h2>
-    {subtitle ? <p className="mt-1 truncate text-xs text-slate-500 sm:text-sm">{subtitle}</p> : null}
-    <div className="mt-4 h-64 min-w-0 w-full overflow-hidden sm:h-72">{hasData ? children : <EmptyPanel />}</div>
+  <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
+    <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 font-heading">{title}</h2>
+    {subtitle ? <p className="mt-1 truncate text-xs text-slate-400">{subtitle}</p> : null}
+    <div className="mt-4 min-w-0 w-full flex-1">{hasData ? children : <EmptyPanel />}</div>
   </section>
 );
 
+const CleanPieChart = ({ data, colors = STATUS_COLORS }) => {
+  const total = Array.isArray(data) ? data.reduce((sum, item) => sum + safeNumber(item.value), 0) : 0;
+
+  if (!data || data.length === 0 || total === 0) {
+    return <EmptyPanel message="No chart data available" />;
+  }
+
+  return (
+    <div className="flex flex-col justify-between h-full min-h-[260px] pt-1">
+      <div className="relative h-40 w-full flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const item = payload[0];
+                  const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
+                  return (
+                    <div className="rounded-xl border border-slate-700 bg-[#1E3A5F] p-2.5 shadow-xl text-white backdrop-blur-md">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.payload?.fill || item.color }} />
+                        <span className="text-xs font-bold">{item.name}</span>
+                      </div>
+                      <p className="mt-1 text-xs font-extrabold text-sky-300">
+                        {item.value} ({pct}%)
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={68}
+              innerRadius={44}
+              paddingAngle={3}
+              stroke="none"
+            >
+              {data.map((entry, index) => (
+                <Cell key={entry.name || index} fill={colors[index % colors.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-heading">{total}</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+        {data.map((entry, index) => {
+          const color = colors[index % colors.length];
+          const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
+          return (
+            <div key={entry.name || index} className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title={entry.name}>
+                  {entry.name}
+                </span>
+              </div>
+              <span className="shrink-0 text-xs font-extrabold text-slate-900 dark:text-white">
+                {entry.value} <span className="text-[10px] text-slate-400 font-medium">({pct}%)</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const FinanceDashboard = () => {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,6 +165,8 @@ const FinanceDashboard = () => {
     startDate: "",
     endDate: "",
   });
+
+  const displayName = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.name || user?.email || "User";
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -136,13 +203,16 @@ const FinanceDashboard = () => {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const totalReviews = safeNumber(vendorReview.pending) + safeNumber(vendorReview.approved) + safeNumber(vendorReview.onHold);
+  const reviewCompletion = totalReviews > 0 ? Math.round((safeNumber(vendorReview.approved) / totalReviews) * 100) : 0;
+
   if (loading) {
     return (
       <div className="grid gap-6">
-        <div className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 7 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+        <div className="h-32 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-44 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
           ))}
         </div>
       </div>
@@ -151,159 +221,123 @@ const FinanceDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Finance Head Workspace</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl md:text-4xl">
-              Finance Review Dashboard
-            </h1>
-            <p className="mt-1 max-w-3xl text-xs text-slate-500 sm:text-sm">
-              Live vendor-review, high-value payment, and managed employee analytics from secured backend queries.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-2.5">
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Period</span>
-              <select
-                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                value={filters.preset}
-                onChange={(event) => updateFilter("preset", event.target.value)}
-              >
-                {DATE_PRESETS.map((preset) => (
-                  <option key={preset.value} value={preset.value}>{preset.label}</option>
-                ))}
-              </select>
-            </label>
-
-            {filters.preset === "custom" && (
-              <>
-                <label className="grid gap-1 text-xs sm:text-sm">
-                  <span className="font-medium text-slate-600">Start</span>
-                  <input
-                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(event) => updateFilter("startDate", event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs sm:text-sm">
-                  <span className="font-medium text-slate-600">End</span>
-                  <input
-                    className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(event) => updateFilter("endDate", event.target.value)}
-                  />
-                </label>
-              </>
-            )}
-
-            <label className="grid gap-1 text-xs sm:text-sm">
-              <span className="font-medium text-slate-600">Group</span>
-              <select
-                className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-blue-500 sm:h-10 sm:px-3 sm:text-sm"
-                value={filters.groupBy}
-                onChange={(event) => updateFilter("groupBy", event.target.value)}
-              >
-                {GROUP_OPTIONS.map((group) => (
-                  <option key={group.value} value={group.value}>{group.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <button
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:h-10 sm:px-4 sm:text-sm disabled:opacity-60"
-              disabled={refreshing}
-              onClick={() => loadDashboard({ silent: true })}
-              type="button"
-            >
-              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
+      {/* Header Toolbar with Warm Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+            {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            Live vendor-review, high-value payment, and managed employee analytics from database
+          </p>
         </div>
-      </section>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select
+            className="h-10 rounded-full border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm outline-none cursor-pointer"
+            value={filters.preset}
+            onChange={(e) => updateFilter("preset", e.target.value)}
+          >
+            {DATE_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>{preset.label}</option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => loadDashboard({ silent: true })}
+            className="flex h-10 items-center gap-2 rounded-full bg-[#0090B8] hover:bg-[#007799] text-white px-5 text-xs font-bold shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
 
       {error ? (
-        <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
-          <h2 className="text-sm font-semibold sm:text-base">Dashboard unavailable</h2>
-          <p className="mt-1 text-xs sm:text-sm">{error}</p>
+        <section className="rounded-[20px] border border-red-200 bg-red-50 p-4 text-red-800">
+          <h2 className="text-xs font-bold">Dashboard unavailable</h2>
+          <p className="mt-1 text-xs">{error}</p>
         </section>
       ) : null}
 
-      {/* Stat Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
-        <StatCard icon={Clock3} title="Pending Vendor Reviews" value={formatCompact(vendorReview.pending)} subtitle="Awaiting Finance decision" />
-        <StatCard icon={AlertTriangle} title="Vendors On Hold" value={formatCompact(vendorReview.onHold)} subtitle="Blocked pending correction" tone="amber" />
-        <StatCard icon={CheckCircle2} title="Approved Vendors" value={formatCompact(vendorReview.approved)} subtitle="Approved vendor records" tone="green" />
-        <StatCard icon={Wallet} title="High-Value Payments" value={formatCompact(payments.awaitingApproval)} subtitle={`${formatCurrency(payments.awaitingAmount)} awaiting approval`} />
-        <StatCard icon={Wallet} title="Payments >= Threshold" value={formatCompact(payments.highValueCount)} subtitle={`Threshold ${formatCurrency(payments.threshold)}`} tone="slate" />
-        <StatCard icon={Users} title="Managed Employees" value={formatCompact(employees.total)} subtitle={`${formatCompact(employees.active)} active, ${formatCompact(employees.deactivated)} deactivated`} />
-        <StatCard icon={Users} title="New Managed Employees" value={formatCompact(employees.newInPeriod)} subtitle="Lower-level roles only" tone="green" />
+      {/* Top 3 Hero Cards (Pure DB Data) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+        <StatCard
+          variant="hero"
+          title="High-Value Awaiting Approval"
+          value={formatCurrency(payments.awaitingAmount)}
+          change={`${formatCompact(payments.awaitingApproval)} pending`}
+          subtitle="Payments at or above Finance Head review threshold"
+        />
+
+        <StatCard
+          variant="progress"
+          title="Vendor Reviews"
+          value={formatCompact(vendorReview.pending)}
+          change={`${vendorReview.approved || 0} Approved`}
+          progressPercent={reviewCompletion}
+          progressLabel="Completion rate"
+          progressSubtext="Based on DB reviews"
+        />
+
+        <StatCard
+          variant="gauge"
+          title="Managed Employees"
+          gaugeValue={safeNumber(employees.total)}
+          gaugeSubtext={`${employees.active || 0} Active employee profiles`}
+        />
       </div>
 
       {/* Main Bar Chart */}
       <ChartCard title="High-Value Payment Trend" subtitle="INR payments at or above the Finance Head approval threshold." hasData={highValuePaymentTrend.length > 0}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={highValuePaymentTrend}>
-            <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
-            <Tooltip formatter={(value) => formatCurrency(value)} />
-            <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="h-64 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={highValuePaymentTrend}>
+              <defs>
+                <linearGradient id="financeBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0090B8" />
+                  <stop offset="100%" stopColor="#1E3A5F" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} dy={6} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748B" }} dx={-6} />
+              <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: "#1E3A5F", borderRadius: "12px", color: "#FFF", fontSize: "11px" }} />
+              <Bar dataKey="value" fill="url(#financeBarGrad)" radius={[8, 8, 0, 0]} barSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </ChartCard>
 
       {/* Balanced 3-Column Chart & Overview Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ChartCard title="Vendor Review Status" subtitle="Distribution from real vendor review statuses." hasData={vendorDistribution.length > 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip />
-              <Pie data={vendorDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} paddingAngle={3} stroke="none">
-                {vendorDistribution.map((entry, index) => (
-                  <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <CleanPieChart data={vendorDistribution} />
         </ChartCard>
 
         <ChartCard title="Managed Employee Status" subtitle="Excludes Super Admin and Finance Head users." hasData={employeeDistribution.length > 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip />
-              <Pie data={employeeDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} paddingAngle={3} stroke="none">
-                {employeeDistribution.map((entry, index) => (
-                  <Cell key={entry.name} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <CleanPieChart data={employeeDistribution} />
         </ChartCard>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-semibold text-slate-900">Payment Overview</h2>
-          <p className="mt-1 text-xs text-slate-500 sm:text-sm">High-value payment counts from your approval scope.</p>
-          <dl className="mt-4 space-y-3">
+        <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 font-heading">Payment Overview</h2>
+          <p className="mt-1 text-xs text-slate-400">High-value payment counts from your approval scope.</p>
+          <dl className="mt-5 space-y-3">
             {[
-              { label: "Awaiting Approval",  value: formatCompact(payments.awaitingApproval),  hint: formatCurrency(payments.awaitingAmount), tone: "amber" },
-              { label: "High-Value Payments", value: formatCompact(payments.highValueCount),    hint: `≥ ${formatCurrency(payments.threshold)}`, tone: "blue" },
+              { label: "Awaiting Approval", value: formatCompact(payments.awaitingApproval), hint: formatCurrency(payments.awaitingAmount), tone: "cyan" },
+              { label: "High-Value Payments", value: formatCompact(payments.highValueCount), hint: `≥ ${formatCurrency(payments.threshold)}`, tone: "navy" },
             ].map(({ label, value, hint, tone }) => {
               const bg =
-                tone === "amber" ? "bg-amber-50 text-amber-700 border-amber-100"
-                : tone === "green" ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                : "bg-blue-50 text-blue-700 border-blue-100";
+                tone === "cyan" ? "bg-sky-50 dark:bg-slate-800 text-[#0090B8] border-sky-100 dark:border-slate-700"
+                : "bg-slate-900 text-white border-slate-800";
               return (
-                <div key={label} className={`flex items-center justify-between rounded-xl border p-3.5 ${bg}`}>
+                <div key={label} className={`flex items-center justify-between rounded-2xl border p-4 ${bg}`}>
                   <div>
-                    <p className="text-xs font-semibold sm:text-sm">{label}</p>
-                    {hint ? <p className="mt-0.5 text-xs opacity-75">{hint}</p> : null}
+                    <p className="text-xs font-bold">{label}</p>
+                    {hint ? <p className="mt-0.5 text-[11px] opacity-80">{hint}</p> : null}
                   </div>
-                  <span className="text-xl font-bold sm:text-2xl">{value}</span>
+                  <span className="text-2xl font-extrabold font-heading">{value}</span>
                 </div>
               );
             })}

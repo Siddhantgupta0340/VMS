@@ -3,6 +3,7 @@ import { ClipboardCheck, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getPurchaseOrders } from "../../services/purchaseOrderServices";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import {
   createDeliveryChallan,
   createGRN,
@@ -169,7 +170,13 @@ const ReceiptDocuments = () => {
     await loadDocuments(selectedPOId);
   };
 
-  if (loading) return <div className="flex h-96 items-center justify-center">Loading receipt documents...</div>;
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading receipt documents..." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

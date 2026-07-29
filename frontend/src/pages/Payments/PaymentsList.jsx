@@ -13,6 +13,7 @@ import {
   X,
   FileText,
 } from "lucide-react";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -337,7 +338,11 @@ const PaymentsList = () => {
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center text-slate-500">Loading Payments Ledger...</div>;
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading Payments Ledger..." />
+      </div>
+    );
   }
 
   return (

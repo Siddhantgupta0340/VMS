@@ -394,7 +394,10 @@ const PurchaseOrderCreate = () => {
                 {dropdownOpen && (
                   <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
                     {loadingVendors ? (
-                      <div className="p-4 text-sm text-slate-500">Loading approved vendors...</div>
+                      <div className="p-4 text-sm text-slate-500 flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600 shrink-0" />
+                        Loading approved vendors...
+                      </div>
                     ) : vendors.length ? (
                       vendors.map((vendor) => (
                         <button

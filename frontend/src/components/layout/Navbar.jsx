@@ -1,44 +1,48 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   CheckCircle2,
   Menu,
   Search,
-  UserCircle2,
+  User,
+  Sun,
+  Moon,
+  ChevronDown,
+  Building2,
+  FileText,
+  Receipt,
+  LogOut,
+  Command,
 } from "lucide-react";
-
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useTheme } from "../../context/ThemeContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   getNotifications,
   markRead,
-  NOTIFICATIONS_CHANGED_EVENT,
 } from "../../services/notificationService";
 
-const NAVBAR_STYLES = {
-  height: "h-16 md:h-20",
-  padding: "px-4 md:px-8",
-  sectionGap: "gap-2 sm:gap-3",
-  control:
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
-  activeControl: "border-blue-200 bg-blue-50 text-blue-700",
-};
-
 const Navbar = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { refreshUnreadCount, unreadCount } = useNotifications();
   const { openMobileSidebar } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [latestNotifications, setLatestNotifications] = useState([]);
   const [latestLoading, setLatestLoading] = useState(false);
-  const firstName = user?.first_name || user?.name?.split(" ")[0] || "there";
+
+  const notifRef = useRef(null);
+  const profileRef = useRef(null);
+
   const displayName = user?.name || `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.email || "User";
-  const isNotificationsActive = location.pathname === "/notifications";
   const showNotificationBadge = Number.isFinite(unreadCount) && unreadCount > 0;
   const notificationBadge = unreadCount > 99 ? "99+" : unreadCount;
 
@@ -56,28 +60,27 @@ const Navbar = () => {
   }, [user]);
 
   useEffect(() => {
-    if (!dropdownOpen) return undefined;
+    if (!notifDropdownOpen) return undefined;
     loadLatestNotifications();
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", handleClickOutside);
-    return () => window.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownOpen, loadLatestNotifications]);
+  }, [notifDropdownOpen, loadLatestNotifications]);
 
   useEffect(() => {
-    const handleNotificationsChanged = () => {
-      if (dropdownOpen) loadLatestNotifications();
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setNotifDropdownOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
+      }
     };
-    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
-    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
-  }, [dropdownOpen, loadLatestNotifications]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const openNotificationsPage = () => {
-    setDropdownOpen(false);
-    navigate("/notifications");
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    navigate(`/vendors?search=${encodeURIComponent(searchQuery)}`);
   };
 
   const markNotificationRead = async (notification) => {
@@ -86,155 +89,226 @@ const Navbar = () => {
     await Promise.all([loadLatestNotifications(), refreshUnreadCount()]);
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
-    return "Good Evening";
-  };
-
   return (
-    <header className={`sticky top-0 z-30 flex ${NAVBAR_STYLES.height} shrink-0 items-center justify-between border-b border-slate-200 bg-white/85 ${NAVBAR_STYLES.padding} backdrop-blur-xl`}>
-
-      {/* Left */}
-
-      <div className={`flex min-w-0 items-center ${NAVBAR_STYLES.sectionGap}`}>
+    <header className="sticky top-0 z-30 flex h-16 md:h-20 shrink-0 items-center justify-between border-b border-sky-200/60 dark:border-slate-800 animate-navbar-bg px-4 md:px-8 backdrop-blur-xl shadow-xs transition-all">
+      {/* Left section: Mobile menu button & Horizontal Navigation Pills */}
+      <div className="flex items-center gap-4 lg:gap-6">
         <button
           aria-label="Open navigation menu"
-          className={`${NAVBAR_STYLES.control} md:hidden`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 md:hidden transition-transform active:scale-95 cursor-pointer"
           onClick={openMobileSidebar}
           type="button"
         >
           <Menu size={20} />
         </button>
 
-        <button
-          aria-label="Go to dashboard"
-          className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold tracking-wide text-slate-900 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 md:hidden"
+        {/* Brand Logo for Desktop Header */}
+        <div
           onClick={() => navigate("/dashboard")}
-          type="button"
+          className="hidden md:flex items-center gap-2.5 cursor-pointer group"
         >
-          VMS
-        </button>
-
-        <div className="hidden min-w-0 sm:block">
-          <h1 className="truncate text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
-            {getGreeting()}, {firstName}
-          </h1>
-
-          <p className="mt-1 truncate text-sm text-slate-500">
-            {user?.role}
-          </p>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0090B8] to-sky-400 text-white shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
+            <Building2 size={20} className="text-white" />
+          </div>
+          <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white font-heading">
+            VMS IT Softlab
+          </span>
         </div>
+
+        {/* Horizontal Nav Tabs */}
+        <nav className="hidden xl:flex items-center gap-1 bg-white/80 dark:bg-slate-800/60 p-1 rounded-full border border-sky-100 dark:border-slate-800 shadow-2xs backdrop-blur-md">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
+              location.pathname === "/dashboard" || location.pathname.includes("dashboard")
+                ? "bg-[#1E3A5F] text-white shadow-md shadow-[#1E3A5F]/20 scale-[1.02]"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
+            }`}
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => navigate("/vendors")}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+              location.pathname.includes("vendors")
+                ? "bg-[#1E3A5F] text-white shadow-md"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
+            }`}
+          >
+            Vendors
+          </button>
+          <button
+            onClick={() => navigate("/purchase-orders")}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+              location.pathname.includes("purchase-orders")
+                ? "bg-[#1E3A5F] text-white shadow-md"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
+            }`}
+          >
+            Purchase Orders
+          </button>
+          <button
+            onClick={() => navigate("/invoices")}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+              location.pathname.includes("invoices")
+                ? "bg-[#1E3A5F] text-white shadow-md"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
+            }`}
+          >
+            Invoices
+          </button>
+          <button
+            onClick={() => navigate("/reports")}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+              location.pathname.includes("reports")
+                ? "bg-[#1E3A5F] text-white shadow-md"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
+            }`}
+          >
+            Reports
+          </button>
+        </nav>
       </div>
 
-      {/* Right */}
-
-      <div className={`flex min-w-0 items-center ${NAVBAR_STYLES.sectionGap}`}>
-
-        {/* Search */}
-
-        <div className="relative hidden lg:block">
-
-          <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-
-          <input
-            type="text"
-            placeholder="Search vendors, invoices..."
-            className="w-72 rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 outline-none transition-all focus:border-blue-500 focus:bg-white"
-          />
-
+      {/* Center Search Bar — Full Pill Style */}
+      <form onSubmit={handleSearchSubmit} className="relative hidden lg:block w-72 xl:w-80 group">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-[#0090B8] transition-colors" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search vendors, POs, invoices..."
+          className="w-full h-10 rounded-full border border-sky-200/70 dark:border-slate-800 bg-white/90 dark:bg-slate-950/60 pl-11 pr-12 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none transition-all shadow-2xs focus:border-[#0090B8] focus:ring-2 focus:ring-[#0090B8]/20 focus:scale-[1.01]"
+        />
+        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+          <Command size={10} /> K
         </div>
+      </form>
 
-        <div className="relative" ref={dropdownRef}>
+      {/* Right Controls — Theme, Notifications, Profile */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Theme Toggle Button with Rotation Animation */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle Dark Mode"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200/70 dark:border-slate-800 bg-white/90 dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 transition-all duration-300 hover:rotate-45 cursor-pointer shadow-2xs"
+        >
+          {theme === "dark" ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
+        </button>
+
+        {/* Notifications Popover */}
+        <div className="relative" ref={notifRef}>
           <button
-            aria-current={isNotificationsActive ? "page" : undefined}
-            aria-expanded={dropdownOpen}
-            aria-label="Notifications"
-            className={`${NAVBAR_STYLES.control} relative cursor-pointer ${isNotificationsActive ? NAVBAR_STYLES.activeControl : ""}`}
-            onClick={() => setDropdownOpen((current) => !current)}
             type="button"
+            onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200/70 dark:border-slate-800 bg-white/90 dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 transition-all hover:scale-105 cursor-pointer shadow-2xs"
           >
-            <Bell size={20} />
+            <Bell size={18} />
             {showNotificationBadge && (
-              <span
-                aria-label={`${notificationBadge} unread notifications`}
-                className="absolute -right-1 -top-1 min-w-5 rounded-full bg-blue-600 px-1.5 text-center text-[11px] font-bold leading-5 text-white"
-              >
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0090B8] px-1 text-[10px] font-bold text-white shadow-md animate-pulse">
                 {notificationBadge}
               </span>
             )}
           </button>
 
-          {dropdownOpen && (
-            <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <p className="text-sm font-bold text-slate-900">Latest notifications</p>
-                <button className="text-xs font-semibold text-blue-700 hover:underline" onClick={openNotificationsPage} type="button">
+          {notifDropdownOpen && (
+            <div className="absolute right-0 top-12 z-50 w-80 sm:w-96 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl animate-in fade-in duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-3.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Notifications</p>
+                <button
+                  className="text-xs font-semibold text-[#0090B8] hover:underline"
+                  onClick={() => {
+                    setNotifDropdownOpen(false);
+                    navigate("/notifications");
+                  }}
+                  type="button"
+                >
                   View all
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+
+              <div className="max-h-80 overflow-y-auto custom-scrollbar">
                 {latestLoading ? (
-                  <div className="p-4 text-sm text-slate-500">Loading notifications...</div>
+                  <div className="p-6 text-center text-xs text-slate-400">Loading notifications...</div>
                 ) : latestNotifications.length ? (
-                  latestNotifications.map((notification) => (
-                    <article key={notification.id} className={`border-b border-slate-100 p-4 last:border-b-0 ${notification.isRead ? "bg-white" : "bg-blue-50/50"}`}>
+                  latestNotifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`border-b border-slate-100 dark:border-slate-800 p-4 transition ${
+                        n.isRead ? "bg-white dark:bg-slate-900" : "bg-sky-50/50 dark:bg-sky-950/30"
+                      }`}
+                    >
                       <div className="flex items-start justify-between gap-3">
-                        <button className="min-w-0 text-left" onClick={openNotificationsPage} type="button">
-                          <p className="truncate text-sm font-semibold text-slate-900">{notification.title}</p>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{notification.message}</p>
+                        <button
+                          className="text-left flex-1"
+                          onClick={() => {
+                            setNotifDropdownOpen(false);
+                            navigate("/notifications");
+                          }}
+                        >
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{n.title}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{n.message}</p>
                         </button>
-                        {!notification.isRead && (
+                        {!n.isRead && (
                           <button
-                            aria-label="Mark notification as read"
-                            className="rounded-lg p-1 text-blue-700 hover:bg-blue-100"
-                            onClick={() => markNotificationRead(notification)}
-                            type="button"
+                            onClick={() => markNotificationRead(n)}
+                            className="rounded-lg p-1 text-[#0090B8] hover:bg-sky-100 dark:hover:bg-sky-900/50"
+                            aria-label="Mark read"
                           >
                             <CheckCircle2 size={16} />
                           </button>
                         )}
                       </div>
-                    </article>
+                    </div>
                   ))
                 ) : (
-                  <div className="p-4 text-sm text-slate-500">No notifications yet.</div>
+                  <div className="p-6 text-center text-xs text-slate-400">No new notifications</div>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Profile */}
+        {/* Profile Pill & Dropdown with Soft Hover Animation */}
+        <div className="relative" ref={profileRef}>
+          <button
+            type="button"
+            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            className="flex items-center gap-2.5 rounded-full border border-sky-200/70 dark:border-slate-800 bg-white/90 dark:bg-slate-900 p-1 pr-3.5 shadow-2xs transition-all hover:scale-105 hover:bg-sky-50 dark:hover:bg-slate-800 cursor-pointer"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#0090B8] to-sky-400 text-white font-extrabold text-xs shadow-sm shadow-sky-500/20">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div className="hidden md:flex flex-col text-left">
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">{displayName}</span>
+              <span className="text-[10px] font-semibold text-[#0090B8] uppercase tracking-wider">{user?.role?.replace("_", " ")}</span>
+            </div>
+            <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
+          </button>
 
-        <div className="hidden h-11 max-w-64 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 shadow-sm sm:flex">
+          {profileDropdownOpen && (
+            <div className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-2xl animate-in fade-in duration-150">
+              <div className="border-b border-slate-100 dark:border-slate-800 px-3 py-2.5">
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{displayName}</p>
+                <p className="text-[11px] text-slate-400">{user?.email}</p>
+              </div>
 
-          <UserCircle2
-            size={32}
-            className="text-blue-600"
-          />
-
-          <div className="min-w-0">
-
-            <h3 className="truncate text-sm font-semibold text-slate-900">
-              {displayName}
-            </h3>
-
-            <p className="truncate text-xs text-slate-500">
-              {user?.role}
-            </p>
-
-          </div>
-
+              <button
+                onClick={() => {
+                  setProfileDropdownOpen(false);
+                  logout();
+                  navigate("/login");
+                }}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+              >
+                <LogOut size={16} />
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
-
       </div>
-
     </header>
   );
 };

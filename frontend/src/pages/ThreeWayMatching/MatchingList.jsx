@@ -17,6 +17,7 @@ import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
 import { ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "-");
@@ -264,7 +265,11 @@ const MatchingList = () => {
   ];
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center">Loading matching dashboard...</div>;
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading matching dashboard..." />
+      </div>
+    );
   }
 
   return (
@@ -286,11 +291,10 @@ const MatchingList = () => {
           <button
             type="button"
             onClick={() => setActiveTab("reports")}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === "reports"
+            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "reports"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+              }`}
           >
             Matching Reports ({matches.length})
           </button>
@@ -298,11 +302,10 @@ const MatchingList = () => {
             type="button"
             onClick={() => setActiveTab("pending")}
             hidden={!canRunMatching}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === "pending"
+            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "pending"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+              }`}
           >
             Awaiting Match Calculation ({pendingInvoices.length})
           </button>
