@@ -60,9 +60,9 @@ export const processInvoiceOcr = async (file) => {
     const fileName = file.originalname || file.name || 'uploaded_invoice';
 
     // 1. PO Number Extraction
-    const poMatch = text.match(/\b(PO-\d{4}-\d{6})\b/i) ||
-                    text.match(/\bPO\s*#?\s*[:.-]?\s*([A-Z0-9-]+)\b/i) ||
-                    text.match(/\bPurchase\s*Order\s*#?\s*[:.-]?\s*([A-Z0-9-]+)\b/i);
+    const poMatch = text.match(/\b(PO[-\/]\d{4}[-\/]\d{1,6})\b/i) ||
+                    text.match(/\bPO\s*#?\s*[:.-]?\s*([A-Z0-9-\/]+)\b/i) ||
+                    text.match(/\bPurchase\s*Order\s*#?\s*[:.-]?\s*([A-Z0-9-\/]+)\b/i);
     const poNumber = poMatch ? (poMatch[1] || poMatch[0]).toUpperCase() : null;
 
     // 2. Invoice Number Extraction

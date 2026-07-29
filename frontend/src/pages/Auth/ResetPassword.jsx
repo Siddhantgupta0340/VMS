@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, KeyRound, Lock, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, KeyRound, Lock, Mail, RefreshCw } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { resetPassword } from "../../services/authService";
+import { forgotPassword, resetPassword } from "../../services/authService";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const otpRegex = /^\d{6}$/;
@@ -31,12 +31,43 @@ const ResetPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError("");
   };
+
+  const handleResendOtp = async () => {
+    const trimmedEmail = formData.email.trim();
+    if (!trimmedEmail) {
+      setError("Please enter your email address to resend OTP.");
+      return;
+    }
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setIsResending(true);
+    setError("");
+    try {
+      const res = await forgotPassword({ email: trimmedEmail });
+      if (res.success) {
+        toast.success(res.message || "A new OTP has been sent to your email.");
+      } else {
+        const errMsg = res.message || "Unable to resend OTP. Please try again.";
+        setError(errMsg);
+        toast.error(errMsg);
+      }
+    } catch (err) {
+      setError("Unable to send OTP right now. Please try again shortly.");
+      toast.error("Resend OTP failed.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -165,9 +196,20 @@ const ResetPassword = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                6-Digit Reset OTP <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  6-Digit Reset OTP <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={isResending}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 transition"
+                >
+                  <RefreshCw size={12} className={isResending ? "animate-spin" : ""} />
+                  {isResending ? "Resending..." : "Resend OTP"}
+                </button>
+              </div>
               <div className="relative">
                 <KeyRound
                   size={18}
@@ -185,6 +227,7 @@ const ResetPassword = () => {
                 />
               </div>
             </div>
+
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600">

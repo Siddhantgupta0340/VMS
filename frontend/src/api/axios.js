@@ -6,7 +6,10 @@ import {
   updateStoredTokens,
 } from "../services/authSession";
 
-const API_BASE_URL = "https://vms-5rht.onrender.com/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://vms-5rht.onrender.com/api";
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication required. Redirecting to login.") {

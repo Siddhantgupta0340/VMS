@@ -1,32 +1,33 @@
 import nodemailer from "nodemailer";
 
+const cleanEnvStr = (val) => (val ? String(val).trim().replace(/^['"]|['"]$/g, '') : '');
+
 const sendEmail = async (options) => {
   try {
-    if (
-      !process.env.SMTP_HOST ||
-      !process.env.SMTP_PORT ||
-      !process.env.SMTP_USER ||
-      !process.env.SMTP_PASS
-    ) {
-      throw new Error("SMTP configuration is missing in the .env file.");
+    const host = cleanEnvStr(process.env.SMTP_HOST);
+    const port = Number(cleanEnvStr(process.env.SMTP_PORT)) || 587;
+    const user = cleanEnvStr(process.env.SMTP_USER);
+    const pass = cleanEnvStr(process.env.SMTP_PASS);
+    const from = cleanEnvStr(process.env.EMAIL_FROM) || `"VMS" <${user}>`;
+
+    if (!host || !port || !user || !pass) {
+      throw new Error("SMTP configuration is missing in the environment variables.");
     }
 
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: Number(process.env.SMTP_PORT) === 465,
+      host,
+      port,
+      secure: port === 465,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user,
+        pass,
       },
     });
 
     await transporter.verify();
 
     const info = await transporter.sendMail({
-      from:
-        process.env.EMAIL_FROM ||
-        `"VMS" <${process.env.SMTP_USER}>`,
+      from,
       to: options.to,
       subject: options.subject,
       text: options.text || "",
@@ -43,3 +44,4 @@ const sendEmail = async (options) => {
 };
 
 export default sendEmail;
+

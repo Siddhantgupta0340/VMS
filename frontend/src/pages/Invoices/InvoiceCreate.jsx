@@ -155,14 +155,23 @@ const formatDate = (value) => {
 const isSupportedInvoiceFile = (file) => ["application/pdf", "image/png", "image/jpeg"].includes(file?.type);
 const formatFileSize = (size) => `${(Number(size || 0) / 1024 / 1024).toFixed(2)} MB`;
 
-const Field = ({ label, value, isRequired = false }) => (
-  <div>
-    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-    <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900">
-      {value || (isRequired ? <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 font-normal">Not Provided</span>)}
-    </p>
-  </div>
-);
+const Field = ({ label, value, isRequired = false, fallback = "Not Available" }) => {
+  const hasVal = value !== undefined && value !== null && value !== "" && value !== "[object Object]";
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+      <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900">
+        {hasVal ? (
+          value
+        ) : isRequired ? (
+          <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">{label} missing. Complete in Vendor Master.</span>
+        ) : (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 font-semibold">{fallback}</span>
+        )}
+      </p>
+    </div>
+  );
+};
 
 const MissingField = ({ field, source = "Vendor Master" }) => (
   <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
@@ -206,6 +215,8 @@ const InvoiceCreate = () => {
     invoiceCreationMethod: "MANUAL",
     invoiceDate: new Date().toISOString().split("T")[0],
     dueDate: "",
+    receiptDate: new Date().toISOString().split("T")[0],
+    priority: "STANDARD",
     invoiceSource: "MANUAL_ENTRY",
     invoiceCategory: "TAX_INVOICE",
     remarks: "",
@@ -278,8 +289,11 @@ const InvoiceCreate = () => {
     const errors = [];
     const add = (field, label, message) => errors.push({ field, label, message });
 
-    if (!formData.purchaseOrderId || String(formData.purchaseOrderId).trim() === "" || formData.purchaseOrderId === "undefined" || formData.purchaseOrderId === "null") {
-      add("purchaseOrder", "Purchase Order", "Purchase Order is required. Select an existing Purchase Order.");
+    const rawPoId = String(formData.purchaseOrderId || "").trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPoId);
+
+    if (!rawPoId || !isUuid || rawPoId === "undefined" || rawPoId === "null") {
+      add("purchaseOrder", "Purchase Order", "Purchase Order is required. Select a valid Purchase Order from database.");
     }
     if (!formData.invoiceDate) {
       add("invoiceDate", "Invoice Date", "Invoice Date is required.");
@@ -492,14 +506,31 @@ const InvoiceCreate = () => {
       debugInvoiceCreate("[InvoiceCreate] Validation blocked submission");
       return;
     }
+
+    // Safe development log (no sensitive data)
+    console.debug("[INVOICE CREATE]", {
+      poIdAvailable: Boolean(formData.purchaseOrderId),
+      poNumber: selectedPurchaseOrder?.poNumber || "N/A",
+      vendorIdAvailable: Boolean(selectedPurchaseOrder?.vendorId || selectedPurchaseOrder?.vendor_id),
+      lineItemsCount: selectedPurchaseOrder?.items?.length || 0,
+    });
+
     setSubmitting(true);
     try {
       debugInvoiceCreate("[InvoiceCreate] Validation passed. API called", { purchaseOrderId: formData.purchaseOrderId });
       const invoice = await createInvoice(formData);
-      notify.success(`Invoice ${invoice.invoiceNumber} created successfully.`);
+      notify.success("Invoice created successfully.");
       setCreatedInvoiceSuccessData(invoice);
-    } catch (error) {
 
+      const createdId = invoice?.id;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(createdId || "").trim());
+
+      if (createdId && isUuid) {
+        navigate(`/invoices/${createdId}`);
+      } else {
+        notify.error("Invoice created successfully, but we could not open the Invoice Details page.");
+      }
+    } catch (error) {
       applyServerValidationErrors(error);
       notify.error(getErrorMessage(error, "Unable to create invoice."));
     } finally {
@@ -508,6 +539,9 @@ const InvoiceCreate = () => {
   };
 
   if (createdInvoiceSuccessData) {
+    const createdId = createdInvoiceSuccessData.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(createdId || "").trim());
+
     return (
       <div className="max-w-3xl mx-auto my-12 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-8 shadow-lg text-slate-900 space-y-6">
         <div className="flex items-center gap-4 border-b border-emerald-200 pb-5">
@@ -541,13 +575,28 @@ const InvoiceCreate = () => {
           </div>
         </div>
 
+        {!isUuid ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-900">
+            Invoice created successfully, but we could not open the Invoice Details page.
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-4 pt-2">
-          <Link
-            to={`/invoices/${createdInvoiceSuccessData.id}`}
-            className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
-          >
-            View Invoice Details
-          </Link>
+          {isUuid ? (
+            <Link
+              to={`/invoices/${createdId}`}
+              className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
+            >
+              View Invoice Details
+            </Link>
+          ) : (
+            <Link
+              to="/invoices"
+              className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
+            >
+              View Invoice
+            </Link>
+          )}
           <Link
             to="/three-way-matching"
             className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 shadow-sm"
@@ -787,6 +836,18 @@ const InvoiceCreate = () => {
                 </select>
               </div>
               <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">Receipt Date</label>
+                <input name="receiptDate" type="date" value={formData.receiptDate} onChange={(event) => setFormData((prev) => ({ ...prev, receiptDate: event.target.value }))} className={input} />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">Priority</label>
+                <select value={formData.priority} onChange={(event) => setFormData((prev) => ({ ...prev, priority: event.target.value }))} className={input}>
+                  <option value="STANDARD">Standard</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </div>
+              <div>
                 <RequiredLabel>Invoice Date</RequiredLabel>
                 <input ref={invoiceDateRef} name="invoiceDate" type="date" value={formData.invoiceDate} onChange={(event) => setFormData((prev) => ({ ...prev, invoiceDate: event.target.value }))} className={`${input} ${fieldErrorClass(errorsByField.invoiceDate)}`} />
                 <ErrorText message={errorsByField.invoiceDate} />
@@ -840,66 +901,102 @@ const InvoiceCreate = () => {
 
 
                 {ocrResultData?.extractedData ? (
-                  <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
-                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-                      <span className="font-bold uppercase tracking-wider text-blue-900">OCR Extracted Information</span>
+                  <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+                      <span className="font-bold uppercase tracking-wider text-blue-900">OCR Extracted Information (Raw Document Text)</span>
                       <span className="rounded-full bg-blue-600 px-2.5 py-0.5 font-bold text-white">
                         {ocrResultData.ocrConfidence}% Confidence
                       </span>
                     </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                      <div><span className="text-slate-500">Detected PO:</span> <strong className="text-slate-900">{ocrResultData.extractedData.references?.poNumber || "Not detected by OCR — please select PO manually"}</strong></div>
-                      <div><span className="text-slate-500">Detected GSTIN:</span> <strong className="text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "Not detected by OCR — please enter manually"}</strong></div>
-                      <div><span className="text-slate-500">Extracted Inv Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.invoiceDate || "Not detected by OCR — please enter manually"}</strong></div>
-                      <div><span className="text-slate-500">Extracted Due Date:</span> <strong className="text-slate-900">{ocrResultData.extractedData.header?.dueDate || "Not detected by OCR — please enter manually"}</strong></div>
-                      <div><span className="text-slate-500">Bank Account:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.accountNumber || "Not detected by OCR — please enter manually"}</strong></div>
-                      <div><span className="text-slate-500">IFSC Code:</span> <strong className="text-slate-900">{ocrResultData.extractedData.bank?.ifscCode || "Not detected by OCR — please enter manually"}</strong></div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                      <div><span className="text-slate-500">PO Number:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.references?.poNumber || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">PO Date:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.header?.poDate || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Vendor Name:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.vendor?.vendorName || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Vendor Code:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.vendor?.vendorCode || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Vendor GSTIN:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.vendor?.gstin || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Vendor PAN:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.vendor?.pan || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Currency:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.header?.currency || "INR"}</strong></div>
+                      <div><span className="text-slate-500">Payment Terms:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.header?.paymentTerms || "Net 30"}</strong></div>
+                      <div><span className="text-slate-500">Expected Delivery:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.header?.expectedDeliveryDate || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Bank Account:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.bank?.accountNumber || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">IFSC Code:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.bank?.ifscCode || "Not Detected"}</strong></div>
+                      <div><span className="text-slate-500">Extracted Total:</span> <strong className="text-slate-900 block">{ocrResultData.extractedData.totals?.grandTotal ? currency(ocrResultData.extractedData.totals.grandTotal) : "Not Detected"}</strong></div>
                     </div>
 
+                    {ocrResultData.extractedData.vendor?.address ? (
+                      <div className="border-t border-blue-100 pt-2">
+                        <span className="text-slate-500">Vendor Address:</span> <span className="text-slate-800 font-medium">{ocrResultData.extractedData.vendor.address}</span>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
+                {/* DB Match Found vs Not Found State */}
                 {ocrResultData?.extractedData && selectedPurchaseOrder ? (
-                  <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/40 p-4 text-xs">
+                  <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/60 p-4 text-xs space-y-3">
                     <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                       <span className="font-bold uppercase tracking-wider text-purple-900">
-                        OCR Extracted Data VS. Existing Purchase Order Comparison
+                        PostgreSQL Database Record (Source of Truth)
                       </span>
-                      <span className="rounded-full bg-purple-700 px-2.5 py-0.5 font-bold text-white">
-                        ✓ PO Match Verified
+                      <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 font-bold text-white">
+                        ✓ PO Match Found
                       </span>
                     </div>
-                    <div className="mt-3 overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-purple-200 text-slate-500 font-semibold">
-                            <th className="pb-2">Field</th>
-                            <th className="pb-2">OCR Document Extracted</th>
-                            <th className="pb-2">PostgreSQL Database Record</th>
-                            <th className="pb-2 text-right">Validation Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-purple-100 font-medium">
-                          <tr>
-                            <td className="py-2 text-slate-600">PO Number</td>
-                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.references?.poNumber || "N/A"}</td>
-                            <td className="py-2 font-bold text-purple-800">{selectedPurchaseOrder.poNumber}</td>
-                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Matched</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-slate-600">Vendor GSTIN</td>
-                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.vendor?.gstin || "N/A"}</td>
-                            <td className="py-2 font-bold text-slate-900">{selectedPurchaseOrder.vendorGst || selectedPurchaseOrder.gstNumber || "N/A"}</td>
-                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Matched</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-slate-600">Grand Total</td>
-                            <td className="py-2 font-bold text-slate-900">{ocrResultData.extractedData.totals?.grandTotal ? currency(ocrResultData.extractedData.totals.grandTotal) : "N/A"}</td>
-                            <td className="py-2 font-bold text-blue-700">{currency(selectedPurchaseOrder.taxSummary?.grandTotal || selectedPurchaseOrder.amount)}</td>
-                            <td className="py-2 text-right text-emerald-700 font-bold">✓ Verified</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                      <div><span className="text-slate-500">PO Number:</span> <strong className="text-purple-900 block font-bold">{selectedPurchaseOrder.poNumber}</strong></div>
+                      <div><span className="text-slate-500">PO Date:</span> <strong className="text-slate-900 block font-semibold">{formatDate(selectedPurchaseOrder.poDate || selectedPurchaseOrder.createdAt)}</strong></div>
+                      <div><span className="text-slate-500">Vendor:</span> <strong className="text-slate-900 block font-semibold">{selectedPurchaseOrder.vendorName || selectedPurchaseOrder.vendor}</strong></div>
+                      <div><span className="text-slate-500">Vendor Code:</span> <strong className="text-slate-900 block font-semibold">{selectedPurchaseOrder.vendorCode || "N/A"}</strong></div>
+                      <div><span className="text-slate-500">PO Amount:</span> <strong className="text-blue-700 block font-bold">{currency(selectedPurchaseOrder.taxSummary?.grandTotal || selectedPurchaseOrder.amount)}</strong></div>
+                      <div><span className="text-slate-500">PO Items:</span> <strong className="text-slate-900 block font-semibold">{selectedPurchaseOrder.items?.length || 0} Line Items</strong></div>
+                      <div><span className="text-slate-500">PO Status:</span> <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800 text-[10px] uppercase">{selectedPurchaseOrder.status || "APPROVED"}</span></div>
+                    </div>
+                  </div>
+                ) : ocrResultData?.extractedData && !selectedPurchaseOrder && !loadingPurchaseOrderDetails ? (
+                  <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs space-y-3 shadow-sm">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold border-b border-amber-200 pb-2">
+                      <span className="rounded-full bg-amber-500 text-white h-5 w-5 flex items-center justify-center font-extrabold text-xs">!</span>
+                      Purchase Order {ocrResultData.extractedData.references?.poNumber ? `"${ocrResultData.extractedData.references.poNumber}"` : ""} was not found in the system.
+                    </div>
+                    <p className="text-amber-800 font-medium leading-relaxed">
+                      The document text was extracted, but no matching Purchase Order record exists in PostgreSQL. Choose an action below:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          purchaseOrderRef.current?.focus();
+                          setDropdownOpen(true);
+                        }}
+                        className="rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700 transition shadow-sm"
+                      >
+                        Search Existing PO
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDropdownOpen(true);
+                          dropdownRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 hover:bg-slate-50 transition shadow-sm"
+                      >
+                        Select PO Manually
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/purchase-orders/create")}
+                        className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 font-semibold text-purple-800 hover:bg-purple-100 transition shadow-sm"
+                      >
+                        Create PO First
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceFile(null)}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 font-semibold text-red-700 hover:bg-red-50 transition shadow-sm"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 ) : null}

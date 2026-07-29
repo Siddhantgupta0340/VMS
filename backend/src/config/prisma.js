@@ -51,6 +51,7 @@ const buildPoolConfig = () => {
     query_timeout: parsePositiveInt(process.env.DB_QUERY_TIMEOUT_MS, 15000),
     statement_timeout: parsePositiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 15000),
     keepAlive: process.env.DB_KEEP_ALIVE !== 'false',
+    keepAliveInitialDelayMillis: parsePositiveInt(process.env.DB_KEEP_ALIVE_DELAY_MS, 10000),
     ...(isNeonHost ? { ssl: { rejectUnauthorized: true } } : {}),
   };
 };
@@ -90,7 +91,7 @@ const pool = globalForPrisma.__vmsPgPool ?? new Pool(poolConfig);
 
 if (!pool.__vmsEventsAttached) {
   pool.on('error', (error) => {
-    console.error('[database] idle PostgreSQL client error', {
+    console.error('[DATABASE] Idle PostgreSQL client error:', {
       name: error?.name,
       code: error?.code,
       message: error?.message,
@@ -99,24 +100,23 @@ if (!pool.__vmsEventsAttached) {
 
   pool.on('remove', () => {
     if (NODE_ENV !== 'production') {
-      console.debug('[database] PostgreSQL client removed from pool');
+      console.debug('[DATABASE] PostgreSQL client removed from pool (idle timeout or connection reset)');
     }
   });
 
   pool.__vmsEventsAttached = true;
 }
 
-const adapter = new PrismaPg(pool);
+const adapter = globalForPrisma.__vmsAdapter ?? new PrismaPg(pool);
 
 const prisma = globalForPrisma.__vmsPrisma ?? new PrismaClient({
   adapter,
   log: NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
-if (NODE_ENV !== 'production') {
-  globalForPrisma.__vmsPgPool = pool;
-  globalForPrisma.__vmsPrisma = prisma;
-}
+globalForPrisma.__vmsPgPool = pool;
+globalForPrisma.__vmsAdapter = adapter;
+globalForPrisma.__vmsPrisma = prisma;
 
 const dbConfig = {
   environment: NODE_ENV,

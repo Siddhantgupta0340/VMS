@@ -2,7 +2,7 @@ import sanitizeObject from '../utils/logSanitizer.js';
 import { randomUUID } from 'node:crypto';
 import { classifyDatabaseError } from '../utils/dbRetry.js';
 
-const SERVICE_UNAVAILABLE_MESSAGE = 'The service is temporarily unavailable. Please try again later.';
+const SERVICE_UNAVAILABLE_MESSAGE = 'Database service is temporarily unavailable. Please try again shortly.';
 
 const POOL_DEAD_PATTERNS = [
   /cannot use a pool after calling end/i,
@@ -19,7 +19,7 @@ const mapPrismaError = (err) => {
   if (isPoolDeadError(err)) {
     return {
       statusCode: 503,
-      code: 'SERVICE_TEMPORARILY_UNAVAILABLE',
+      code: 'DATABASE_UNAVAILABLE',
       message: SERVICE_UNAVAILABLE_MESSAGE,
       errors: {},
     };
@@ -41,7 +41,7 @@ const mapPrismaError = (err) => {
   if (category === 'DATABASE_SCHEMA_MISMATCH') {
     return {
       statusCode: 503,
-      code: 'SERVICE_TEMPORARILY_UNAVAILABLE',
+      code: 'DATABASE_UNAVAILABLE',
       message: SERVICE_UNAVAILABLE_MESSAGE,
       errors: {},
     };
@@ -56,7 +56,7 @@ const mapPrismaError = (err) => {
   ].includes(category)) {
     return {
       statusCode: 503,
-      code: 'SERVICE_TEMPORARILY_UNAVAILABLE',
+      code: 'DATABASE_UNAVAILABLE',
       message: SERVICE_UNAVAILABLE_MESSAGE,
       errors: {},
     };
@@ -65,7 +65,7 @@ const mapPrismaError = (err) => {
   if (category === 'DATABASE_AUTHENTICATION_FAILED') {
     return {
       statusCode: 503,
-      code: 'SERVICE_TEMPORARILY_UNAVAILABLE',
+      code: 'DATABASE_UNAVAILABLE',
       message: SERVICE_UNAVAILABLE_MESSAGE,
       errors: {},
     };
@@ -117,14 +117,15 @@ export const errorHandler = (err, req, res, _next) => {
   const isDev = process.env.NODE_ENV !== 'production';
   const mappedPrismaError = mapPrismaError(err);
 
-  const statusCode = mappedPrismaError?.statusCode || err.statusCode || 500;
+  const statusCode = mappedPrismaError?.statusCode || err.statusCode || (err.status && typeof err.status === 'number' ? err.status : 500);
   let message = mappedPrismaError?.message || err.message || 'Internal Server Error';
-  let errorCode = mappedPrismaError?.code || err.code || 'INTERNAL_ERROR';
+  let errorCode = mappedPrismaError?.code || err.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
   let errors = mappedPrismaError?.errors || err.errors || {};
 
-  if (statusCode >= 500 && !mappedPrismaError) {
+  // Only assign 503 DATABASE_UNAVAILABLE if it's explicitly a database connection failure
+  if (mappedPrismaError?.statusCode === 503) {
     message = SERVICE_UNAVAILABLE_MESSAGE;
-    errorCode = 'SERVICE_TEMPORARILY_UNAVAILABLE';
+    errorCode = 'DATABASE_UNAVAILABLE';
     errors = {};
   }
 

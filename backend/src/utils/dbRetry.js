@@ -91,9 +91,9 @@ const toSafeErrorLog = (error) => ({
 });
 
 const withDatabaseRetry = async (operationName, operation, options = {}) => {
-  const attempts = options.attempts ?? 5;
-  const baseDelayMs = options.baseDelayMs ?? 500;
-  const maxDelayMs = options.maxDelayMs ?? 3000;
+  const attempts = options.attempts ?? 3;
+  const baseDelayMs = options.baseDelayMs ?? 300;
+  const maxDelayMs = options.maxDelayMs ?? 2000;
 
   let lastError;
 
@@ -109,10 +109,7 @@ const withDatabaseRetry = async (operationName, operation, options = {}) => {
       }
 
       const delayMs = Math.min(baseDelayMs * (2 ** (attempt - 1)), maxDelayMs);
-      console.warn(`[database] transient failure during ${operationName}; retrying`, {
-        attempt,
-        nextAttempt: attempt + 1,
-        delayMs,
+      console.warn(`[DATABASE] Transient connection failure during ${operationName}; retrying connection - attempt ${attempt}/${attempts} (delay: ${delayMs}ms)`, {
         error: toSafeErrorLog(error),
       });
       await sleep(delayMs);

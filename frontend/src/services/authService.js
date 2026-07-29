@@ -8,7 +8,7 @@ import {
   setTokenStorage,
 } from "./authSession";
 const GENERIC_LOGIN_ERROR = "Login failed. Please check your email and password.";
-const SERVICE_UNAVAILABLE_MESSAGE = "The service is temporarily unavailable. Please try again shortly.";
+const SERVICE_UNAVAILABLE_MESSAGE = "Service is temporarily unavailable. Please try again shortly.";
 const NETWORK_ERROR_MESSAGE = "Unable to connect to the server. Check your internet connection.";
 const INTERNAL_SERVER_ERROR_MESSAGE = "Internal Server Error. Please try again later.";
 const INTERNAL_ERROR_PATTERNS = [
@@ -31,14 +31,17 @@ const getSafeAuthErrorMessage = (err) => {
     return NETWORK_ERROR_MESSAGE;
   }
 
+  if (
+    status === 503 ||
+    responseCode === "DATABASE_UNAVAILABLE" ||
+    responseCode === "SERVICE_TEMPORARILY_UNAVAILABLE"
+  ) {
+    return SERVICE_UNAVAILABLE_MESSAGE;
+  }
+
   if (status === 401) return GENERIC_LOGIN_ERROR;
   if (status === 403) return "You do not have permission to access this page.";
   if (status === 404) return "Resource not found.";
-  if (status >= 500) return INTERNAL_SERVER_ERROR_MESSAGE;
-
-  if (responseCode === "SERVICE_TEMPORARILY_UNAVAILABLE") {
-    return SERVICE_UNAVAILABLE_MESSAGE;
-  }
 
   if (typeof responseMessage === "string" && responseMessage.trim()) {
     const safeMessage = responseMessage.trim();
@@ -47,7 +50,9 @@ const getSafeAuthErrorMessage = (err) => {
     }
   }
 
-  return GENERIC_LOGIN_ERROR;
+  if (status >= 500) return INTERNAL_SERVER_ERROR_MESSAGE;
+
+  return "An unexpected error occurred. Please try again.";
 };
 
 export const login = async ({ email, password, rememberMe }) => {
