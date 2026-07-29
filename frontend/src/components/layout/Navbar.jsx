@@ -114,59 +114,7 @@ const Navbar = () => {
           </span>
         </div>
 
-        {/* Horizontal Nav Tabs */}
-        <nav className="hidden xl:flex items-center gap-1 bg-white/80 dark:bg-slate-800/60 p-1 rounded-full border border-sky-100 dark:border-slate-800 shadow-2xs backdrop-blur-md">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-              location.pathname === "/dashboard" || location.pathname.includes("dashboard")
-                ? "bg-[#1E3A5F] text-white shadow-md shadow-[#1E3A5F]/20 scale-[1.02]"
-                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
-            }`}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => navigate("/vendors")}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-              location.pathname.includes("vendors")
-                ? "bg-[#1E3A5F] text-white shadow-md"
-                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
-            }`}
-          >
-            Vendors
-          </button>
-          <button
-            onClick={() => navigate("/purchase-orders")}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-              location.pathname.includes("purchase-orders")
-                ? "bg-[#1E3A5F] text-white shadow-md"
-                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
-            }`}
-          >
-            Purchase Orders
-          </button>
-          <button
-            onClick={() => navigate("/invoices")}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-              location.pathname.includes("invoices")
-                ? "bg-[#1E3A5F] text-white shadow-md"
-                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
-            }`}
-          >
-            Invoices
-          </button>
-          <button
-            onClick={() => navigate("/reports")}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-              location.pathname.includes("reports")
-                ? "bg-[#1E3A5F] text-white shadow-md"
-                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70"
-            }`}
-          >
-            Reports
-          </button>
-        </nav>
+
       </div>
 
       {/* Center Search Bar — Full Pill Style */}
@@ -234,9 +182,8 @@ const Navbar = () => {
                   latestNotifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`border-b border-slate-100 dark:border-slate-800 p-4 transition ${
-                        n.isRead ? "bg-white dark:bg-slate-900" : "bg-sky-50/50 dark:bg-sky-950/30"
-                      }`}
+                      className={`border-b border-slate-100 dark:border-slate-800 p-4 transition ${n.isRead ? "bg-white dark:bg-slate-900" : "bg-sky-50/50 dark:bg-sky-950/30"
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <button
