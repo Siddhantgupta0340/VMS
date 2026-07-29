@@ -8,7 +8,6 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  Building2,
   FileText,
   Receipt,
   LogOut,
@@ -107,11 +106,11 @@ const Navbar = () => {
           onClick={() => navigate("/dashboard")}
           className="hidden md:flex items-center gap-2.5 cursor-pointer group"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0090B8] to-sky-400 text-white shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
-            <Building2 size={20} className="text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+            <img src="/logo.png" className="h-7 w-7 object-contain" alt="Logo" />
           </div>
           <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white font-heading">
-            VMS IT Softlab
+            VMS Portal
           </span>
         </div>
 

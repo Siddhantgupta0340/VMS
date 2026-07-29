@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { forgotPassword } from "../../services/authService";
@@ -74,8 +74,8 @@ const ForgotPassword = () => {
         </Link>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 text-white shadow-lg shadow-blue-600/30">
-            <Building2 size={24} />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-lg overflow-hidden">
+            <img src="/logo.png" className="h-8 w-8 object-contain" alt="Logo" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white font-heading">Reset Credentials</h1>
