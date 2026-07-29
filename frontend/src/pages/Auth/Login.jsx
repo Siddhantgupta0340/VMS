@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Mail,
   Lock,
-  Building2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -54,6 +53,7 @@ const Login = () => {
   });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   const stars = useMemo(() => generateStars(32), []);
 
@@ -93,7 +93,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full font-sans bg-gradient-to-br from-slate-100 via-sky-50 to-blue-100 text-slate-800 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden">
-      
+
       {/* Dynamic Animated Background Floating Objects & Stars */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Animated Gradient Light Spheres */}
@@ -173,8 +173,23 @@ const Login = () => {
           className="lg:col-span-6 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden bg-cover bg-center border-b lg:border-b-0 lg:border-r border-slate-200/80"
           style={{ backgroundImage: `url(${authBgLight})` }}
         >
-          {/* Subtle Light Gradient Overlay for crisp text contrast */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/35 to-slate-900/60" />
+          {/* High-quality Animated Video Background on the left side */}
+          {!videoError && (
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              onError={() => setVideoError(true)}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+            >
+              <source src="/MicrosoftTeams-video.mp4" type="video/mp4" />
+            </video>
+          )}
+
+          {/* Subtle Light Gradient Overlay for crisp text contrast, positioned on top of video */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/35 to-slate-900/60 z-[1]" />
 
           {/* Top Brand Header */}
           <motion.div
@@ -183,8 +198,8 @@ const Login = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative z-10 flex items-center gap-3"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md border border-white/40 text-white shadow-md">
-              <Building2 size={20} className="text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-white shadow-md overflow-hidden">
+              <img src="/logo.png" className="h-7 w-7 object-contain" alt="Logo" />
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-200 block">Enterprise SaaS</span>

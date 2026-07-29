@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Building,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -84,14 +83,14 @@ const Sidebar = () => {
               compact ? "md:w-0 md:opacity-0" : "opacity-100"
             }`}
           >
-            <div className="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0090B8] to-sky-400 text-white shadow-md shadow-sky-500/25 transition-transform hover:scale-105">
-              <Building size={19} className="transition-transform group-hover:rotate-6" />
+            <div className="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-md transition-transform hover:scale-105 overflow-hidden">
+              <img src="/logo.png" className="h-7 w-7 object-contain" alt="Logo" />
               <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900 animate-pulse" />
             </div>
 
             <div className="min-w-0">
               <h1 className="truncate text-base font-extrabold text-slate-900 dark:text-white font-heading tracking-wide">
-                VMS IT Softlab
+                VMS Portal
               </h1>
               <p className="truncate text-[11px] font-bold text-[#0090B8] dark:text-[#00E5FF]">
                 Enterprise Suite

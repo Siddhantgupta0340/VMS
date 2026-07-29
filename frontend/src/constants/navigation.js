@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  Building2,
   ShoppingCart,
   Receipt,
   GitCompare,
@@ -11,6 +10,8 @@ import {
   FileBarChart2,
   History,
 } from "lucide-react";
+
+import LogoIcon from "../components/common/LogoIcon";
 
 import { PERMISSIONS } from "../config/permissions";
 import { ROLES } from "../config/permissions";
@@ -33,7 +34,7 @@ export const navigation = [
     items: [
       {
         title: "Vendors",
-        icon: Building2,
+        icon: LogoIcon,
         path: "/vendors",
         pathByRole: {
           [ROLES.FINANCE_HEAD]: "/finance-head/vendors",
