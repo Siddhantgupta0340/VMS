@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import StatusBadge from "../../components/common/StatusBadge";
 import { ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
@@ -113,7 +114,7 @@ const MatchingDetail = () => {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        Analyzing Match Discrepancy Report...
+        <LoadingSpinner size="lg" text="Analyzing Match Discrepancy Report..." />
       </div>
     );
   }

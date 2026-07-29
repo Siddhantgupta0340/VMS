@@ -422,7 +422,12 @@ const UserCreate = () => {
                     </option>
                   ))}
                 </select>
-                {loadingLookups && <p className="mt-1 text-xs text-slate-400">Loading roles list...</p>}
+                {loadingLookups && (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+                    <span className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-500 shrink-0" />
+                    Loading roles list...
+                  </p>
+                )}
                 {fieldErrors.role && (
                   <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.role}</p>
                 )}

@@ -1,4 +1,5 @@
-import { X, CheckCircle, AlertCircle, Clock, RefreshCw, Ban } from "lucide-react";
+import React from "react";
+import { X, CheckCircle2, AlertCircle, Clock, RefreshCw, Ban, Sparkles } from "lucide-react";
 
 const normalizeStatus = (status = "") => {
   const s = String(status || "").toLowerCase().trim();
@@ -20,41 +21,101 @@ const normalizeStatus = (status = "") => {
     blocked: "Inactive",
     active: "Active",
     inactive: "Deactivated",
+    draft: "Draft",
+    overdue: "Overdue",
   };
 
   return map[s] || status;
 };
 
 const statusConfig = {
-  Active: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: CheckCircle },
-  Pending: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: Clock },
-  "Under Review": { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", icon: RefreshCw },
-  Approved: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: CheckCircle },
-  Rejected: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: X },
-  "Returned for Correction": { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", icon: AlertCircle },
-  Paid: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: CheckCircle },
-  Cancelled: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-300", icon: Ban },
-  Inactive: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: X },
-  Deactivated: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: X },
-  Created: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: CheckCircle },
-  "Awaiting Approval": { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: AlertCircle },
-  Draft: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", icon: AlertCircle },
-  "Partially Paid": { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", icon: Clock },
-  Overdue: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: AlertCircle },
+  Active: {
+    badgeClass: "badge-success",
+    dotClass: "bg-emerald-500",
+    icon: CheckCircle2,
+  },
+  Approved: {
+    badgeClass: "badge-success",
+    dotClass: "bg-emerald-500",
+    icon: CheckCircle2,
+  },
+  Paid: {
+    badgeClass: "badge-info",
+    dotClass: "bg-blue-500",
+    icon: CheckCircle2,
+  },
+  Pending: {
+    badgeClass: "badge-warning",
+    dotClass: "bg-amber-500",
+    icon: Clock,
+  },
+  "Under Review": {
+    badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20",
+    dotClass: "bg-indigo-500",
+    icon: RefreshCw,
+  },
+  "Returned for Correction": {
+    badgeClass: "badge-warning",
+    dotClass: "bg-orange-500",
+    icon: AlertCircle,
+  },
+  Rejected: {
+    badgeClass: "badge-danger",
+    dotClass: "bg-red-500",
+    icon: X,
+  },
+  Overdue: {
+    badgeClass: "badge-danger",
+    dotClass: "bg-red-500",
+    icon: AlertCircle,
+  },
+  Cancelled: {
+    badgeClass: "badge-neutral",
+    dotClass: "bg-slate-400",
+    icon: Ban,
+  },
+  Inactive: {
+    badgeClass: "badge-neutral",
+    dotClass: "bg-slate-400",
+    icon: Ban,
+  },
+  Deactivated: {
+    badgeClass: "badge-neutral",
+    dotClass: "bg-slate-400",
+    icon: Ban,
+  },
+  Created: {
+    badgeClass: "badge-info",
+    dotClass: "bg-blue-500",
+    icon: Sparkles,
+  },
+  Draft: {
+    badgeClass: "badge-neutral",
+    dotClass: "bg-slate-400",
+    icon: Clock,
+  },
 };
 
-const StatusBadge = ({ status, className = "" }) => {
+export const StatusBadge = ({ status, className = "", showDot = true }) => {
   const normalized = normalizeStatus(status);
-  const config = statusConfig[normalized] || statusConfig.Pending;
+  const config = statusConfig[normalized] || {
+    badgeClass: "badge-neutral",
+    dotClass: "bg-slate-400",
+    icon: Clock,
+  };
   const Icon = config.icon;
 
   return (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${config.bg} ${config.text} ${config.border} ${className}`}
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide transition-all ${config.badgeClass} ${className}`}
     >
-      <Icon size={14} />
+      {showDot ? (
+        <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${config.dotClass}`} />
+      ) : (
+        <Icon size={13} className="shrink-0" />
+      )}
       <span>{normalized}</span>
-    </div>
+    </span>
   );
 };
 

@@ -1,14 +1,6 @@
+import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-
 import { useSidebar } from "../../context/SidebarContext";
-
-const sidebarItemStyles = {
-  itemHeight: "h-11",
-  itemGap: "gap-3",
-  itemPadding: "px-3",
-  iconSize: 20,
-  radius: "rounded-xl",
-};
 
 const SidebarItem = ({
   activePaths = [],
@@ -23,95 +15,78 @@ const SidebarItem = ({
   const location = useLocation();
   const compact = collapsed && !mobileOpen;
   const hasBadge = badge !== undefined && badge !== null && String(badge) !== "";
+
   const isPathActive = (isActive) => {
     if (isActive) return true;
-    return activePaths.some((activePath) => (
-      location.pathname === activePath ||
-      location.pathname.startsWith(`${activePath}/`)
-    ));
+    return activePaths.some(
+      (activePath) =>
+        location.pathname === activePath ||
+        location.pathname.startsWith(`${activePath}/`)
+    );
   };
 
-  const content = (
-    <>
-      <Icon
-        aria-hidden="true"
-        size={sidebarItemStyles.iconSize}
-        className="shrink-0"
-      />
+  const getItemClasses = (isActive) => {
+    const active = isPathActive(isActive);
 
-      {!compact && (
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {title}
-        </span>
-      )}
-
-      {hasBadge && (
-        <span
-          aria-label={`${badge} unread`}
-          className={`shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold leading-4 text-blue-700 ${
-            compact ? "absolute right-1.5 top-1" : ""
-          }`}
-        >
-          {badge}
-        </span>
-      )}
-
-      {compact && (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100">
-          {title}
-        </span>
-      )}
-    </>
-  );
-
-  const className = ({ isActive }) => `
-    group
-    relative
-    flex
-    ${sidebarItemStyles.itemHeight}
-    w-full
-    items-center
-    ${compact ? "justify-center px-0" : sidebarItemStyles.itemGap}
-    ${compact ? "" : sidebarItemStyles.itemPadding}
-    ${sidebarItemStyles.radius}
-    text-left
-    transition-all
-    duration-200
-    focus-visible:outline
-    focus-visible:outline-2
-    focus-visible:outline-offset-2
-    focus-visible:outline-blue-300
-    ${
-      disabled
-        ? "cursor-not-allowed text-slate-600 opacity-60"
-        : isPathActive(isActive)
-          ? "bg-[#163A63] text-white font-semibold border-l-4 border-[#2F80ED] rounded-l-none"
-          : "text-slate-300 hover:bg-[#163A63]/60 hover:text-white"
-    }
-  `;
-
-  if (disabled) {
-    return (
-      <button
-        aria-disabled="true"
-        className={className({ isActive: false })}
+    return `
+      group relative flex h-11 w-full items-center ${
+        compact ? "justify-center px-0" : "gap-3 px-3.5"
+      } rounded-xl text-left text-sm transition-all duration-200 ease-out cursor-pointer select-none
+      ${
         disabled
-        title={compact ? title : undefined}
-        type="button"
-      >
-        {content}
-      </button>
-    );
-  }
+          ? "cursor-not-allowed text-slate-400 opacity-50"
+          : active
+          ? "bg-gradient-to-r from-[#0090B8] to-sky-500 text-white font-extrabold shadow-md shadow-sky-500/25 scale-[1.02]"
+          : "text-slate-700 dark:text-slate-200 font-bold hover:translate-x-1.5 hover:bg-white/80 dark:hover:bg-white/10 hover:text-[#0090B8] dark:hover:text-white hover:shadow-xs"
+      }
+    `;
+  };
 
   return (
     <NavLink
-      className={className}
-      onClick={onNavigate}
+      to={disabled ? "#" : path}
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        onNavigate?.();
+      }}
+      className={({ isActive }) => getItemClasses(isActive)}
       title={compact ? title : undefined}
-      to={path}
     >
-      {content}
+      {({ isActive }) => {
+        const active = isPathActive(isActive);
+
+        return (
+          <>
+            <Icon
+              size={19}
+              className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                active
+                  ? "text-white"
+                  : "text-[#0090B8] dark:text-[#00E5FF] group-hover:text-[#007799] dark:group-hover:text-white"
+              }`}
+            />
+
+            {!compact && (
+              <span className="truncate font-bold tracking-wide">{title}</span>
+            )}
+
+            {hasBadge && (
+              <span
+                className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold transition-transform group-hover:scale-105 ${
+                  active
+                    ? "bg-white text-[#0090B8]"
+                    : "bg-[#0090B8] text-white shadow-xs"
+                }`}
+              >
+                {badge}
+              </span>
+            )}
+          </>
+        );
+      }}
     </NavLink>
   );
 };

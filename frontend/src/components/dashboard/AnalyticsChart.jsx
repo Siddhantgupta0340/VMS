@@ -1,3 +1,4 @@
+import React from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -18,10 +19,15 @@ const defaultData = [
   { month: "Jul", po: 82 },
 ];
 
-const AnalyticsChart = ({ data = defaultData, dataKey = "po", categoryKey = "month", color = "#2F80ED" }) => {
+const AnalyticsChart = ({
+  data = defaultData,
+  dataKey = "po",
+  categoryKey = "month",
+  color = "#2563EB",
+}) => {
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-[300px] w-full items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] bg-[#F5F7FA] text-sm font-medium text-[#64748B]">
+      <div className="flex h-[300px] w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-sm font-medium text-slate-400">
         No analytics data available
       </div>
     );
@@ -32,45 +38,49 @@ const AnalyticsChart = ({ data = defaultData, dataKey = "po", categoryKey = "mon
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
-            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.01} />
+            <linearGradient id={`chartGradient-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.0} />
             </linearGradient>
           </defs>
 
-          <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
 
           <XAxis
             dataKey={categoryKey}
             tickLine={false}
-            axisLine={{ stroke: "#E2E8F0" }}
-            tick={{ fill: "#64748B", fontSize: 12 }}
+            axisLine={false}
+            tick={{ fill: "#64748B", fontSize: 12, fontWeight: 500 }}
+            dy={8}
           />
 
           <YAxis
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "#64748B", fontSize: 12 }}
+            tick={{ fill: "#64748B", fontSize: 12, fontWeight: 500 }}
+            dx={-8}
           />
 
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0F2747",
-              borderColor: "#163A63",
-              borderRadius: "12px",
-              color: "#FFFFFF",
+              backgroundColor: "#0F172A",
+              borderColor: "#1E293B",
+              borderRadius: "14px",
+              color: "#F8FAFC",
               fontSize: "12px",
-              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+              fontWeight: 600,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)",
+              padding: "10px 14px",
             }}
-            itemStyle={{ color: "#2F80ED" }}
+            itemStyle={{ color: color }}
           />
 
           <Area
             type="monotone"
             dataKey={dataKey}
             stroke={color}
-            strokeWidth={2.5}
-            fill="url(#chartGradient)"
+            strokeWidth={3}
+            fill={`url(#chartGradient-${dataKey})`}
           />
         </AreaChart>
       </ResponsiveContainer>

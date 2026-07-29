@@ -22,6 +22,7 @@ import {
   markRead,
 } from "../../services/notificationService";
 import { useNotifications } from "../../context/NotificationContext";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const PAGE_SIZE = 10;
 
@@ -264,8 +265,8 @@ const NotificationsList = () => {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-sm font-medium text-slate-500">
-            Loading notifications...
+          <div className="flex h-64 items-center justify-center">
+            <LoadingSpinner size="lg" text="Loading notifications..." />
           </div>
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">

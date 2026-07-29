@@ -1,8 +1,9 @@
-import { Download, Eye, Plus, Trash2, X } from "lucide-react";
+import { Download, Eye, Plus, Trash2, X, ShoppingCart, CheckCircle2, IndianRupee } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { COMPANY_CONFIG } from "../../config/company";
 
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
@@ -241,6 +242,52 @@ const Detail = ({ label, value }) => (
   </div>
 );
 
+const StatCard = ({ title, value, tone = "blue", icon: Icon, isActive = false, onClick }) => {
+  const tones = {
+    blue: "text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/50 border-blue-500/20",
+    amber: "text-amber-600 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/50 border-amber-500/20",
+    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/50 border-emerald-500/20",
+    purple: "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-500/20",
+    red: "text-red-600 dark:text-red-400 bg-red-50/80 dark:bg-red-950/50 border-red-500/20",
+  };
+
+  const activeBorders = {
+    blue: "ring-2 ring-blue-500/80 border-blue-500 shadow-blue-500/10",
+    amber: "ring-2 ring-amber-500/80 border-amber-500 shadow-amber-500/10",
+    green: "ring-2 ring-emerald-500/80 border-emerald-500 shadow-emerald-500/10",
+    purple: "ring-2 ring-indigo-500/80 border-indigo-500 shadow-indigo-500/10",
+    red: "ring-2 ring-red-500/80 border-red-500 shadow-red-500/10",
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`group relative cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 md:p-4 h-20 sm:h-24 flex flex-col justify-between shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:shadow-slate-950/40 w-full min-w-0 ${isActive
+        ? `${activeBorders[tone]} bg-slate-50/90 dark:bg-slate-800/90`
+        : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+        }`}
+    >
+      <div className="flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+        <p className="text-[10px] sm:text-xs md:text-sm font-semibold tracking-tight text-slate-500 dark:text-slate-400 truncate" title={title}>
+          {title}
+        </p>
+        {Icon && (
+          <div className={`rounded-lg p-1 sm:p-1.5 transition-transform duration-200 group-hover:scale-105 shrink-0 ${tones[tone]}`}>
+            <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </div>
+        )}
+      </div>
+      <div className="flex items-baseline justify-between">
+        <p className={`inline-flex rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-base sm:text-lg md:text-xl lg:text-2xl font-black font-heading tracking-tight ${tones[tone]}`}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const PurchaseOrderList = () => {
   const { user } = useAuth();
   const canDownload = canDownloadDocument(user);
@@ -276,7 +323,12 @@ const PurchaseOrderList = () => {
       sortable: true,
       render: (value) => <span className="font-semibold text-blue-700">{value}</span>,
     },
-    { key: "vendor", label: "Vendor", sortable: true },
+    {
+      key: "vendor",
+      label: "Vendor",
+      sortable: true,
+      render: (value) => <span className="font-bold text-slate-900 dark:text-slate-100">{value}</span>,
+    },
     {
       key: "amount",
       label: "Amount",
@@ -341,7 +393,11 @@ const PurchaseOrderList = () => {
   };
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center text-slate-500">Loading purchase orders...</div>;
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading purchase orders..." />
+      </div>
+    );
   }
 
   return (
@@ -352,75 +408,87 @@ const PurchaseOrderList = () => {
             <h1 className="text-3xl font-bold text-slate-900">Purchase Orders</h1>
             <p className="mt-2 text-slate-500">Purchase orders are created by Case Managers and available immediately.</p>
           </div>
-          <Link to="/purchase-orders/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700">
-            <Plus size={18} />
+          <Link to="/purchase-orders/new" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 text-xs sm:text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm">
+            <Plus size={15} />
             New Purchase Order
           </Link>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Total POs</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">{purchaseOrders.length}</p>
-          </section>
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Available</p>
-            <p className="mt-2 text-2xl font-bold text-emerald-700">{createdCount}</p>
-          </section>
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Total Value</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">{money(totalValue)}</p>
-          </section>
+        {/* KPI Cards - Always 1 single line without scroll */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4 w-full">
+          <StatCard
+            title="Total POs"
+            value={purchaseOrders.length}
+            tone="blue"
+            icon={ShoppingCart}
+          />
+          <StatCard
+            title="Available"
+            value={createdCount}
+            tone="green"
+            icon={CheckCircle2}
+          />
+          <StatCard
+            title="Total Value"
+            value={money(totalValue)}
+            tone="purple"
+            icon={IndianRupee}
+          />
         </div>
 
-        <div className="flex justify-end">
-          <button type="button" onClick={exportCSV} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-            <Download size={16} />
-            Export
-          </button>
-        </div>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4">
           {purchaseOrders.length ? (
-            <DataTable
-              columns={columns}
-              data={purchaseOrders}
-              searchableFields={["poNumber", "vendor", "description", "status"]}
-              rowActions={(po) => (
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    to={`/purchase-orders/${po.id}`}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    <Eye size={15} /> View
-                  </Link>
-                  {canDownload ? (
+            <>
+              <DataTable
+                columns={columns}
+                data={purchaseOrders}
+                searchableFields={["poNumber", "vendor", "description", "status"]}
+                rowActions={(po) => (
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <Link
+                      to={`/purchase-orders/${po.id}`}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 whitespace-nowrap"
+                    >
+                      <Eye size={14} /> View
+                    </Link>
+                    {canDownload ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 whitespace-nowrap"
+                        onClick={() => handleDownloadPO(po)}
+                      >
+                        <Download size={14} /> PDF
+                      </button>
+                    ) : (
+                      <span
+                        className="inline-flex h-8 items-center px-2 text-[11px] font-semibold text-slate-400 whitespace-nowrap"
+                        title="You do not have permission to download this document."
+                      >
+                        No download access
+                      </span>
+                    )}
                     <button
                       type="button"
-                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                      onClick={() => handleDownloadPO(po)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 px-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 whitespace-nowrap"
+                      onClick={() => setDeleteTarget(po)}
                     >
-                      <Download size={15} /> PDF
+                      <Trash2 size={14} /> Delete
                     </button>
-                  ) : (
-                    <span
-                      className="inline-flex h-9 items-center px-2 text-[11px] font-semibold text-slate-400"
-                      title="You do not have permission to download this document."
-                    >
-                      No download access
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50"
-                    onClick={() => setDeleteTarget(po)}
-                  >
-                    <Trash2 size={15} /> Delete
-                  </button>
-                </div>
-              )}
-              itemsPerPage={10}
-            />
+                  </div>
+                )}
+                itemsPerPage={10}
+              />
+              <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={exportCSV}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm"
+                >
+                  <Download size={16} />
+                  Export
+                </button>
+              </div>
+            </>
           ) : (
             <EmptyState
               icon={Plus}
