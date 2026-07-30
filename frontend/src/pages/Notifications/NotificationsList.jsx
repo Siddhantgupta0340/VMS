@@ -156,18 +156,18 @@ const NotificationsList = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 md:text-3xl">
-            <Bell className="text-blue-600" size={28} />
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-slate-100 md:text-3xl">
+            <Bell className="text-blue-600 dark:text-blue-400" size={28} />
             Notifications
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Review workflow, account, invoice, vendor, and payment updates assigned to you.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
             onClick={refreshAll}
             type="button"
@@ -188,12 +188,12 @@ const NotificationsList = () => {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
         <div className="grid gap-3 md:grid-cols-5">
-          <label className="space-y-1 text-sm font-medium text-slate-700">
+          <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Status
             <select
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
               onChange={(event) => {
                 setReadFilter(event.target.value);
                 setPage(1);
@@ -206,10 +206,10 @@ const NotificationsList = () => {
             </select>
           </label>
 
-          <label className="space-y-1 text-sm font-medium text-slate-700">
+          <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Module
             <select
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
               onChange={(event) => {
                 setEntityTypeFilter(event.target.value);
                 setPage(1);
@@ -225,10 +225,10 @@ const NotificationsList = () => {
             </select>
           </label>
 
-          <label className="space-y-1 text-sm font-medium text-slate-700">
+          <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             From
             <input
-              className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
               onChange={(event) => {
                 setCreatedFrom(event.target.value);
                 setPage(1);
@@ -238,10 +238,10 @@ const NotificationsList = () => {
             />
           </label>
 
-          <label className="space-y-1 text-sm font-medium text-slate-700">
+          <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             To
             <input
-              className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
               onChange={(event) => {
                 setCreatedTo(event.target.value);
                 setPage(1);
@@ -253,7 +253,7 @@ const NotificationsList = () => {
 
           <div className="flex items-end">
             <button
-              className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-900"
               onClick={resetFilters}
               type="button"
             >
@@ -263,7 +263,7 @@ const NotificationsList = () => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <LoadingSpinner size="lg" text="Loading notifications..." />
@@ -271,7 +271,7 @@ const NotificationsList = () => {
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">
             <AlertCircle className="text-red-500" size={32} />
-            <p className="font-semibold text-slate-900">{error}</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{error}</p>
             <button
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               onClick={refreshAll}
@@ -281,7 +281,7 @@ const NotificationsList = () => {
             </button>
           </div>
         ) : notifications.length > 0 ? (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {notifications.map((notification) => {
               const Icon = getNotificationIcon(notification);
               const isBusy = mutatingId === notification.id;
@@ -289,13 +289,17 @@ const NotificationsList = () => {
               return (
                 <article
                   className={`flex gap-4 p-4 transition ${
-                    notification.isRead ? "bg-white" : "bg-blue-50/50"
+                    notification.isRead
+                      ? "bg-white dark:bg-slate-900"
+                      : "bg-blue-50/50 dark:bg-blue-950/15"
                   }`}
                   key={notification.id}
                 >
                   <div
                     className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                      notification.isRead ? "bg-slate-100 text-slate-500" : "bg-blue-100 text-blue-700"
+                      notification.isRead
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                        : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
                     }`}
                   >
                     <Icon size={18} />
@@ -304,20 +308,25 @@ const NotificationsList = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
-                        <h2 className={`truncate text-sm ${notification.isRead ? "font-semibold text-slate-700" : "font-bold text-slate-950"}`}>
+                        <h2
+                          className={`truncate text-sm ${
+                            notification.isRead
+                              ? "font-semibold text-slate-700 dark:text-slate-300"
+                              : "font-bold text-slate-950 dark:text-slate-50"
+                          }`}
+                        >
                           {notification.title}
                         </h2>
-                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
                           {notification.message}
                         </p>
                       </div>
 
-                      <time className="shrink-0 text-xs text-slate-400">
+                      <time className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
                         {formatDateTime(notification.createdAt)}
                       </time>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-
                       {notification.entityType === "payment" && notification.entityId && (
                         <Link
                           to={`/payments?id=${notification.entityId}`}
@@ -331,18 +340,18 @@ const NotificationsList = () => {
 
                       {!notification.isRead && (
                         <button
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={isBusy}
                           onClick={() => handleMarkRead(notification)}
                           type="button"
                         >
-                          <CheckCircle2 size={14} /> 
+                          <CheckCircle2 size={14} />
                           Mark read
                         </button>
                       )}
 
                       <button
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 dark:border-red-950/30 px-3 text-xs font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-950/20 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isBusy}
                         onClick={() => handleDismiss(notification)}
                         type="button"
@@ -358,10 +367,10 @@ const NotificationsList = () => {
           </div>
         ) : (
           <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">
-            <Inbox className="text-slate-400" size={36} />
+            <Inbox className="text-slate-400 dark:text-slate-500" size={36} />
             <div>
-              <p className="font-semibold text-slate-900">No notifications found</p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">No notifications found</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 New workflow and account updates will appear here.
               </p>
             </div>
@@ -369,14 +378,14 @@ const NotificationsList = () => {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 text-sm text-slate-500 dark:text-slate-400 md:flex-row md:items-center md:justify-between">
         <span>
           Showing page {page} of {totalPages} ({total} total)
         </span>
 
         <div className="flex items-center gap-2">
           <button
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 font-semibold text-slate-700 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900"
             disabled={page <= 1 || loading}
             onClick={() => setPage((current) => Math.max(current - 1, 1))}
             type="button"
@@ -384,7 +393,7 @@ const NotificationsList = () => {
             Previous
           </button>
           <button
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 font-semibold text-slate-700 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900"
             disabled={page >= totalPages || loading}
             onClick={() => setPage((current) => Math.min(current + 1, totalPages))}
             type="button"
