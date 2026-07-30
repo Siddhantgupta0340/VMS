@@ -248,11 +248,12 @@ const PaymentsList = () => {
         return (
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => openViewModal(row)}
-              className="rounded-lg border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
               title="View Details & Timeline"
             >
-              <Eye size={15} />
+              <Eye size={14} /> View
             </button>
             {!isHistoryPage && isPending && isPaymentApprover && (
               <>
@@ -365,9 +366,9 @@ const PaymentsList = () => {
         {user?.role === ROLES.CASE_MANAGER && (
           <Link
             to="/payments/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
           >
-            <Plus size={18} /> New Payment Request
+            <Plus size={16} /> New Payment Request
           </Link>
         )}
       </div>
@@ -419,11 +420,6 @@ const PaymentsList = () => {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <FilterBar filters={filters} onFilterChange={setActiveFilters} />
-      </div>
-
       {/* Data Table */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         {payments.length > 0 ? (
@@ -432,6 +428,7 @@ const PaymentsList = () => {
             data={payments}
             searchableFields={["paymentNumber", "invoiceNumber", "vendor", "poNumber"]}
             itemsPerPage={10}
+            extraHeaderContent={<FilterBar filters={filters} onFilterChange={setActiveFilters} />}
           />
         ) : (
           <EmptyState

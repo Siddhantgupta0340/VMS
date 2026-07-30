@@ -126,8 +126,8 @@ const OcrProgressStepper = ({ ocrStep, ocrResultData, onRetry, onUploadAnother, 
 
 
 
-const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
-const readOnly = "h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700";
+const input = "h-11 w-full rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/25";
+const readOnly = "h-11 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-200";
 const currency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const companyName = import.meta.env.VITE_COMPANY_NAME || "";
 const companyGst = import.meta.env.VITE_COMPANY_GST || "";
@@ -615,21 +615,20 @@ const InvoiceCreate = () => {
   }
 
   return (
-
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/invoices" className="rounded-lg p-2 transition hover:bg-slate-100">
-          <ArrowLeft size={20} className="text-slate-600" />
+        <Link to="/invoices" className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-900">
+          <ArrowLeft size={20} className="text-slate-600 dark:text-slate-400" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-950">Create Invoice</h1>
-          <p className="mt-1 text-sm text-slate-500">Invoices are generated from available purchase orders.</p>
+          <h1 className="text-2xl font-bold text-slate-955 dark:text-slate-100">Create Invoice</h1>
+          <p className="mt-1 text-sm text-slate-505 dark:text-slate-400">Invoices are generated from available purchase orders.</p>
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs font-semibold text-slate-600 md:grid-cols-6">
+      <div className="grid gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300 md:grid-cols-6 animate-sidebar-bg">
         {["Method", "Select PO", formData.invoiceCreationMethod === "OCR" ? "OCR Upload" : "Manual Entry", "Review", "Save"].map((step, index) => (
-          <div key={step} className={`rounded-lg px-3 py-2 ${index <= 2 || selectedPurchaseOrder ? "bg-blue-50 text-blue-700" : "bg-slate-50"}`}>
+          <div key={step} className={`rounded-lg px-3 py-2 ${index <= 2 || selectedPurchaseOrder ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" : "bg-slate-50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500"}`}>
             Step {index + 1}: {step}
           </div>
         ))}
@@ -660,9 +659,9 @@ const InvoiceCreate = () => {
 
       <form onSubmit={handleSubmit} noValidate className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="mb-5 border-b border-slate-100 pb-4">
-              <h2 className="text-base font-bold text-slate-950">Invoice Creation Method</h2>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Creation Method</h2>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {[
@@ -673,24 +672,24 @@ const InvoiceCreate = () => {
                   key={option.value}
                   type="button"
                   onClick={() => setCreationMethod(option.value)}
-                  className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${formData.invoiceCreationMethod === option.value ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200"}`}
+                  className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900/25 ${formData.invoiceCreationMethod === option.value ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-blue-200 dark:hover:border-blue-800"}`}
                 >
-                  <span className="flex items-center gap-3 text-sm font-bold text-slate-950">
+                  <span className="flex items-center gap-3 text-sm font-bold text-slate-950 dark:text-slate-100">
                     <span className={`grid h-4 w-4 place-items-center rounded-full border ${formData.invoiceCreationMethod === option.value ? "border-blue-600" : "border-slate-400"}`}>
                       {formData.invoiceCreationMethod === option.value ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
                     </span>
                     {option.label}
                   </span>
-                  <span className="mt-2 block text-xs font-medium text-slate-500">{option.description}</span>
+                  <span className="mt-2 block text-xs font-medium text-slate-500 dark:text-slate-400">{option.description}</span>
                 </button>
               ))}
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="mb-5 border-b border-slate-100 pb-4">
-              <h2 className="text-base font-bold text-slate-950">Purchase Order Selection</h2>
-              <p className="mt-1 text-sm text-slate-500">Select an existing purchase order. Vendor, item, tax, and total values are read-only.</p>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Purchase Order Selection</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Select an existing purchase order. Vendor, item, tax, and total values are read-only.</p>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
@@ -714,7 +713,7 @@ const InvoiceCreate = () => {
                 </div>
                 <ErrorText message={errorsByField.purchaseOrder} />
                 {dropdownOpen && (
-                  <div className="absolute z-30 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  <div className="absolute z-30 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
                     {fetchError ? (
                       <div className="p-4 text-sm text-red-600 font-semibold">
                         {fetchError.message?.toLowerCase().includes("conn") || fetchError.status === 500
@@ -729,22 +728,22 @@ const InvoiceCreate = () => {
                           key={purchaseOrder.id}
                           type="button"
                           onClick={() => selectPurchaseOrder(purchaseOrder)}
-                          className="block w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-0 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                          className="block w-full border-b border-slate-100 dark:border-slate-800/80 px-4 py-3 text-left transition last:border-0 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-950">{purchaseOrder.poNumber}</p>
-                              <p className="mt-1 text-xs text-slate-500">
+                              <p className="truncate text-sm font-bold text-slate-950 dark:text-slate-100">{purchaseOrder.poNumber}</p>
+                              <p className="mt-1 text-xs text-slate-505 dark:text-slate-400">
                                 {purchaseOrder.vendorName || "-"} | {purchaseOrder.vendorCode || "-"}
                               </p>
                             </div>
                             <div className="text-left sm:text-right">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Grand Total</p>
-                              <p className="mt-0.5 text-sm font-bold text-blue-700">{currency(purchaseOrder.taxSummary?.grandTotal || purchaseOrder.amount)}</p>
-                              <p className="mt-1 text-xs text-slate-500">{formatDate(purchaseOrder.poDate || purchaseOrder.createdAt)}</p>
+                              <p className="mt-0.5 text-sm font-bold text-blue-700 dark:text-blue-400">{currency(purchaseOrder.taxSummary?.grandTotal || purchaseOrder.amount)}</p>
+                              <p className="mt-1 text-xs text-slate-505 dark:text-slate-400">{formatDate(purchaseOrder.poDate || purchaseOrder.createdAt)}</p>
                             </div>
                           </div>
-                          <p className="mt-2 text-xs text-slate-500">GST: {purchaseOrder.vendorGst || "-"} | {purchaseOrder.vendorAddress || "Address not available"}</p>
+                          <p className="mt-2 text-xs text-slate-505 dark:text-slate-400">GST: {purchaseOrder.vendorGst || "-"} | {purchaseOrder.vendorAddress || "Address not available"}</p>
                         </button>
                       ))
                     ) : (
@@ -756,15 +755,15 @@ const InvoiceCreate = () => {
                 )}
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">PO Number</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">PO Number</label>
                 <input value={selectedPurchaseOrder?.poNumber || ""} disabled className={readOnly} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Purchase Order Date</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Purchase Order Date</label>
                 <input value={formatDate(selectedPurchaseOrder?.poDate || selectedPurchaseOrder?.createdAt)} disabled className={readOnly} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Expected Delivery Date</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Expected Delivery Date</label>
                 <input value={formatDate(selectedPurchaseOrder?.expectedDeliveryDate)} disabled className={readOnly} />
               </div>
             </div>
@@ -776,7 +775,7 @@ const InvoiceCreate = () => {
             ) : null}
 
             {selectedPurchaseOrder ? (
-              <div ref={vendorRef} tabIndex={-1} className="mt-6 grid gap-5 rounded-xl bg-slate-50 p-5 outline-none md:grid-cols-2 xl:grid-cols-4">
+              <div ref={vendorRef} tabIndex={-1} className="mt-6 grid gap-5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 p-5 outline-none md:grid-cols-2 xl:grid-cols-4">
                 <Field label="Vendor" value={selectedPurchaseOrder.vendorName || selectedPurchaseOrder.vendor} isRequired />
                 <Field label="Vendor Code" value={selectedPurchaseOrder.vendorCode} isRequired />
                 <Field label="Vendor GST" value={selectedPurchaseOrder.vendorGst || selectedPurchaseOrder.gstNumber} isRequired />
@@ -800,32 +799,32 @@ const InvoiceCreate = () => {
 
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Vendor Address</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Vendor Address</label>
                 <textarea value={selectedPurchaseOrder?.vendorAddress || ""} disabled rows={3} className={`${readOnly} h-auto py-3`} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Billing Address</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Billing Address</label>
                 <textarea value={selectedPurchaseOrder?.billingAddress || ""} disabled rows={3} className={`${readOnly} h-auto py-3`} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Delivery Address</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery Address</label>
                 <textarea value={selectedPurchaseOrder?.deliveryAddress || ""} disabled rows={3} className={`${readOnly} h-auto py-3`} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Company Details</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Company Details</label>
                 <textarea value={[companyName, companyGst, companyAddress].filter(Boolean).join("\n")} disabled rows={3} className={`${readOnly} h-auto py-3`} />
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="mb-5 border-b border-slate-100 pb-4">
-              <h2 className="text-base font-bold text-slate-950">Invoice Information</h2>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Information</h2>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Invoice Number</label>
-                <p className="text-sm font-medium text-slate-900">Generated automatically after submission</p>
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900/40 px-4 py-3">
+                <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">Invoice Number</label>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Generated automatically after submission</p>
               </div>
               <div>
                 <RequiredLabel>Invoice Category</RequiredLabel>
@@ -836,11 +835,11 @@ const InvoiceCreate = () => {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Receipt Date</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Receipt Date</label>
                 <input name="receiptDate" type="date" value={formData.receiptDate} onChange={(event) => setFormData((prev) => ({ ...prev, receiptDate: event.target.value }))} className={input} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Priority</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Priority</label>
                 <select value={formData.priority} onChange={(event) => setFormData((prev) => ({ ...prev, priority: event.target.value }))} className={input}>
                   <option value="STANDARD">Standard</option>
                   <option value="HIGH">High</option>
@@ -858,10 +857,10 @@ const InvoiceCreate = () => {
                 <ErrorText message={errorsByField.dueDate} />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Invoice Attachment <span className="font-medium text-slate-400">(Optional)</span></label>
-                <label ref={invoiceAttachmentRef} tabIndex={-1} className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-slate-50 p-4 transition hover:border-blue-300 hover:bg-blue-50 ${errorsByField.invoiceAttachment ? "border-red-400" : "border-slate-300"}`}>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Invoice Attachment <span className="font-medium text-slate-400 dark:text-slate-500">(Optional)</span></label>
+                <label ref={invoiceAttachmentRef} tabIndex={-1} className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-slate-50 dark:bg-slate-900/40 p-4 transition hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/20 ${errorsByField.invoiceAttachment ? "border-red-400 dark:border-red-800/80" : "border-slate-300 dark:border-slate-800"}`}>
                   <Upload size={20} className="text-blue-600" />
-                  <span className="text-sm font-medium text-slate-700">{formData.invoiceFile?.name || "Upload PDF, PNG, JPG, or JPEG invoice file"}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{formData.invoiceFile?.name || "Upload PDF, PNG, JPG, or JPEG invoice file"}</span>
                   <input
                     type="file"
                     accept="application/pdf,image/png,image/jpeg"
@@ -872,14 +871,14 @@ const InvoiceCreate = () => {
                 <ErrorText message={errorsByField.invoiceAttachment} />
                 {formData.invoiceFile ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">{formatFileSize(formData.invoiceFile.size)}</span>
-                    <button type="button" onClick={previewInvoiceFile} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    <span className="text-xs font-medium text-slate-505 dark:text-slate-400">{formatFileSize(formData.invoiceFile.size)}</span>
+                    <button type="button" onClick={previewInvoiceFile} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900">
                       <Eye size={14} /> Preview
                     </button>
-                    <button type="button" onClick={downloadInvoiceFile} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={downloadInvoiceFile} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900">
                       <Download size={14} /> Download
                     </button>
-                    <button type="button" onClick={() => setInvoiceFile(null)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">
+                    <button type="button" onClick={() => setInvoiceFile(null)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 dark:border-red-800/80 px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">
                       <Trash2 size={14} /> Delete
                     </button>
                   </div>
@@ -1004,27 +1003,27 @@ const InvoiceCreate = () => {
 
               </div>
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Remarks</label>
-                <textarea ref={remarksRef} value={formData.remarks} onChange={(event) => setFormData((prev) => ({ ...prev, remarks: event.target.value }))} rows={4} className={`${input} h-auto py-3 ${errorsByField.remarks ? "border-red-400 focus:border-red-500 focus:ring-red-100" : ""}`} />
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Remarks</label>
+                <textarea ref={remarksRef} value={formData.remarks} onChange={(event) => setFormData((prev) => ({ ...prev, remarks: event.target.value }))} rows={4} className={`${input} h-auto py-3 ${errorsByField.remarks ? "border-red-400 focus:border-red-500 focus:ring-red-100 dark:border-red-800" : ""}`} />
                 <ErrorText message={errorsByField.remarks} />
               </div>
             </div>
           </section>
 
-          <section ref={itemsRef} tabIndex={-1} className="rounded-xl border border-slate-200 bg-white p-6 outline-none">
-            <div className="mb-5 border-b border-slate-100 pb-4">
-              <h2 className="text-base font-bold text-slate-950">Invoice Items</h2>
+          <section ref={itemsRef} tabIndex={-1} className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 outline-none">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Items</h2>
             </div>
             <div className="space-y-4">
               {(selectedPurchaseOrder?.items || []).map((item, index) => (
-                <article key={`${item.lineNumber || index}-${item.itemName || item.description}`} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <article key={`${item.lineNumber || index}-${item.itemName || item.description}`} className="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Item {index + 1}</p>
-                      <h3 className="mt-1 text-base font-bold text-slate-950">{item.itemName || "-"}</h3>
-                      <p className="mt-1 text-sm text-slate-500">{item.description || "-"}</p>
+                      <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-slate-100">{item.itemName || "-"}</h3>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.description || "-"}</p>
                     </div>
-                    <p className="text-lg font-bold text-blue-700">{currency(item.lineTotal)}</p>
+                    <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{currency(item.lineTotal)}</p>
                   </div>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <Field label="Quantity" value={item.quantity} />
@@ -1038,7 +1037,7 @@ const InvoiceCreate = () => {
                 </article>
               ))}
               {!selectedPurchaseOrder?.items?.length ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
                   Select an available purchase order to load invoice items.
                 </div>
               ) : null}
@@ -1048,22 +1047,22 @@ const InvoiceCreate = () => {
         </div>
 
         <aside className="xl:sticky xl:top-6 xl:self-start">
-          <section ref={gstRef} tabIndex={-1} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm outline-none">
+          <section ref={gstRef} tabIndex={-1} className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm outline-none">
             <div className="flex items-center gap-2">
               <FileText size={18} className="text-blue-600" />
-              <h2 className="text-base font-bold text-slate-950">Invoice Summary</h2>
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Summary</h2>
             </div>
             <div className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><strong>{currency(taxSummary.subtotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">CGST</span><strong>{currency(taxSummary.cgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">SGST</span><strong>{currency(taxSummary.sgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">IGST</span><strong>{currency(taxSummary.igstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Total GST</span><strong>{currency(taxSummary.totalGst)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Round Off</span><strong>{currency(taxSummary.roundOff)}</strong></div>
-              <div className="border-t border-slate-200 pt-4">
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Subtotal</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.subtotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">CGST</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.cgstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">SGST</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.sgstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">IGST</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.igstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Total GST</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.totalGst)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Round Off</span><strong className="text-slate-900 dark:text-slate-100">{currency(taxSummary.roundOff)}</strong></div>
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
                 <div className="flex justify-between text-lg">
-                  <span className="font-bold text-slate-950">Grand Total</span>
-                  <strong className="text-blue-700">{currency(taxSummary.grandTotal || selectedPurchaseOrder?.amount)}</strong>
+                  <span className="font-bold text-slate-955 dark:text-slate-100">Grand Total</span>
+                  <strong className="text-blue-700 dark:text-blue-400">{currency(taxSummary.grandTotal || selectedPurchaseOrder?.amount)}</strong>
                 </div>
               </div>
             </div>
@@ -1073,7 +1072,7 @@ const InvoiceCreate = () => {
                 {ocrProcessing ? "Processing Invoice..." : submitting ? "Creating..." : "Create Invoice"}
               </button>
 
-              <button type="button" onClick={() => navigate("/invoices")} className="rounded-lg border border-slate-300 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-50">
+              <button type="button" onClick={() => navigate("/invoices")} className="rounded-lg border border-slate-300 dark:border-slate-800 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-900">
                 Cancel
               </button>
             </div>
