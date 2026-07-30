@@ -35,19 +35,19 @@ const getPreviewUrl = (document) => {
 };
 
 const DocumentRow = ({ document, label, onDelete, onDownload, onReplace, progress, busy, readOnly = false }) => (
-  <div className="rounded-xl border border-slate-200 bg-white p-4">
+  <div className="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950/40 p-4">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</p>
         {document ? (
           <>
-            <p className="mt-1 truncate text-sm text-slate-600">{document.originalFileName}</p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">{document.originalFileName}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {formatSize(document.fileSize)} · Uploaded {document.uploadedAt ? new Date(document.uploadedAt).toLocaleString() : "-"} by {document.uploadedBy}
             </p>
           </>
         ) : (
-          <p className="mt-1 text-sm text-slate-500">No file uploaded.</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No file uploaded.</p>
         )}
         {progress > 0 && progress < 100 && (
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
@@ -62,14 +62,14 @@ const DocumentRow = ({ document, label, onDelete, onDownload, onReplace, progres
             <a
               href={getPreviewUrl(document)}
               download={document.originalFileName || document.documentName || "document"}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900"
             >
               <Eye size={14} />
               Preview
             </a>
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900"
               onClick={onDownload}
             >
               <Download size={14} />
@@ -78,7 +78,7 @@ const DocumentRow = ({ document, label, onDelete, onDownload, onReplace, progres
           </>
         )}
         {!readOnly && (
-          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-blue-200 px-3 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800/80 px-3 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30">
             {busy ? <Loader2 className="animate-spin" size={14} /> : <UploadCloud size={14} />}
             {document ? "Replace" : "Upload"}
             <input
@@ -97,7 +97,7 @@ const DocumentRow = ({ document, label, onDelete, onDownload, onReplace, progres
         {document && !readOnly && (
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 dark:border-red-800/80 px-3 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
             disabled={busy}
             onClick={onDelete}
           >
@@ -203,7 +203,7 @@ const VendorDocumentsPanel = ({ vendorId, initialDocuments = [], readOnly = fals
 
   if (!vendorId) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-slate-900">Documents</h2>
         <p className="mt-2 text-sm text-slate-500">Documents can be uploaded after the vendor is created.</p>
       </section>
@@ -211,7 +211,7 @@ const VendorDocumentsPanel = ({ vendorId, initialDocuments = [], readOnly = fals
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm">
       <div className="flex items-center gap-3">
         <FileText className="text-blue-600" />
         <div>

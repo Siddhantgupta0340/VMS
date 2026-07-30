@@ -13,7 +13,7 @@ import { createVendor, getVendorById, updateVendor } from "../../services/vendor
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
 import { getErrorMessage, notify } from "../../utils/feedback";
 const input =
-  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600";
+  "w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500";
 
 const initialVendorForm = {
   companyName: "",
@@ -159,13 +159,15 @@ const AddVendor = () => {
 
   return (
     <div className="space-y-8">
-      <div ref={validationPanelRef}>
-        <ValidationSummary
-          title={isPersistedVendor ? "Cannot update Vendor." : "Cannot save Vendor."}
-          errors={validationErrors}
-          onSelect={(field) => focusValidationField(field, {}, validationPanelRef)}
-        />
-      </div>
+      {validationErrors.length > 0 && (
+        <div ref={validationPanelRef}>
+          <ValidationSummary
+            title={isPersistedVendor ? "Cannot update Vendor." : "Cannot save Vendor."}
+            errors={validationErrors}
+            onSelect={(field) => focusValidationField(field, {}, validationPanelRef)}
+          />
+        </div>
+      )}
 
       {/* Header */}
 
@@ -193,7 +195,7 @@ const AddVendor = () => {
 
       {/* COMPANY INFORMATION */}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -227,7 +229,7 @@ const AddVendor = () => {
             <input
               readOnly
               value={generatedVendorCode || "Generated automatically after creation"}
-              className={`${input} bg-slate-50 text-slate-500`}
+              className={`${input} bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400`}
             />
           </div>
 
@@ -267,7 +269,7 @@ const AddVendor = () => {
               value={formData.gst}
               onChange={handleChange}
               placeholder="Enter GST Number"
-              className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none ${fieldErrorClass(errorsByField.gst)}`}
+              className={`${input} ${fieldErrorClass(errorsByField.gst)}`}
             />
           </div>
 
@@ -308,7 +310,7 @@ const AddVendor = () => {
 
       {/* PRIMARY CONTACT */}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -331,7 +333,7 @@ const AddVendor = () => {
               value={formData.contactPerson}
               onChange={handleChange}
               placeholder="Enter Contact Person"
-              className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none ${fieldErrorClass(errorsByField.contactPerson)}`}
+              className={`${input} ${fieldErrorClass(errorsByField.contactPerson)}`}
             />
           </div>
 
@@ -422,7 +424,7 @@ const AddVendor = () => {
 
       {/* BUSINESS ADDRESS */}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -511,7 +513,7 @@ const AddVendor = () => {
 
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
 
         <div className="border-b p-6">
 
@@ -568,7 +570,7 @@ const AddVendor = () => {
 
       <VendorDocumentsPanel vendorId={activeVendorId} initialDocuments={vendorDocuments} />
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
 
         <div className="border-b p-6">
 
@@ -595,11 +597,11 @@ const AddVendor = () => {
 
       <div className="flex justify-end gap-4">
 
-        <button className="rounded-xl border border-slate-300 px-6 py-3 font-medium hover:bg-slate-100">
+        <button className="rounded-xl border border-slate-300 dark:border-slate-800 px-6 py-3 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900">
           Cancel
         </button>
 
-        <button className="rounded-xl bg-slate-800 px-6 py-3 font-medium text-white hover:bg-slate-900">
+        <button className="rounded-xl bg-slate-800 dark:bg-slate-700 px-6 py-3 font-medium text-white hover:bg-slate-900 dark:hover:bg-slate-650">
           Save Draft
         </button>
 

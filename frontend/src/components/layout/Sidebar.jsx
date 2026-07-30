@@ -79,9 +79,8 @@ const Sidebar = () => {
         {/* Brand Header with Glow Icon */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-sky-200/60 dark:border-slate-800/80 px-4">
           <div
-            className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${
-              compact ? "md:w-0 md:opacity-0" : "opacity-100"
-            }`}
+            className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${compact ? "md:w-0 md:opacity-0" : "opacity-100"
+              }`}
           >
             <div className="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-md transition-transform hover:scale-105 overflow-hidden">
               <img src="/logo.png" className="h-7 w-7 object-contain" alt="Logo" />

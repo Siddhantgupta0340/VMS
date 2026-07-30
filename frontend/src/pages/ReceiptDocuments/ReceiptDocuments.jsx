@@ -13,8 +13,8 @@ import {
   getGRNsByPO,
 } from "../../services/matchingService";
 
-const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
-const area = "min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
+const input = "h-11 w-full rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/25";
+const area = "min-h-24 w-full rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/25";
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -182,17 +182,17 @@ const ReceiptDocuments = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-950">Receipt Documents</h1>
-          <p className="mt-1 text-slate-500">Create Delivery Challans and Goods Receipt Notes from live Purchase Orders.</p>
+          <h1 className="text-3xl font-bold text-slate-950 dark:text-slate-100">Receipt Documents</h1>
+          <p className="mt-1 text-slate-500 dark:text-slate-400">Create Delivery Challans and Goods Receipt Notes from live Purchase Orders.</p>
         </div>
-        <button type="button" onClick={() => loadDocuments(selectedPOId)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">
+        <button type="button" onClick={() => loadDocuments(selectedPOId)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900">
           <RefreshCw size={16} /> Refresh
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-700">Purchase Order</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Purchase Order</span>
           <select value={selectedPOId} onChange={(event) => setSelectedPOId(event.target.value)} className={input}>
             <option value="">Select Purchase Order</option>
             {purchaseOrders.map((po) => (
@@ -201,28 +201,28 @@ const ReceiptDocuments = () => {
           </select>
         </label>
         {selectedPO && (
-          <div className="mt-4 grid gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-4">
-            <div><span className="text-xs font-semibold uppercase text-slate-500">Vendor</span><p className="font-semibold">{selectedPO.vendor}</p></div>
-            <div><span className="text-xs font-semibold uppercase text-slate-500">PO Number</span><p className="font-semibold">{selectedPO.poNumber}</p></div>
-            <div><span className="text-xs font-semibold uppercase text-slate-500">Items</span><p className="font-semibold">{selectedPO.items.length}</p></div>
-            <div><span className="text-xs font-semibold uppercase text-slate-500">Grand Total</span><p className="font-semibold">{money(selectedPO.amount)}</p></div>
+          <div className="mt-4 grid gap-4 rounded-lg bg-slate-50 dark:bg-slate-900/40 p-4 md:grid-cols-4 border border-slate-100 dark:border-slate-800/60 text-slate-900 dark:text-slate-100">
+            <div><span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Vendor</span><p className="font-semibold">{selectedPO.vendor}</p></div>
+            <div><span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">PO Number</span><p className="font-semibold">{selectedPO.poNumber}</p></div>
+            <div><span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Items</span><p className="font-semibold">{selectedPO.items.length}</p></div>
+            <div><span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Grand Total</span><p className="font-semibold">{money(selectedPO.amount)}</p></div>
           </div>
         )}
       </section>
 
       {selectedPO && (
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-slate-950">Document Details</h2>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold text-slate-950 dark:text-slate-100">Document Details</h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <label><span className="mb-2 block text-sm font-semibold">Delivery / Receipt Date</span><input type="date" name="deliveryDate" value={form.deliveryDate} onChange={handleChange} className={input} /></label>
-              <label><span className="mb-2 block text-sm font-semibold">Received By</span><input name="receiverName" value={form.receiverName} onChange={handleChange} className={input} /></label>
-              <label className="md:col-span-2"><span className="mb-2 block text-sm font-semibold">Delivery Address</span><input name="deliveryAddress" value={form.deliveryAddress} onChange={handleChange} className={input} /></label>
-              <label><span className="mb-2 block text-sm font-semibold">Transporter</span><input name="transporter" value={form.transporter} onChange={handleChange} className={input} /></label>
-              <label><span className="mb-2 block text-sm font-semibold">Vehicle Number</span><input name="vehicleNumber" value={form.vehicleNumber} onChange={handleChange} className={input} /></label>
-              <label><span className="mb-2 block text-sm font-semibold">Driver Name</span><input name="driverName" value={form.driverName} onChange={handleChange} className={input} /></label>
-              <label><span className="mb-2 block text-sm font-semibold">Driver Contact</span><input name="driverContact" value={form.driverContact} onChange={handleChange} className={input} /></label>
-              <label className="md:col-span-2"><span className="mb-2 block text-sm font-semibold">Remarks</span><textarea name="remarks" value={form.remarks} onChange={handleChange} className={area} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery / Receipt Date</span><input type="date" name="deliveryDate" value={form.deliveryDate} onChange={handleChange} className={input} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Received By</span><input name="receiverName" value={form.receiverName} onChange={handleChange} className={input} /></label>
+              <label className="md:col-span-2"><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery Address</span><input name="deliveryAddress" value={form.deliveryAddress} onChange={handleChange} className={input} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Transporter</span><input name="transporter" value={form.transporter} onChange={handleChange} className={input} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Vehicle Number</span><input name="vehicleNumber" value={form.vehicleNumber} onChange={handleChange} className={input} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Driver Name</span><input name="driverName" value={form.driverName} onChange={handleChange} className={input} /></label>
+              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Driver Contact</span><input name="driverContact" value={form.driverContact} onChange={handleChange} className={input} /></label>
+              <label className="md:col-span-2"><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Remarks</span><textarea name="remarks" value={form.remarks} onChange={handleChange} className={area} /></label>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="button" disabled={saving} onClick={createDC} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Create Delivery Challan</button>
@@ -230,13 +230,13 @@ const ReceiptDocuments = () => {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-slate-950">PO Items</h2>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold text-slate-955 dark:text-slate-100">PO Items</h2>
             <div className="space-y-3">
               {selectedPO.items.map((item, index) => (
-                <article key={`${item.itemName}-${index}`} className="rounded-lg border border-slate-200 p-3">
-                  <p className="font-semibold text-slate-900">{item.itemName}</p>
-                  <p className="text-sm text-slate-500">{item.description}</p>
+                <article key={`${item.itemName}-${index}`} className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-3">
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{item.itemName}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                     <span>Qty: <strong>{item.quantity}</strong></span>
                     <span>Rate: <strong>{money(item.unitPrice || item.rate)}</strong></span>
@@ -258,15 +258,15 @@ const ReceiptDocuments = () => {
 };
 
 const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete, isGRN = false }) => (
-  <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-950"><Icon size={18} /> {title}</h2>
+  <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
+    <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-slate-100"><Icon size={18} /> {title}</h2>
     <div className="space-y-3">
       {records.map((record) => (
-        <article key={record.id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-4">
+        <article key={record.id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-4">
           <div>
-            <p className="font-semibold text-blue-700">{record[numberKey]}</p>
-            <p className="text-sm text-slate-500">{record.vendor_name || record.vendor?.name || "Vendor"} | {record[dateKey] ? new Date(record[dateKey]).toLocaleDateString("en-IN") : "Date pending"}</p>
-            <p className="mt-1 text-sm text-slate-600">{record.items?.length || record.line_items?.length || 0} items</p>
+            <p className="font-semibold text-blue-750 dark:text-blue-400">{record[numberKey]}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{record.vendor_name || record.vendor?.name || "Vendor"} | {record[dateKey] ? new Date(record[dateKey]).toLocaleDateString("en-IN") : "Date pending"}</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{record.items?.length || record.line_items?.length || 0} items</p>
           </div>
           <div className="flex items-center gap-2">
             {isGRN && (
@@ -277,13 +277,13 @@ const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete
                 <FileText size={14} /> Create Invoice
               </a>
             )}
-            <button type="button" onClick={() => onDelete(record.id)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Delete ${record[numberKey]}`}>
+            <button type="button" onClick={() => onDelete(record.id)} className="rounded-lg border border-red-200 dark:border-red-800/80 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30" aria-label={`Delete ${record[numberKey]}`}>
               <Trash2 size={16} />
             </button>
           </div>
         </article>
       ))}
-      {!records.length && <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No records created.</p>}
+      {!records.length && <p className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-500 dark:text-slate-400">No records created.</p>}
     </div>
   </section>
 );
