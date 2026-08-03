@@ -107,8 +107,14 @@ export const createInvoiceSchema = z.object({
     ocrStatus: z.enum(['SUCCESS', 'PARTIAL_DATA', 'PARTIAL_SUCCESS', 'LOW_CONFIDENCE', 'FAILED']).optional(),
     ocrConfidence: z.coerce.number().min(0).max(100).optional(),
     ocrExtractedData: z.preprocess(parseJsonFormField, z.record(z.string(), z.any()).optional()),
-    remarks: z.string().trim().max(2000, 'Remarks cannot exceed 2000 characters').optional().default(''),
   }).superRefine((data, ctx) => {
+    if (data.invoiceCreationMethod !== 'OCR' && !String(data.invoiceNumber || '').trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['invoiceNumber'],
+        message: 'Invoice Number is required for manual invoice creation.',
+      });
+    }
     if (data.invoiceCreationMethod !== 'OCR' && !data.purchaseOrderId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

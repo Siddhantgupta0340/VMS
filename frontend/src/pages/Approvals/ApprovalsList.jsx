@@ -151,31 +151,31 @@ const ApprovalsList = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl flex items-center gap-2">
             💳 Payment Approval Queue
           </h1>
-          <p className="mt-1 text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
             Review and process payment approval requests assigned specifically to you.
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
         <div className="relative flex-1 min-w-[280px]">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by invoice, PO, vendor, or approval ID..."
-            className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 py-2.5 pl-10 pr-4 outline-none focus:border-blue-500 transition-all text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
           />
         </div>
 
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 outline-none focus:border-blue-500 text-sm bg-white"
+          className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-slate-100"
         >
           <option value="All">All Statuses</option>
           <option value="Pending">Pending</option>
@@ -186,35 +186,35 @@ const ApprovalsList = () => {
 
       {/* Table */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm dark:shadow-slate-950/40">
           <Clock className="animate-spin text-blue-500 mb-4" size={40} />
-          <span className="text-slate-500 font-medium">Loading approval queue...</span>
+          <span className="text-slate-500 dark:text-slate-400 font-medium">Loading approval queue...</span>
         </div>
       ) : filteredApprovals.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm dark:shadow-slate-950/40 flex flex-col items-center justify-center">
           <CheckCircle2 className="text-emerald-400 mb-4" size={48} />
-          <h3 className="text-lg font-bold text-slate-800">Queue is Clear!</h3>
-          <p className="text-slate-500 mt-1 max-w-sm">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Queue is Clear!</h3>
+          <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-sm text-sm">
             No payment approval requests match your filters or are assigned to you.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval / Invoice</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor / PO</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">3WM Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Required Role</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned User</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
+                  <th className="px-6 py-4">Approval / Invoice</th>
+                  <th className="px-6 py-4">Vendor / PO</th>
+                  <th className="px-6 py-4">Approval Amount</th>
+                  <th className="px-6 py-4">3WM Status</th>
+                  <th className="px-6 py-4">Required Role</th>
+                  <th className="px-6 py-4">Assigned User</th>
+                  <th className="px-6 py-4">Approval Status</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
                 {filteredApprovals.map((approval) => {
                   const canUserAct =
                     (approval.status === "PENDING" || approval.approvalStatus === "PENDING") &&
@@ -225,27 +225,27 @@ const ApprovalsList = () => {
                       approval.assignedRole === user.role);
 
                   return (
-                    <tr key={approval.id} className="hover:bg-slate-50/80 transition-all">
+                    <tr key={approval.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-all">
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-800 text-sm">Inv: {approval.invoiceNumber || "N/A"}</div>
-                        <div className="text-xs text-slate-400 mt-0.5">ID: {approval.id.substring(0, 8)}...</div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Inv: {approval.invoiceNumber || "N/A"}</div>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">ID: {approval.id.substring(0, 8)}...</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-slate-800 text-sm">{approval.vendorName || "N/A"}</div>
-                        <div className="text-xs text-slate-400 mt-0.5">PO: {approval.poNumber || "N/A"}</div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{approval.vendorName || "N/A"}</div>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">PO: {approval.poNumber || "N/A"}</div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-900 text-sm">
+                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-slate-100 text-sm">
                         {money(approval.amount || approval.requestedAmount, approval.currency)}
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={approval.threeWayMatchStatus || "MATCHED"} />
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900">
                           {approval.requiredRole || approval.assignedRole}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-700">
+                      <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
                         {approval.approverName || approval.assignedUser || approval.approverEmail || "Role Pool"}
                       </td>
                       <td className="px-6 py-4">

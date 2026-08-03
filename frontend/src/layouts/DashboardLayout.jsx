@@ -1,11 +1,10 @@
-import React from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 import { Outlet } from "react-router-dom";
 
 const DashboardLayout = () => {
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[#F4F7FA] dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F4F7FA] dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 transition-colors">
       <Sidebar />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

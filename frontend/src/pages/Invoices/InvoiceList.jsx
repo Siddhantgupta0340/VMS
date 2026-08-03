@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
-
 import {
   getInvoices,
   approveInvoice,
   rejectInvoice,
 } from "../../services/invoiceService";
-
 import {
   Download,
   Eye,
@@ -170,10 +168,10 @@ const InvoiceList = () => {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">
             Invoice History
           </h1>
-          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
             Track and manage all historical vendor invoices from PostgreSQL.
           </p>
         </div>
@@ -182,7 +180,7 @@ const InvoiceList = () => {
             type="button"
             onClick={() => loadInvoices(pagination.page)}
             disabled={loading}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 sm:h-10 sm:px-4 sm:text-sm"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 sm:h-10 sm:px-4 sm:text-sm"
           >
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
             Refresh
@@ -200,7 +198,7 @@ const InvoiceList = () => {
       </div>
 
       {/* ── Search & Filters Bar ───────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
@@ -209,7 +207,7 @@ const InvoiceList = () => {
               placeholder="Search by Invoice #, PO #, or Vendor Name/Code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-9 pr-4 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-blue-500 transition sm:text-sm"
             />
           </div>
 
@@ -217,7 +215,7 @@ const InvoiceList = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:border-blue-500 sm:text-sm"
+              className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 sm:text-sm"
             >
               <option value="">All Approval Statuses</option>
               <option value="APPROVED">Approved</option>
@@ -232,7 +230,7 @@ const InvoiceList = () => {
             <select
               value={paymentStatusFilter}
               onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:border-blue-500 sm:text-sm"
+              className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 sm:text-sm"
             >
               <option value="">All Payment Statuses</option>
               <option value="UNPAID">Unpaid</option>
@@ -246,18 +244,18 @@ const InvoiceList = () => {
 
       {/* ── Error Banner ───────────────────────────────────────────────────── */}
       {error && (
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-500/20 bg-red-50 dark:bg-red-950/30 p-5 text-red-800 dark:text-red-300">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="text-red-600" size={20} />
+            <AlertTriangle className="text-red-600 dark:text-red-400" size={20} />
             <div>
               <p className="text-sm font-semibold">Unable to load invoice history</p>
-              <p className="mt-0.5 text-xs text-red-600">{error}</p>
+              <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{error}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => loadInvoices(pagination.page)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-300 bg-white px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-300 dark:border-red-800 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-red-700 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-slate-800"
           >
             <RefreshCw size={14} /> Retry
           </button>
@@ -265,20 +263,20 @@ const InvoiceList = () => {
       )}
 
       {/* ── Main Data Table / Skeleton ────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40 overflow-hidden">
         {loading ? (
           <div className="space-y-4 p-6">
-            <div className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+            <div className="h-6 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-slate-100" />
+                <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />
               ))}
             </div>
           </div>
         ) : invoices.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-3.5">Invoice #</th>
                   <th className="px-4 py-3.5">PO #</th>
@@ -292,25 +290,25 @@ const InvoiceList = () => {
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
                 {invoices.map((row) => (
-                  <tr key={row.id} className="transition hover:bg-slate-50/60">
+                  <tr key={row.id} className="transition hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                     <td className="px-4 py-3.5 font-semibold">
-                      <Link to={`/invoices/${row.id}`} className="text-blue-600 hover:underline">
+                      <Link to={`/invoices/${row.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                         {row.invoiceNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600 font-mono text-xs">
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 font-mono text-xs">
                       {row.poNumber || "N/A"}
                     </td>
                     <td className="px-4 py-3.5">
-                      <p className="font-semibold text-slate-900">{row.vendorName || row.vendor || "N/A"}</p>
-                      {row.vendorCode && <p className="text-xs font-mono text-slate-500">{row.vendorCode}</p>}
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{row.vendorName || row.vendor || "N/A"}</p>
+                      {row.vendorCode && <p className="text-xs font-mono text-slate-400">{row.vendorCode}</p>}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                       {formatDate(row.invoiceDate)}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       {formatCurrency(row.amount, row.currency)}
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -322,7 +320,7 @@ const InvoiceList = () => {
                     <td className="px-4 py-3.5 text-center">
                       <StatusBadge status={row.paymentStatus} />
                     </td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
                       {formatDate(row.createdAt)}
                     </td>
                     <td className="px-4 py-3.5 text-right">
@@ -365,10 +363,10 @@ const InvoiceList = () => {
 
         {/* ── Server-Side Pagination Bar ───────────────────────────────────── */}
         {!loading && !error && pagination.total > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs text-slate-600 sm:text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-6 py-3 text-xs text-slate-600 dark:text-slate-400 sm:text-sm">
             <p>
-              Showing <span className="font-semibold">{invoices.length}</span> of{" "}
-              <span className="font-semibold">{pagination.total}</span> records
+              Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{invoices.length}</span> of{" "}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{pagination.total}</span> records
             </p>
 
             <div className="flex items-center gap-2">
@@ -376,18 +374,18 @@ const InvoiceList = () => {
                 type="button"
                 disabled={pagination.page <= 1}
                 onClick={() => loadInvoices(pagination.page - 1)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
               >
                 <ChevronLeft size={14} /> Previous
               </button>
-              <span className="px-2 text-xs font-medium text-slate-700">
+              <span className="px-2 text-xs font-medium text-slate-700 dark:text-slate-300">
                 Page {pagination.page} of {pagination.totalPages}
               </span>
               <button
                 type="button"
                 disabled={pagination.page >= pagination.totalPages}
                 onClick={() => loadInvoices(pagination.page + 1)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
               >
                 Next <ChevronRight size={14} />
               </button>
@@ -395,83 +393,8 @@ const InvoiceList = () => {
           </div>
         )}
       </section>
-
-      {/* ── Quick Preview Modal ────────────────────────────────────────────── */}
-      {showInvoiceModal && selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 p-5 sm:p-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Invoice Details</h2>
-                <p className="mt-1 font-semibold text-blue-600">{selectedInvoice.invoiceNumber}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowInvoiceModal(false);
-                  setSelectedInvoice(null);
-                }}
-                className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 hover:text-red-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-6 p-5 sm:p-6">
-              <section>
-                <h3 className="mb-3 text-sm font-bold text-slate-900">Invoice Information</h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <Detail label="Invoice Number" value={selectedInvoice.invoiceNumber} />
-                  <Detail label="Purchase Order" value={selectedInvoice.poNumber} />
-                  <Detail label="Vendor" value={selectedInvoice.vendor} />
-                  <Detail label="Amount" value={formatCurrency(selectedInvoice.amount, selectedInvoice.currency)} />
-                  <Detail label="Status" value={selectedInvoice.status} />
-                  <Detail label="Payment Status" value={selectedInvoice.paymentStatus} />
-                  <Detail label="Invoice Date" value={formatDate(selectedInvoice.invoiceDate)} />
-                  <Detail label="Due Date" value={formatDate(selectedInvoice.dueDate)} />
-                  <Detail label="GRN Number" value={selectedInvoice.grnNumber || "N/A"} />
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-3 text-sm font-bold text-slate-900">Vendor Information</h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <Detail label="Vendor Name" value={selectedInvoice.vendor} />
-                  <Detail label="Vendor Code" value={selectedInvoice.vendorCode || "N/A"} />
-                  <Detail label="Vendor GST" value={selectedInvoice.vendorGst || "N/A"} />
-                  <Detail label="Email" value={selectedInvoice.vendorEmail || "N/A"} />
-                  <Detail label="Address" value={selectedInvoice.vendorAddress || "N/A"} />
-                </div>
-              </section>
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-slate-200 p-4">
-              <Link
-                to={`/invoices/${selectedInvoice.id}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 sm:text-sm"
-              >
-                <Eye size={15} /> Full Details Page
-              </Link>
-              <button
-                type="button"
-                onClick={() => { setShowInvoiceModal(false); setSelectedInvoice(null); }}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
-const Detail = ({ label, value }) => (
-  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-    <p className="mt-1 text-xs font-medium text-slate-900 sm:text-sm">{value || "—"}</p>
-  </div>
-);
 
 export default InvoiceList;

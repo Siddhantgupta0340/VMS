@@ -10,8 +10,8 @@ import { getVendorById } from "../../services/vendorService";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
 
-const input = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
-const readOnly = "h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700";
+const input = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20";
+const readOnly = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-300";
 const emptyItem = { itemCode: "", itemName: "", description: "", quantity: "", rate: "", gstRate: "", unit: "" };
 
 const currency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -34,32 +34,32 @@ const emptyPreview = {
 
 const Field = ({ label, value, isRequired = false }) => (
   <div>
-    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-    <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900">
-      {value || (isRequired ? <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 font-normal">Not Provided</span>)}
+    <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</p>
+    <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+      {value || (isRequired ? <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 dark:text-slate-500 font-normal">Not Provided</span>)}
     </p>
   </div>
 );
 
 
 const ItemSection = ({ title, children }) => (
-  <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-    <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
+  <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-4">
+    <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
     <div className="grid gap-4 sm:grid-cols-2">{children}</div>
   </div>
 );
 
 const FormField = ({ label, children }) => (
   <label className="block">
-    <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
+    <span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
     {children}
   </label>
 );
 
 const ReadOnlyMetric = ({ label, value, strong = false }) => (
   <div>
-    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-    <p className={`mt-1 text-sm ${strong ? "font-bold text-blue-700" : "font-semibold text-slate-900"}`}>
+    <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</p>
+    <p className={`mt-1 text-sm ${strong ? "font-bold text-blue-700 dark:text-blue-400" : "font-semibold text-slate-900 dark:text-slate-100"}`}>
       {value}
     </p>
   </div>
@@ -100,267 +100,307 @@ const PurchaseOrderCreate = () => {
   const [loadingPO, setLoadingPO] = useState(false);
 
   useEffect(() => {
-    if (!isEditMode) return;
-    
-    const loadPODetails = async () => {
-      try {
-        setLoadingPO(true);
-        const po = await getPurchaseOrderById(id);
-        
-        if (po.vendorId) {
-          try {
-            const vendor = await getVendorById(po.vendorId);
-            setVendorMasterDetails(vendor);
-            setVendorQuery(`${vendor.vendorCode} - ${vendor.name || vendor.vendorName}`);
-          } catch {
-            setVendorQuery(po.vendorName || po.vendor || "");
-          }
-        }
-        
-        setFormData({
-          vendorId: po.vendorId || "",
-          orderDate: po.orderDate ? new Date(po.orderDate).toISOString().split("T")[0] : "",
-          expectedDelivery: po.expectedDelivery ? new Date(po.expectedDelivery).toISOString().split("T")[0] : "",
-          deliveryAddress: po.deliveryAddress || "",
-          billingAddress: po.billingAddress || "",
-          items: po.items.map((item) => ({
-            itemCode: item.itemCode || "",
-            itemName: item.itemName || "",
-            description: item.description || "",
-            quantity: String(item.quantity || ""),
-            rate: String(item.unitPrice || item.rate || ""),
-            gstRate: String(item.gstRate || ""),
-            unit: item.unit || "",
-          })),
-          otherCharges: String(po.taxSummary?.otherCharges || 0),
-          terms: po.paymentTerms || "",
-          notes: po.description || "",
-          poType: po.poType || "STANDARD",
-          purchaseRequisitionNumber: po.purchaseRequisitionNumber || "",
-          department: po.department || "",
-          costCenter: po.costCenter || "",
-          requester: po.requester || "",
-          buyer: po.buyer || "",
-          quotationDate: po.quotationDate ? new Date(po.quotationDate).toISOString().split("T")[0] : "",
-        });
-      } catch (err) {
-        console.error(err);
-        notify.error("Purchase Order details could not be loaded.");
-        navigate("/purchase-orders");
-      } finally {
-        setLoadingPO(false);
-      }
-    };
-    loadPODetails();
-  }, [id, isEditMode, navigate]);
-
-  useEffect(() => {
-    let active = true;
-    const loadVendors = async () => {
-      setLoadingVendors(true);
-      try {
-        const data = await getVendorsLookup(vendorQuery);
-        if (active) setVendors(data);
-      } catch (error) {
-        notify.error(getErrorMessage(error, "Approved vendors could not be loaded."));
-      } finally {
-        if (active) setLoadingVendors(false);
-      }
-    };
-
-    const timer = window.setTimeout(loadVendors, 200);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [vendorQuery]);
-
-  useEffect(() => {
-    const onPointerDown = (event) => {
+    const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
     };
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedVendor = vendors.find((vendor) => vendor.id === formData.vendorId);
-  const activeVendor = vendorMasterDetails || selectedVendor;
-  const preview = taxPreview;
-  const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
+  useEffect(() => {
+    let isSubscribed = true;
+    const fetchVendors = async () => {
+      try {
+        setLoadingVendors(true);
+        const data = await getVendorsLookup(vendorQuery);
+        if (isSubscribed) setVendors(data);
+      } catch (error) {
+        if (isSubscribed) notify.error(getErrorMessage(error, "Failed to load vendors lookup"));
+      } finally {
+        if (isSubscribed) setLoadingVendors(false);
+      }
+    };
+
+    const timer = setTimeout(fetchVendors, 250);
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timer);
+    };
+  }, [vendorQuery]);
 
   useEffect(() => {
-    const canCalculate =
-      formData.vendorId &&
-      formData.items.length > 0 &&
-      formData.items.every((item) => (
-        item.itemName.trim() &&
-        item.description.trim() &&
-        Number(item.quantity) > 0 &&
-        Number(item.rate) >= 0
-      ));
-
-    if (!canCalculate) {
-      setTaxPreview(emptyPreview);
-      return undefined;
-    }
-
-    let active = true;
-    const timer = window.setTimeout(async () => {
-      setTaxLoading(true);
+    if (!id) return;
+    const fetchPOForEdit = async () => {
       try {
-        const data = await calculatePurchaseOrderTax(formData);
-        if (active) setTaxPreview(data);
+        setLoadingPO(true);
+        const poData = await getPurchaseOrderById(id);
+        if (poData) {
+          setFormData({
+            vendorId: poData.vendorId || "",
+            orderDate: poData.orderDate ? poData.orderDate.split("T")[0] : new Date().toISOString().split("T")[0],
+            expectedDelivery: poData.expectedDelivery ? poData.expectedDelivery.split("T")[0] : "",
+            deliveryAddress: poData.deliveryAddress || "",
+            billingAddress: poData.billingAddress || "",
+            items: poData.items?.length
+              ? poData.items.map((it) => ({
+                itemCode: it.itemCode || "",
+                itemName: it.itemName || "",
+                description: it.description || "",
+                quantity: it.quantity ?? "",
+                rate: it.unitPrice ?? it.rate ?? "",
+                gstRate: it.gstRate ?? "",
+                unit: it.unit || "",
+              }))
+              : [{ ...emptyItem }],
+            otherCharges: String(poData.otherCharges ?? 0),
+            terms: poData.paymentTerms || "",
+            notes: poData.notes || "",
+            poType: poData.poType || "STANDARD",
+            purchaseRequisitionNumber: poData.purchaseRequisitionNumber || "",
+            department: poData.department || "",
+            costCenter: poData.costCenter || "",
+            requester: poData.requester || "",
+            buyer: poData.buyer || "",
+            quotationDate: poData.quotationDate ? poData.quotationDate.split("T")[0] : "",
+          });
+          if (poData.vendor) {
+            setVendorQuery(`${poData.vendor.vendorCode || ""} - ${poData.vendor.vendorName || poData.vendor.name || ""}`);
+          }
+        }
       } catch (error) {
-        if (active) {
+        notify.error(getErrorMessage(error, "Failed to load purchase order details for editing"));
+      } finally {
+        setLoadingPO(false);
+      }
+    };
+    fetchPOForEdit();
+  }, [id]);
+
+  useEffect(() => {
+    if (!formData.vendorId) {
+      setVendorMasterDetails(null);
+      return;
+    }
+    let isSubscribed = true;
+    const fetchVendorDetails = async () => {
+      try {
+        const fullVendor = await getVendorById(formData.vendorId);
+        if (!isSubscribed) return;
+        setVendorMasterDetails(fullVendor);
+
+        setFormData((prev) => ({
+          ...prev,
+          deliveryAddress: prev.deliveryAddress || COMPANY_CONFIG.address,
+          billingAddress: prev.billingAddress || COMPANY_CONFIG.address,
+          terms: prev.terms || fullVendor?.paymentTerms || "Net 30",
+        }));
+      } catch (error) {
+        if (isSubscribed) {
+          notify.error(getErrorMessage(error, "Unable to load vendor detail profile"));
+          setVendorMasterDetails(null);
+        }
+      }
+    };
+
+    fetchVendorDetails();
+    return () => {
+      isSubscribed = false;
+    };
+  }, [formData.vendorId]);
+
+  useEffect(() => {
+    let isSubscribed = true;
+    const timer = setTimeout(async () => {
+      try {
+        setTaxLoading(true);
+        const payload = {
+          vendorId: formData.vendorId,
+          otherCharges: Number(formData.otherCharges || 0),
+          items: formData.items.map((item) => ({
+            quantity: Number(item.quantity || 0),
+            rate: Number(item.rate || 0),
+            gstRate: Number(item.gstRate || 0),
+          })),
+        };
+        const calculation = await calculatePurchaseOrderTax(payload);
+        if (isSubscribed && calculation) {
+          setTaxPreview(calculation);
+        }
+      } catch {
+        if (isSubscribed) {
           setTaxPreview(emptyPreview);
-          notify.error(getErrorMessage(error, "Tax summary could not be calculated."));
         }
       } finally {
-        if (active) setTaxLoading(false);
+        if (isSubscribed) setTaxLoading(false);
       }
-    }, 250);
+    }, 300);
 
     return () => {
-      active = false;
-      window.clearTimeout(timer);
+      isSubscribed = false;
+      clearTimeout(timer);
     };
-  }, [formData]);
+  }, [formData.vendorId, formData.items, formData.otherCharges]);
 
-  const handleChange = (event) => {
-    setFormData((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value,
-    }));
-  };
-
-  const selectVendor = async (vendor) => {
-    let full = vendor;
-    try {
-      full = await getVendorById(vendor.id);
-    } catch {
-      full = vendor;
-    }
-    setVendorMasterDetails(full);
+  const selectVendor = (vendor) => {
     setFormData((prev) => ({
       ...prev,
       vendorId: vendor.id,
-      deliveryAddress: prev.deliveryAddress || full.address || full.vendorAddress || vendor.address || "",
-      billingAddress: prev.billingAddress || COMPANY_CONFIG.address || full.address || vendor.address || "",
+      deliveryAddress: prev.deliveryAddress || COMPANY_CONFIG.address,
+      billingAddress: prev.billingAddress || COMPANY_CONFIG.address,
+      terms: prev.terms || vendor.paymentTerms || "Net 30",
     }));
-    setVendorQuery(`${full.vendorCode || vendor.vendorCode} - ${full.vendorName || vendor.vendorName || vendor.name}`);
+    setVendorQuery(`${vendor.vendorCode} - ${vendor.vendorName}`);
     setDropdownOpen(false);
   };
 
-  const handleAddItem = () => {
-    setFormData((prev) => ({ ...prev, items: [...prev.items, { ...emptyItem }] }));
-  };
-
-  const handleRemoveItem = (index) => {
-    setFormData((prev) => ({ ...prev, items: prev.items.filter((_, itemIndex) => itemIndex !== index) }));
-  };
-
-  const handleDuplicateItem = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items.slice(0, index + 1),
-        { ...prev.items[index] },
-        ...prev.items.slice(index + 1),
-      ],
-    }));
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleItemChange = (index, field, value) => {
+    setFormData((prev) => {
+      const items = [...prev.items];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, items };
+    });
+  };
+
+  const handleAddItem = () => {
     setFormData((prev) => ({
       ...prev,
-      items: prev.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+      items: [...prev.items, { ...emptyItem }],
     }));
   };
 
+  const handleDuplicateItem = (index) => {
+    setFormData((prev) => {
+      const targetItem = prev.items[index];
+      const duplicatedItem = {
+        ...targetItem,
+        itemName: targetItem.itemName ? `${targetItem.itemName} (Copy)` : "",
+      };
+      const newItems = [...prev.items];
+      newItems.splice(index + 1, 0, duplicatedItem);
+      return { ...prev, items: newItems };
+    });
+    notify.success(`Duplicated item #${index + 1}`);
+  };
+
+  const handleRemoveItem = (index) => {
+    if (formData.items.length === 1) return;
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const errorsByField = validationErrors.reduce((acc, err) => {
+    acc[err.field] = err.message;
+    return acc;
+  }, {});
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const vendorMasterErrors = activeVendor ? [
-      ["Vendor GST Number", activeVendor.gstNumber || activeVendor.vendorGst || activeVendor.gst_number || activeVendor.tax_id],
-      ["Vendor Contact Person", activeVendor.contactPerson || activeVendor.vendorContactPerson || activeVendor.contact_person || activeVendor.name || activeVendor.vendorName],
-      ["Vendor Email", activeVendor.email || activeVendor.vendorEmail],
-      ["Vendor Phone", activeVendor.phone || activeVendor.vendorPhone],
-      ["Vendor State", activeVendor.state || activeVendor.vendorState],
-    ]
-      .filter(([, value]) => !value)
-      .map(([label]) => ({
-        field: "vendorId",
-        label,
-        message: `${label} missing. Complete it in Vendor Master before creating a Purchase Order.`,
-      })) : [];
-    const errors = [...validateRequiredFields("purchaseOrder", formData), ...vendorMasterErrors];
+    const errors = validateRequiredFields("purchaseOrderCreate", formData);
     setValidationErrors(errors);
+
     if (errors.length) {
-      notify.error("Cannot save Purchase Order. Please complete the highlighted fields.");
+      notify.error("Form validation failed. Please correct all highlighted fields.");
       window.setTimeout(() => focusValidationField(errors[0].field), 0);
       return;
     }
-    setSubmitting(true);
 
     try {
+      setSubmitting(true);
+      const payload = {
+        vendorId: formData.vendorId,
+        orderDate: formData.orderDate,
+        expectedDelivery: formData.expectedDelivery,
+        deliveryAddress: formData.deliveryAddress,
+        billingAddress: formData.billingAddress,
+        items: formData.items.map((item) => ({
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          description: item.description,
+          quantity: Number(item.quantity),
+          rate: Number(item.rate),
+          gstRate: Number(item.gstRate || 0),
+          unit: item.unit || undefined,
+        })),
+        otherCharges: Number(formData.otherCharges || 0),
+        terms: formData.terms,
+        notes: formData.notes,
+        poType: formData.poType,
+        purchaseRequisitionNumber: formData.purchaseRequisitionNumber || undefined,
+        department: formData.department || undefined,
+        costCenter: formData.costCenter || undefined,
+        requester: formData.requester || undefined,
+        buyer: formData.buyer || undefined,
+        quotationDate: formData.quotationDate || undefined,
+      };
+
       if (isEditMode) {
-        const updated = await updatePurchaseOrder(id, formData);
-        notify.success(`Purchase order ${updated.poNumber || ""} updated successfully.`);
+        await updatePurchaseOrder(id, payload);
+        notify.success("Purchase order updated successfully.");
+        navigate(`/purchase-orders/${id}`);
       } else {
-        const created = await createPurchaseOrder(formData);
-        notify.success(`Purchase order ${created.poNumber || ""} created successfully.`);
+        const createdPO = await createPurchaseOrder(payload);
+        notify.success("Purchase order created successfully.");
+        navigate(`/purchase-orders/${createdPO.id}`);
       }
-      navigate("/purchase-orders");
     } catch (error) {
-      notify.error(getErrorMessage(error, isEditMode ? "Unable to update purchase order." : "Unable to create purchase order."));
+      notify.error(getErrorMessage(error, "Failed to save purchase order"));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const activeVendor = vendorMasterDetails || vendors.find((v) => v.id === formData.vendorId);
+  const preview = taxPreview || emptyPreview;
+
   return (
     <div className="space-y-6">
-      <ValidationSummary
-        title="Cannot save Purchase Order."
-        errors={validationErrors}
-        onSelect={(field) => focusValidationField(field)}
-      />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-5">
         <div className="flex items-center gap-3">
-          <Link to="/purchase-orders" className="rounded-lg p-2 transition hover:bg-slate-100">
-            <ArrowLeft size={20} className="text-slate-600" />
+          <Link to="/purchase-orders" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 text-slate-600 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800">
+            <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-950">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">
               {isEditMode ? "Edit Purchase Order" : "Create Purchase Order"}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {isEditMode ? "Modify purchase order references and items." : "Backend generates the PO number and final tax totals."}
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+              {isEditMode ? "Modify existing purchase order line items and terms." : "Draft a legally binding purchase order from approved vendor master records."}
             </p>
           </div>
         </div>
       </div>
 
+      <ValidationSummary
+        title="Form submission prevented"
+        errors={validationErrors}
+        onSelect={(field) => focusValidationField(field)}
+      />
+
       {loadingPO ? (
-        <div className="flex h-96 items-center justify-center text-slate-500">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-            <p className="font-semibold text-sm">Loading Purchase Order details...</p>
-          </div>
+        <div className="flex h-64 items-center justify-center">
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading purchase order details...</span>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="mb-5 border-b border-slate-100 pb-4">
-              <h2 className="text-base font-bold text-slate-950">Purchase Order Information</h2>
-              <p className="mt-1 text-sm text-slate-500">Vendor and commercial details are sourced from approved database records.</p>
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Purchase Order Information</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Vendor and commercial details are sourced from approved database records.</p>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">PO Number</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">PO Number</label>
                 <input value="Generated after creation" disabled className={readOnly} />
               </div>
               <div>
@@ -392,10 +432,10 @@ const PurchaseOrderCreate = () => {
                   <ChevronDown className="pointer-events-none absolute right-3 top-3 text-slate-400" size={18} />
                 </div>
                 {dropdownOpen && (
-                  <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
                     {loadingVendors ? (
-                      <div className="p-4 text-sm text-slate-500 flex items-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600 shrink-0" />
+                      <div className="p-4 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 dark:border-slate-700 border-t-blue-600 shrink-0" />
                         Loading approved vendors...
                       </div>
                     ) : vendors.length ? (
@@ -404,17 +444,17 @@ const PurchaseOrderCreate = () => {
                           type="button"
                           key={vendor.id}
                           onClick={() => selectVendor(vendor)}
-                          className="block w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-0 hover:bg-blue-50"
+                          className="block w-full border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left transition last:border-0 hover:bg-blue-50 dark:hover:bg-slate-800/80"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-bold text-slate-950">{vendor.vendorCode} - {vendor.vendorName}</p>
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{vendor.category || "-"}</span>
+                            <p className="text-sm font-bold text-slate-950 dark:text-slate-100">{vendor.vendorCode} - {vendor.vendorName}</p>
+                            <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">{vendor.category || "-"}</span>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">GST: {vendor.gstNumber || "-"} | {vendor.address || "Address not available"}</p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">GST: {vendor.gstNumber || "-"} | {vendor.address || "Address not available"}</p>
                         </button>
                       ))
                     ) : (
-                      <div className="p-4 text-sm text-slate-500">No approved vendors found.</div>
+                      <div className="p-4 text-sm text-slate-500 dark:text-slate-400">No approved vendors found.</div>
                     )}
                   </div>
                 )}
@@ -432,7 +472,7 @@ const PurchaseOrderCreate = () => {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-5 rounded-xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-6 grid gap-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-5 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Vendor GST Number" value={activeVendor?.gstNumber || activeVendor?.gst || activeVendor?.vendorGst} isRequired />
               <Field label="Vendor Category" value={activeVendor?.category || activeVendor?.vendorCategory} isRequired />
               <Field label="Vendor Contact Person" value={activeVendor?.contactPerson || activeVendor?.vendorContactPerson} isRequired />
@@ -449,11 +489,11 @@ const PurchaseOrderCreate = () => {
 
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Vendor Address</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Vendor Address</label>
                 <textarea value={activeVendor?.address || activeVendor?.vendorAddress || ""} disabled rows={3} className={`${readOnly} h-auto py-3`} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Company Name</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Company Name</label>
                 <input value={COMPANY_CONFIG.name} disabled className={readOnly} />
               </div>
               <div>
@@ -466,8 +506,8 @@ const PurchaseOrderCreate = () => {
               </div>
             </div>
 
-            <div className="mt-6 border-t border-slate-100 pt-6">
-              <h3 className="mb-4 text-base font-bold text-slate-950">Procurement &amp; Reference Information</h3>
+            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
+              <h3 className="mb-4 text-base font-bold text-slate-950 dark:text-slate-100">Procurement &amp; Reference Information</h3>
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 <FormField label="PO Type">
                   <select name="poType" value={formData.poType} onChange={handleChange} className={input}>
@@ -499,13 +539,13 @@ const PurchaseOrderCreate = () => {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 sm:p-6">
+            <div className="mb-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
-                <h2 className="text-base font-bold text-slate-950">Item Details</h2>
-                <p className="mt-1 text-sm text-slate-500">Each item is structured by product, pricing, tax, and final line value. Totals still come from the backend.</p>
+                <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Item Details</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Each item is structured by product, pricing, tax, and final line value. Totals still come from the backend.</p>
               </div>
-              <button type="button" onClick={handleAddItem} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+              <button type="button" onClick={handleAddItem} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition">
                 <Plus size={16} />
                 Add Item
               </button>
@@ -515,17 +555,17 @@ const PurchaseOrderCreate = () => {
               {formData.items.map((item, index) => {
                 const calculated = preview.items[index] || {};
                 return (
-                  <article key={index} className="rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                    <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <article key={index} className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40 transition hover:border-blue-200 dark:hover:border-blue-800">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Item {index + 1}</p>
-                        <h3 className="mt-1 text-base font-bold text-slate-950">{item.itemName || "New purchase item"}</h3>
+                        <p className="text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Item {index + 1}</p>
+                        <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-slate-100">{item.itemName || "New purchase item"}</h3>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => handleDuplicateItem(index)}
-                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                         >
                           <Copy size={15} />
                           Duplicate Item
@@ -534,7 +574,7 @@ const PurchaseOrderCreate = () => {
                           type="button"
                           onClick={() => handleRemoveItem(index)}
                           disabled={formData.items.length === 1}
-                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-200 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 dark:border-red-900/60 bg-white dark:bg-slate-950 px-3 text-sm font-semibold text-red-700 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Trash2 size={15} />
                           Delete Item
@@ -600,39 +640,39 @@ const PurchaseOrderCreate = () => {
         </div>
 
         <aside className="xl:sticky xl:top-0 xl:self-start">
-          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-slate-950">Tax Summary</h2>
-              {taxLoading && <span className="text-xs font-semibold text-blue-600">Calculating...</span>}
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Tax Summary</h2>
+              {taxLoading && <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Calculating...</span>}
             </div>
             <div className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><strong>{currency(preview.summary.subtotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Taxable Amount</span><strong>{currency(preview.summary.taxableAmount)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">CGST Total</span><strong>{currency(preview.summary.cgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">SGST Total</span><strong>{currency(preview.summary.sgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">IGST Total</span><strong>{currency(preview.summary.igstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Total GST</span><strong>{currency(preview.summary.totalGst)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Subtotal</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.subtotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Taxable Amount</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.taxableAmount)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">CGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.cgstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">SGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.sgstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">IGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.igstTotal)}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Total GST</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.totalGst)}</strong></div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">Other Charges</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Other Charges</label>
                 <input type="number" min="0" step="0.01" name="otherCharges" value={formData.otherCharges} onChange={handleChange} className={input} />
               </div>
-              <div className="flex justify-between"><span className="text-slate-500">Round Off</span><strong>{currency(preview.summary.roundOff)}</strong></div>
-              <div className="border-t border-slate-200 pt-4">
+              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Round Off</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.roundOff)}</strong></div>
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
                 <div className="flex justify-between text-lg">
-                  <span className="font-bold text-slate-950">Grand Total</span>
-                  <strong className="text-blue-700">{currency(preview.summary.grandTotal)}</strong>
+                  <span className="font-bold text-slate-950 dark:text-slate-100">Grand Total</span>
+                  <strong className="text-blue-700 dark:text-blue-400">{currency(preview.summary.grandTotal)}</strong>
                 </div>
               </div>
             </div>
-            <label className="mt-6 block text-sm font-semibold text-slate-700">
+            <label className="mt-6 block text-sm font-semibold text-slate-700 dark:text-slate-200">
               Notes
               <textarea name="notes" value={formData.notes} onChange={handleChange} rows={4} className={`${input} mt-2 h-auto py-3`} />
             </label>
             <div className="mt-6 grid gap-3">
-              <button type="submit" disabled={submitting || !formData.vendorId} className="rounded-lg bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+              <button type="submit" disabled={submitting || !formData.vendorId} className="rounded-xl bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
                 {submitting ? (isEditMode ? "Saving..." : "Creating...") : (isEditMode ? "Save Changes" : "Create Purchase Order")}
               </button>
-              <button type="button" onClick={() => navigate("/purchase-orders")} className="rounded-lg border border-slate-300 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-50">
+              <button type="button" onClick={() => navigate("/purchase-orders")} className="rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
             </div>

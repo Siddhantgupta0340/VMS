@@ -351,10 +351,10 @@ const PaymentsList = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">
             {isHistoryPage ? "Payment History" : (isPaymentApprover ? "Payment Approvals" : "Payments")}
           </h1>
-          <p className="mt-2 text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
             {isHistoryPage
               ? "Track and review all processed and historical payments"
               : (isPaymentApprover
@@ -374,54 +374,54 @@ const PaymentsList = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pending Approvals</p>
-              <p className="mt-2 text-2xl font-bold text-amber-600">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pending Approvals</p>
+              <p className="mt-2 text-2xl font-extrabold font-heading text-amber-600 dark:text-amber-400">
                 {stats?.pending ?? payments.filter((p) => p.status === "PENDING").length}
               </p>
-              <p className="mt-1 text-xs text-slate-500">{money(stats?.pendingAmount || totalPending)}</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{money(stats?.pendingAmount || totalPending)}</p>
             </div>
-            <Wallet className="h-8 w-8 text-amber-200" />
+            <Wallet className="h-8 w-8 text-amber-500/30" />
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Approved Payouts</p>
-              <p className="mt-2 text-2xl font-bold text-emerald-600">{stats?.approved ?? 0}</p>
-              <p className="mt-1 text-xs text-slate-500">{money(stats?.totalAmount || totalPaid)}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Approved Payouts</p>
+              <p className="mt-2 text-2xl font-extrabold font-heading text-emerald-600 dark:text-emerald-400">{stats?.approved ?? 0}</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{money(stats?.totalAmount || totalPaid)}</p>
             </div>
-            <DollarSign className="h-8 w-8 text-emerald-200" />
+            <DollarSign className="h-8 w-8 text-emerald-500/30" />
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Today's Requests</p>
-              <p className="mt-2 text-2xl font-bold text-blue-600">{stats?.todayRequests ?? 0}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Today's Requests</p>
+              <p className="mt-2 text-2xl font-extrabold font-heading text-blue-600 dark:text-blue-400">{stats?.todayRequests ?? 0}</p>
             </div>
-            <Clock className="h-8 w-8 text-blue-200" />
+            <Clock className="h-8 w-8 text-blue-500/30" />
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Monthly Requests</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">{stats?.monthlyRequests ?? payments.length}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monthly Requests</p>
+              <p className="mt-2 text-2xl font-extrabold font-heading text-slate-900 dark:text-slate-100">{stats?.monthlyRequests ?? payments.length}</p>
             </div>
-            <TrendingUp className="h-8 w-8 text-slate-300" />
+            <TrendingUp className="h-8 w-8 text-slate-400/40" />
           </div>
         </div>
       </div>
 
       {/* Data Table */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
         {payments.length > 0 ? (
           <DataTable
             columns={columns}

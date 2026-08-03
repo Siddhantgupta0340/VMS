@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  AlertCircle,
   ArrowLeft,
   Ban,
   CheckCircle,
@@ -109,7 +110,7 @@ const amountToWordsINR = (amount) => {
   const rupees = Math.floor(Math.abs(numVal));
   const paise = Math.round((Math.abs(numVal) - rupees) * 100);
 
-  let rupeeStr = "";
+  let rupeeStr;
   if (rupees === 0) {
     rupeeStr = "Zero";
   } else {
@@ -623,7 +624,7 @@ const InvoiceDetails = () => {
   const canAddRemark = normalizedUserRole === ROLES.SUPER_ADMIN;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-4">
       {/* Printable CSS override */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {

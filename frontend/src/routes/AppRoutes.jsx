@@ -63,6 +63,7 @@ import ForgotPassword from "../pages/Auth/ForgotPassword";
 import ResetPassword from "../pages/Auth/ResetPassword";
 import ActivateAccount from "../pages/Auth/ActivateAccount";
 import ChangeTemporaryPassword from "../pages/Auth/ChangeTemporaryPassword";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
 const RootRedirect = () => {
   const { user, isAuthenticated, bootstrapping } = useAuth();
@@ -76,6 +77,11 @@ const RootRedirect = () => {
   }
 
   return <Navigate to={isAuthenticated && user ? getDashboardPathForRole(user.role) : "/login"} replace />;
+};
+
+const LegacyOcrReviewRedirect = () => {
+  const { draftId } = useParams();
+  return <Navigate to={`/invoices/create/ocr/${draftId}`} replace />;
 };
 
 const AppRoutes = () => {

@@ -68,9 +68,9 @@ const Sidebar = () => {
       <aside
         aria-label="Primary navigation"
         className={`
-          fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 flex-col overflow-hidden animate-sidebar-bg
+          fixed inset-y-0 left-0 z-50 flex h-full min-h-0 flex-col overflow-hidden animate-sidebar-bg
           text-slate-900 dark:text-white border-r border-sky-200/60 dark:border-slate-800/80 shadow-xl transition-all duration-300 ease-in-out
-          md:relative md:z-auto md:h-screen md:translate-x-0 md:shadow-none
+          md:relative md:z-auto md:h-full md:translate-x-0 md:shadow-none
           ${collapsed ? "md:w-20" : "md:w-64"}
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           w-64

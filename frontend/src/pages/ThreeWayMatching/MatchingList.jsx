@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, GitCompare, Play } from "lucide-react";
+import { Eye, Filter, GitCompare, Play } from "lucide-react";
 import { toast } from "sonner";
 import DataTable from "../../components/common/DataTable";
 import StatusBadge from "../../components/common/StatusBadge";
-import { getInvoices } from "../../services/invoiceService";
+import { getInvoices } from "../../services/invoiceService";  
 import {
   createDeliveryChallan,
   createGRN,
@@ -277,24 +277,24 @@ const MatchingList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold text-slate-900">
-            <GitCompare className="text-blue-600" />
+          <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">
+            <GitCompare className="text-blue-600 dark:text-blue-400" />
             Three-Way Matching
           </h1>
-          <p className="mt-2 text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
             Reconcile invoices against purchase orders and goods receipt notes.
           </p>
         </div>
       </div>
 
-      <div className="border-b border-slate-200">
+      <div className="border-b border-slate-200 dark:border-slate-800">
         <nav className="flex space-x-8">
           <button
             type="button"
             onClick={() => setActiveTab("reports")}
             className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "reports"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
           >
             Matching Reports ({matches.length})
@@ -304,8 +304,8 @@ const MatchingList = () => {
             onClick={() => setActiveTab("pending")}
             hidden={!canRunMatching}
             className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "pending"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
           >
             Awaiting Match Calculation ({pendingInvoices.length})
@@ -313,54 +313,40 @@ const MatchingList = () => {
         </nav>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
         {activeTab === "reports" ? (
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-900">Filter Matching Result</p>
-                <p className="mt-1 text-xs text-slate-500">Show reports by final three-way matching status.</p>
+          <DataTable
+            columns={reportColumns}
+            data={matches}
+            searchableFields={["id", "invoiceNumber", "poNumber", "vendor", "status"]}
+            itemsPerPage={10}
+            extraHeaderContent={
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="MATCHED">Matched</option>
+                  <option value="MISMATCH">Mismatched</option>
+                  <option value="PENDING">Pending</option>
+                </select>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["", "All"],
-                  ["MATCHED", "Matched"],
-                  ["MISMATCH", "Mismatched"],
-                  ["PENDING", "Pending"],
-                ].map(([value, label]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => setStatusFilter(value)}
-                    className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                      statusFilter === value
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <DataTable
-              columns={reportColumns}
-              data={matches}
-              searchableFields={["id", "invoiceNumber", "poNumber", "vendor", "status"]}
-              itemsPerPage={10}
-            />
-          </div>
+            }
+          />
         ) : (
           <div className="space-y-5">
-            <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto] md:items-end">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase text-slate-600">
-                  Select Invoice
-                </span>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-4">
+              <div className="flex-1 max-w-xl">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  Select Invoice to Reconcile
+                </label>
                 <select
                   value={selectedInvoiceId}
                   onChange={(event) => setSelectedInvoiceId(event.target.value)}
-                  className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                  className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-medium text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
                 >
                   <option value="">Choose an invoice pending three-way matching</option>
                   {pendingInvoices.map((invoice) => (
@@ -369,12 +355,12 @@ const MatchingList = () => {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
               <button
                 type="button"
                 onClick={() => selectedInvoiceId && handleRunAudit(selectedInvoiceId)}
                 disabled={!selectedInvoiceId}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 shrink-0 self-end sm:self-auto"
               >
                 <Play size={14} /> Run Match
               </button>

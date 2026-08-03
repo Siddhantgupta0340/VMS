@@ -3,7 +3,6 @@ import {
   Bell,
   CheckCircle2,
   Menu,
-  Search,
   User,
   Sun,
   Moon,
@@ -11,7 +10,6 @@ import {
   FileText,
   Receipt,
   LogOut,
-  Command,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
@@ -33,7 +31,6 @@ const Navbar = () => {
 
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [latestNotifications, setLatestNotifications] = useState([]);
   const [latestLoading, setLatestLoading] = useState(false);
@@ -76,12 +73,6 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    navigate(`/vendors?search=${encodeURIComponent(searchQuery)}`);
-  };
-
   const markNotificationRead = async (notification) => {
     if (notification.isRead) return;
     await markRead(notification.id);
@@ -117,20 +108,6 @@ const Navbar = () => {
 
       </div>
 
-      {/* Center Search Bar — Full Pill Style */}
-      <form onSubmit={handleSearchSubmit} className="relative hidden lg:block w-72 xl:w-80 group">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-[#0090B8] transition-colors" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search vendors, POs, invoices..."
-          className="w-full h-10 rounded-full border border-sky-200/70 dark:border-slate-800 bg-white/90 dark:bg-slate-950/60 pl-11 pr-12 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none transition-all shadow-2xs focus:border-[#0090B8] focus:ring-2 focus:ring-[#0090B8]/20 focus:scale-[1.01]"
-        />
-        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-          <Command size={10} /> K
-        </div>
-      </form>
 
       {/* Right Controls — Theme, Notifications, Profile */}
       <div className="flex items-center gap-2.5 sm:gap-3">

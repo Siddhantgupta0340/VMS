@@ -234,10 +234,10 @@ const handleDownloadPO = async (po) => {
 };
 
 const Detail = ({ label, value }) => (
-  <div className="rounded-lg border border-slate-200 p-4">
-    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-    <p className="mt-1 break-words text-sm font-semibold text-slate-900">
-      {value || <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">Not Available</span>}
+  <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-4">
+    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+    <p className="mt-1 break-words text-sm font-bold text-slate-900 dark:text-slate-100">
+      {value || <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">Not Available</span>}
     </p>
   </div>
 );
@@ -405,10 +405,10 @@ const PurchaseOrderList = () => {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Purchase Orders</h1>
-            <p className="mt-2 text-slate-500">Purchase orders are created by Case Managers and available immediately.</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">Purchase Orders</h1>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Purchase orders are created by Case Managers and available immediately.</p>
           </div>
-          <Link to="/purchase-orders/new" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 text-xs sm:text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm">
+          <Link to="/purchase-orders/new" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3.5 text-xs sm:text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm">
             <Plus size={15} />
             New Purchase Order
           </Link>
@@ -436,7 +436,7 @@ const PurchaseOrderList = () => {
           />
         </div>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm dark:shadow-slate-950/40 space-y-4">
           {purchaseOrders.length ? (
             <>
               <DataTable
@@ -447,21 +447,21 @@ const PurchaseOrderList = () => {
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <Link
                       to={`/purchase-orders/${po.id}`}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 whitespace-nowrap"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
                     >
                       <Eye size={14} /> View
                     </Link>
                     {canDownload ? (
                       <button
                         type="button"
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 whitespace-nowrap"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-2.5 text-xs font-semibold text-blue-700 dark:text-blue-300 transition hover:bg-blue-100 dark:hover:bg-blue-900 whitespace-nowrap"
                         onClick={() => handleDownloadPO(po)}
                       >
                         <Download size={14} /> PDF
                       </button>
                     ) : (
                       <span
-                        className="inline-flex h-8 items-center px-2 text-[11px] font-semibold text-slate-400 whitespace-nowrap"
+                        className="inline-flex h-8 items-center px-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500 whitespace-nowrap"
                         title="You do not have permission to download this document."
                       >
                         No download access
@@ -469,7 +469,7 @@ const PurchaseOrderList = () => {
                     )}
                     <button
                       type="button"
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 px-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 whitespace-nowrap"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-white dark:bg-slate-950 px-2.5 text-xs font-semibold text-red-700 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-950/30 whitespace-nowrap"
                       onClick={() => setDeleteTarget(po)}
                     >
                       <Trash2 size={14} /> Delete
@@ -501,31 +501,31 @@ const PurchaseOrderList = () => {
       </div>
 
       {selectedPO && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <section className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 dark:bg-slate-950/80 p-4">
+          <section className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-5">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Purchase Order Details</h2>
-                <p className="mt-1 text-sm font-semibold text-blue-700">{selectedPO.poNumber}</p>
+                <h2 className="text-xl font-bold text-slate-950 dark:text-slate-100">Purchase Order Details</h2>
+                <p className="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-400">{selectedPO.poNumber}</p>
               </div>
               <div className="flex items-center gap-2">
                 {canDownload ? (
                   <button
                     type="button"
                     onClick={() => handleDownloadPO(selectedPO)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
                   >
                     <Download size={15} /> Download PDF
                   </button>
                 ) : (
-                  <span className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700">
+                  <span className="rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                     You do not have permission to download this document.
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => setSelectedPO(null)}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 hover:text-red-600"
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-red-600 dark:hover:text-red-400"
                 >
                   <X size={18} />
                 </button>
@@ -545,16 +545,16 @@ const PurchaseOrderList = () => {
               </div>
 
               <section>
-                <h3 className="mb-3 text-base font-bold text-slate-950">Line Items</h3>
+                <h3 className="mb-3 text-base font-bold text-slate-950 dark:text-slate-100">Line Items</h3>
                 <div className="grid gap-3">
                   {selectedPO.items?.length ? selectedPO.items.map((item, index) => (
-                    <article key={`${item.itemName || item.description}-${index}`} className="rounded-lg border border-slate-200 p-4">
+                    <article key={`${item.itemName || item.description}-${index}`} className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="font-semibold text-slate-950">{item.itemName || item.description}</p>
-                          <p className="mt-1 text-sm text-slate-500">{item.description}</p>
+                          <p className="font-bold text-slate-950 dark:text-slate-100">{item.itemName || item.description}</p>
+                          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
                         </div>
-                        <p className="font-bold text-blue-700">{money(item.lineTotal, selectedPO.currency)}</p>
+                        <p className="font-bold text-blue-700 dark:text-blue-400">{money(item.lineTotal, selectedPO.currency)}</p>
                       </div>
                       <div className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
                         <Detail label="Qty" value={item.quantity} />
@@ -563,7 +563,7 @@ const PurchaseOrderList = () => {
                         <Detail label="GST" value={money(item.gstAmount, selectedPO.currency)} />
                       </div>
                     </article>
-                  )) : <p className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-slate-500">No line items available.</p>}
+                  )) : <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-5 text-center text-slate-500 dark:text-slate-400">No line items available.</p>}
                 </div>
               </section>
             </div>
@@ -587,13 +587,13 @@ const PurchaseOrderList = () => {
         }}
         ariaLabel="Delete purchase order confirmation"
       >
-        <label className="mt-4 block text-sm font-semibold text-slate-700">
+        <label className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
           Delete Reason
           <textarea
             value={deleteReason}
             onChange={(event) => setDeleteReason(event.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            className="mt-2 w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
             placeholder="Explain why this Purchase Order is being deleted"
             required
           />

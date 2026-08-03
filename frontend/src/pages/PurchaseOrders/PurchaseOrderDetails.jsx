@@ -87,67 +87,42 @@ const amountToWords = (amount, currency = "INR") => {
   if (amt <= 0) return "Zero Amount Only";
 
   const whole = Math.floor(amt);
-  const decimal = Math.round((amt - whole) * 100);
 
   let currencyName = "Rupees";
-  let fractionName = "Paise";
   let wordsFunc = numberToWordsINR;
 
   if (currency === "USD") {
     currencyName = "Dollars";
-    fractionName = "Cents";
     wordsFunc = numberToWordsUSD;
   } else if (currency === "EUR") {
     currencyName = "Euros";
-    fractionName = "Cents";
-    wordsFunc = numberToWordsUSD;
-  } else if (currency === "GBP") {
-    currencyName = "Pounds";
-    fractionName = "Pence";
     wordsFunc = numberToWordsUSD;
   }
 
-  let wholeWords = wordsFunc(whole);
-  let decimalWords = decimal > 0 ? wordsFunc(decimal) : "";
-
-  let result = wholeWords ? `${wholeWords} ${currencyName}` : "";
-  if (decimalWords) {
-    if (result) result += " and ";
-    result += `${decimalWords} ${fractionName}`;
-  }
-  return `${result} Only`.trim().replace(/\s+/g, " ");
+  const words = wordsFunc(whole);
+  return `${words} ${currencyName} Only`;
 };
 
-const money = (value, cur = "INR") =>
-  `${cur} ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const money = (val, cur = "INR") =>
+  `${cur} ${Number(val || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
-const esc = (v) =>
-  String(v ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-
-const fmtDate = (v) => {
-  if (!v) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime())
-    ? null
-    : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const displayVal = (v) => (v || v === 0 ? v : "Not Available");
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-IN") : "—");
+const displayVal = (v) => v || "—";
 
 const PurchaseOrderDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const canDownload = canDownloadDocument(user);
 
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
@@ -157,52 +132,51 @@ const PurchaseOrderDetails = () => {
         const data = await getPurchaseOrderById(id);
         setPo(data);
       } catch (err) {
-        console.error(err);
-        notify.error(getErrorMessage(err, "Purchase Order details could not be loaded."));
-        navigate("/purchase-orders");
+        notify.error(getErrorMessage(err, "Purchase Order could not be loaded."));
       } finally {
         setLoading(false);
       }
     };
     fetchPO();
-  }, [id, navigate]);
+  }, [id]);
 
-  /**
-   * Downloads the PO as a real PDF binary from the backend.
-   * The backend generates the PDF server-side and streams it as application/pdf.
-   */
+  const canEdit = useMemo(() => {
+    if (!po || !user) return false;
+    const editableStatuses = ["CREATED", "DRAFT", "PENDING"];
+    const isOwner = po.createdById === user.id;
+    const isAdmin = ["SUPER_ADMIN", "CASE_MANAGER"].includes(user.role);
+    return editableStatuses.includes((po.status || "").toUpperCase()) && (isOwner || isAdmin);
+  }, [po, user]);
+
+  const canDelete = useMemo(() => {
+    if (!po || !user) return false;
+    const deletableStatuses = ["CREATED", "DRAFT", "PENDING"];
+    const isOwner = po.createdById === user.id;
+    const isAdmin = ["SUPER_ADMIN", "CASE_MANAGER"].includes(user.role);
+    return deletableStatuses.includes((po.status || "").toUpperCase()) && (isOwner || isAdmin);
+  }, [po, user]);
+
   const handleDownload = async () => {
-    if (downloading) return;
+    if (!canDownload) {
+      notify.error("You do not have permission to download PO documents.");
+      return;
+    }
     try {
       setDownloading(true);
-      notify.info("Generating PDF, please wait...");
-      // The service function handles blob creation, URL, and auto-click download
-      await downloadPurchaseOrderPdf(po.id);
-      notify.success(`PDF for ${po.poNumber} downloaded successfully.`);
+      await downloadPurchaseOrderPdf(id, po.poNumber);
+      notify.success("Purchase Order PDF downloaded.");
     } catch (err) {
-      let msg = "Unable to generate PDF.";
-      if (err?.response?.status === 403 || err?.status === 403) {
-        msg = "Permission denied. You do not have permission to download this document.";
-      } else if (err?.response?.status === 404 || err?.status === 404) {
-        msg = "Purchase Order not found.";
-      }
-      notify.error(getErrorMessage(err, msg));
+      notify.error(getErrorMessage(err, "PDF generation failed."));
     } finally {
       setDownloading(false);
     }
   };
 
-  /**
-   * Opens the PDF in a new browser tab for quick preview and printing.
-   * Uses the same backend PDF endpoint with responseType: blob.
-   */
   const handlePrint = async () => {
     try {
-      await openPurchaseOrderPdfInNewTab(po.id);
+      await openPurchaseOrderPdfInNewTab(id);
     } catch (err) {
-      // Fallback: try browser print dialog on the current page
-      notify.error(getErrorMessage(err, "Unable to open PDF for printing."));
-      window.print();
+      notify.error(getErrorMessage(err, "Unable to open PDF preview."));
     }
   };
 
@@ -213,42 +187,31 @@ const PurchaseOrderDetails = () => {
     }
     try {
       setDeleting(true);
-      await deletePurchaseOrder(po.id, deleteReason.trim());
-      notify.success("Purchase Order deleted successfully.");
-      setDeleteTarget(null);
-      setDeleteReason("");
+      await deletePurchaseOrder(id, deleteReason.trim());
+      notify.success("Purchase Order deleted.");
       navigate("/purchase-orders");
-    } catch (error) {
-      notify.error(getErrorMessage(error, "Purchase Order could not be deleted."));
+    } catch (err) {
+      notify.error(getErrorMessage(err, "Delete operation failed."));
     } finally {
       setDeleting(false);
     }
   };
 
-  // ─── RBAC Permissions ──────────────────────────────────────────────────────
-  const isCaseManager = user?.role === "CASE_MANAGER";
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const canEdit = isCaseManager || isSuperAdmin;
-  const canDelete = isCaseManager || isSuperAdmin;
-  const canDownload = canDownloadDocument(user);
-
-  // Filter references to display only non-empty ones
   const procurementRefs = useMemo(() => {
     if (!po) return [];
-    const fields = [
+    return [
       { label: "Purchase Requisition", value: po.purchaseRequisitionNumber },
       { label: "Department", value: po.department },
       { label: "Cost Center", value: po.costCenter },
       { label: "Requester", value: po.requester },
       { label: "Buyer", value: po.buyer },
-      { label: "Quotation Date", value: fmtDate(po.quotationDate) },
-    ];
-    return fields.filter((f) => f.value && String(f.value).trim() !== "");
+      { label: "Quotation Date", value: po.quotationDate ? fmtDate(po.quotationDate) : null },
+    ].filter((item) => Boolean(item.value));
   }, [po]);
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center text-slate-500">
+      <div className="flex h-96 items-center justify-center text-slate-500 dark:text-slate-400">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
           <p className="font-semibold text-sm">Loading Purchase Order details...</p>
@@ -262,18 +225,18 @@ const PurchaseOrderDetails = () => {
   return (
     <div className="space-y-6 pb-12 print:pb-0">
       {/* SECTION 10: ACTION HEADER BAR (Hidden in print mode) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-5 no-print">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-5 no-print">
         <div className="flex items-center gap-3">
-          <Link to="/purchase-orders" className="rounded-xl border border-slate-200 p-2.5 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900">
+          <Link to="/purchase-orders" className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800">
             <ArrowLeft size={18} />
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-black text-slate-900">{po.poNumber}</h1>
+              <h1 className="text-xl font-black text-slate-900 dark:text-slate-100">{po.poNumber}</h1>
               <StatusBadge status={po.status} />
             </div>
-            <p className="text-[11px] text-slate-500">
-              Created on {fmtDate(po.createdAt)} · Creator: <span className="font-semibold text-slate-700">{po.createdBy}</span>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Created on {fmtDate(po.createdAt)} · Creator: <span className="font-semibold text-slate-700 dark:text-slate-300">{po.createdBy}</span>
             </p>
           </div>
         </div>
@@ -284,8 +247,8 @@ const PurchaseOrderDetails = () => {
             title={isPreviewMode ? "Standard View" : "Document Preview"}
             onClick={() => setIsPreviewMode(!isPreviewMode)}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold shadow-sm transition duration-150 shrink-0 ${isPreviewMode
-                ? "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                ? "bg-slate-900 border-slate-900 dark:bg-slate-100 dark:border-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200"
+                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
               }`}
           >
             <Eye size={14} className="shrink-0" />
@@ -298,7 +261,7 @@ const PurchaseOrderDetails = () => {
             <Link
               to={`/purchase-orders/${po.id}/edit`}
               title="Edit PO"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0"
             >
               <Edit3 size={14} className="shrink-0" />
               <span className="hidden md:inline">Edit PO</span>
@@ -311,7 +274,7 @@ const PurchaseOrderDetails = () => {
               title="Download PDF"
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
             >
               {downloading ? (
                 <>
@@ -329,9 +292,9 @@ const PurchaseOrderDetails = () => {
 
           <button
             type="button"
-            title="Open &amp; Print PDF"
+            title="Open & Print PDF"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 sm:px-4 sm:py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 px-3 py-2 sm:px-4 sm:py-2 text-xs font-bold text-white dark:text-slate-900 shadow-sm transition hover:bg-slate-800 dark:hover:bg-slate-200 shrink-0"
           >
             <Printer size={14} className="shrink-0" />
             <span className="hidden md:inline">Open &amp; Print PDF</span>
@@ -341,7 +304,7 @@ const PurchaseOrderDetails = () => {
             <button
               type="button"
               title="Delete PO"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-red-600 shadow-sm transition hover:bg-red-50 shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-white dark:bg-slate-900 px-3 py-2 sm:px-3.5 sm:py-2 text-xs font-bold text-red-600 dark:text-red-400 shadow-sm transition hover:bg-red-50 dark:hover:bg-red-950/30 shrink-0"
               onClick={() => setDeleteTarget(po)}
             >
               <Trash2 size={14} className="shrink-0" />
@@ -352,25 +315,25 @@ const PurchaseOrderDetails = () => {
       </div>
 
       {/* DOCUMENT CANVAS SHEET */}
-      <div className={`mx-auto bg-white border border-slate-200 print:border-none shadow-xl print:shadow-none transition-all duration-200 ${isPreviewMode
-          ? "max-w-4xl p-8 sm:p-12 md:p-16 border-t-4 border-t-slate-900"
-          : "max-w-6xl p-6 sm:p-8 md:p-10"
+      <div className={`mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 print:border-none shadow-xl dark:shadow-slate-950/50 print:shadow-none transition-all duration-200 ${isPreviewMode
+          ? "max-w-4xl p-8 sm:p-12 md:p-16 border-t-4 border-t-slate-900 dark:border-t-slate-100"
+          : "max-w-6xl p-6 sm:p-8 md:p-10 rounded-2xl"
         }`}>
         <article className="space-y-8 print:space-y-6">
 
           {/* SECTION 1: COMPANY HEADER */}
-          <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between border-b-2 border-slate-900 pb-6 print:pb-4">
+          <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between border-b-2 border-slate-900 dark:border-slate-700 pb-6 print:pb-4">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 {COMPANY_CONFIG.logo && (
-                  <img className="h-10 w-10 rounded-lg object-contain border border-slate-100 print:h-8 print:w-8" src={COMPANY_CONFIG.logo} alt="Company Logo" />
+                  <img className="h-10 w-10 rounded-lg object-contain border border-slate-100 dark:border-slate-800 print:h-8 print:w-8" src={COMPANY_CONFIG.logo} alt="Company Logo" />
                 )}
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">{COMPANY_CONFIG.name}</h1>
+                <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{COMPANY_CONFIG.name}</h1>
               </div>
-              <div className="text-xs text-slate-500 leading-relaxed max-w-md">
+              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-md">
                 <p>{COMPANY_CONFIG.address}</p>
                 <p>{COMPANY_CONFIG.city}, {COMPANY_CONFIG.state}, {COMPANY_CONFIG.country} - {COMPANY_CONFIG.pinCode}</p>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-400">
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-400 dark:text-slate-500">
                   <span>Tel: {COMPANY_CONFIG.phone}</span>
                   <span>Email: {COMPANY_CONFIG.email}</span>
                   <span>Web: {COMPANY_CONFIG.website}</span>
@@ -378,28 +341,28 @@ const PurchaseOrderDetails = () => {
               </div>
             </div>
             <div className="text-left md:text-right space-y-1 self-start md:self-auto">
-              <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">TAX INVOICE / DOCUMENT</div>
-              <div className="text-2xl font-black tracking-tight text-slate-900">PURCHASE ORDER</div>
-              <div className="mt-1.5 inline-flex items-center gap-2 border border-slate-200 rounded-md bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">
+              <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">TAX INVOICE / DOCUMENT</div>
+              <div className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">PURCHASE ORDER</div>
+              <div className="mt-1.5 inline-flex items-center gap-2 border border-slate-200 dark:border-slate-800 rounded-md bg-slate-50 dark:bg-slate-950 px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-200">
                 <span>GSTIN:</span> <span className="font-extrabold">{COMPANY_CONFIG.gstin}</span>
               </div>
-              <div className="ml-2 inline-flex items-center gap-1.5 border border-slate-200 rounded-md bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800">
+              <div className="ml-2 inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 rounded-md bg-slate-50 dark:bg-slate-950 px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-200">
                 <span>PAN:</span> <span className="font-extrabold">{COMPANY_CONFIG.pan}</span>
               </div>
             </div>
           </header>
 
           {/* SECTION 2: PO INFORMATION (Shipment Left / PO Details Right) */}
-          <section className="grid gap-6 md:grid-cols-2 border-b border-slate-200 pb-6 print:pb-4">
+          <section className="grid gap-6 md:grid-cols-2 border-b border-slate-200 dark:border-slate-800 pb-6 print:pb-4">
             {/* Shipment Address Block */}
             <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
                 Shipment / Delivery Address
               </h3>
-              <div className="text-xs text-slate-700 space-y-1">
-                <p className="font-black text-slate-800">Corporate Delivery Hub</p>
+              <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                <p className="font-black text-slate-800 dark:text-slate-100">Corporate Delivery Hub</p>
                 <p className="font-semibold">{po.deliveryAddress || "Not Available"}</p>
-                <div className="pt-2 text-[11px] font-medium text-slate-500">
+                <div className="pt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                   <p><strong>Billing Address:</strong> {po.billingAddress || "Not Available"}</p>
                 </div>
               </div>
@@ -407,81 +370,81 @@ const PurchaseOrderDetails = () => {
 
             {/* PO Information Block */}
             <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
                 Purchase Order Details
               </h3>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                <div><span className="text-slate-400 font-semibold">PO Number:</span></div>
-                <div><strong className="text-slate-900 font-bold">{po.poNumber}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">PO Number:</span></div>
+                <div><strong className="text-slate-900 dark:text-slate-100 font-bold">{po.poNumber}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">PO Date:</span></div>
-                <div><strong className="text-slate-800">{fmtDate(po.orderDate) || "Not Available"}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">PO Date:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{fmtDate(po.orderDate) || "Not Available"}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">PO Type:</span></div>
-                <div><strong className="text-slate-800 uppercase">{po.poType || "STANDARD"}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">PO Type:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200 uppercase">{po.poType || "STANDARD"}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">PO Status:</span></div>
-                <div><strong className="text-slate-800 capitalize">{po.status}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">PO Status:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200 capitalize">{po.status}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Currency:</span></div>
-                <div><strong className="text-slate-800">{po.currency || "INR"}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Currency:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{po.currency || "INR"}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Payment Terms:</span></div>
-                <div><strong className="text-slate-800">{po.paymentTerms || "Not Available"}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Payment Terms:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{po.paymentTerms || "Not Available"}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Expected Delivery:</span></div>
-                <div><strong className="text-slate-800">{fmtDate(po.expectedDelivery) || "Not Available"}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Expected Delivery:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{fmtDate(po.expectedDelivery) || "Not Available"}</strong></div>
               </div>
             </div>
           </section>
 
           {/* SECTION 3: VENDOR ADDRESS */}
-          <section className="space-y-3 border-b border-slate-200 pb-6 print:pb-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+          <section className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-6 print:pb-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
               Vendor / Supplier
             </h3>
-            <div className="grid gap-6 md:grid-cols-2 text-xs leading-relaxed text-slate-700">
+            <div className="grid gap-6 md:grid-cols-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
               {/* Address details */}
               <div className="space-y-1">
-                <p className="text-sm font-black text-slate-900">{po.vendorName || po.vendor || "Not Available"}</p>
-                <p className="text-xs font-bold text-blue-600">{po.vendorCode || "—"}</p>
-                <p className="font-semibold text-slate-600 mt-1.5">{po.vendorAddress || "Not Available"}</p>
+                <p className="text-sm font-black text-slate-900 dark:text-slate-100">{po.vendorName || po.vendor || "Not Available"}</p>
+                <p className="text-xs font-bold text-blue-600 dark:text-blue-400">{po.vendorCode || "—"}</p>
+                <p className="font-semibold text-slate-600 dark:text-slate-400 mt-1.5">{po.vendorAddress || "Not Available"}</p>
               </div>
 
               {/* Compliance & Contact */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <div><span className="text-slate-400 font-semibold">Contact Person:</span></div>
-                <div><strong className="text-slate-800">{displayVal(po.vendorContactPerson)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Contact Person:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{displayVal(po.vendorContactPerson)}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Phone:</span></div>
-                <div><strong className="text-slate-800">{displayVal(po.vendorPhone)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Phone:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200">{displayVal(po.vendorPhone)}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Email:</span></div>
-                <div><strong className="text-slate-800 break-all">{displayVal(po.vendorEmail)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Email:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200 break-all">{displayVal(po.vendorEmail)}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">GSTIN:</span></div>
-                <div><strong className="text-slate-900 font-bold">{displayVal(po.vendorGst || po.gstNumber)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">GSTIN:</span></div>
+                <div><strong className="text-slate-900 dark:text-slate-100 font-bold">{displayVal(po.vendorGst || po.gstNumber)}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">PAN:</span></div>
-                <div><strong className="text-slate-900 font-bold">{displayVal(po.vendorPan)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">PAN:</span></div>
+                <div><strong className="text-slate-900 dark:text-slate-100 font-bold">{displayVal(po.vendorPan)}</strong></div>
 
-                <div><span className="text-slate-400 font-semibold">Registration Type:</span></div>
-                <div><strong className="text-slate-800 uppercase">{displayVal(po.vendorTaxType)}</strong></div>
+                <div><span className="text-slate-400 dark:text-slate-500 font-semibold">Registration Type:</span></div>
+                <div><strong className="text-slate-800 dark:text-slate-200 uppercase">{displayVal(po.vendorTaxType)}</strong></div>
               </div>
             </div>
           </section>
 
           {/* SECTION 4: PROCUREMENT REFERENCES (Only non-empty) */}
           {procurementRefs.length > 0 && (
-            <section className="space-y-3 border-b border-slate-200 pb-6 print:pb-4">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+            <section className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-6 print:pb-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
                 Procurement References
               </h3>
               <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 text-xs">
                 {procurementRefs.map((ref, idx) => (
                   <div key={idx} className="space-y-0.5">
-                    <span className="text-slate-400 font-semibold">{ref.label}:</span>
-                    <p className="font-bold text-slate-800 break-words">{ref.value}</p>
+                    <span className="text-slate-400 dark:text-slate-500 font-semibold">{ref.label}:</span>
+                    <p className="font-bold text-slate-800 dark:text-slate-200 break-words">{ref.value}</p>
                   </div>
                 ))}
               </div>
@@ -490,13 +453,13 @@ const PurchaseOrderDetails = () => {
 
           {/* SECTION 5: ITEM DETAILS TABLE */}
           <section className="space-y-3 print:pt-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
               Line Items
             </h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 print:border-slate-300">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 print:border-slate-300">
               <table className="w-full text-left border-collapse text-[11px] print:text-[10px]">
                 <thead>
-                  <tr className="bg-slate-900 text-white text-[10px] print:bg-slate-800 uppercase tracking-wider font-bold">
+                  <tr className="bg-slate-900 dark:bg-slate-800 text-white text-[10px] uppercase tracking-wider font-bold">
                     <th className="py-2.5 px-2 text-center w-8">Sl</th>
                     <th className="py-2.5 px-2 text-center w-24">Item Code</th>
                     <th className="py-2.5 px-3 min-w-[150px]">Item Description</th>
@@ -511,32 +474,32 @@ const PurchaseOrderDetails = () => {
                     <th className="py-2.5 px-3 text-right w-28">Total</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
                   {po.items?.length ? (
                     po.items.map((item, index) => (
-                      <tr key={index} className="border-b border-slate-200 print:border-slate-300 hover:bg-slate-50/50">
+                      <tr key={index} className="border-b border-slate-200 dark:border-slate-800 print:border-slate-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                         <td className="py-3 px-2 text-center text-slate-400 font-medium">{index + 1}</td>
-                        <td className="py-3 px-2 text-center font-semibold text-slate-700">{item.itemCode || "—"}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-slate-700 dark:text-slate-300">{item.itemCode || "—"}</td>
                         <td className="py-3 px-3">
-                          <div className="font-bold text-slate-800">{item.itemName || "Item"}</div>
+                          <div className="font-bold text-slate-800 dark:text-slate-100">{item.itemName || "Item"}</div>
                           {item.description && (
-                            <div className="text-[10px] text-slate-400 mt-0.5 whitespace-pre-wrap">{item.description}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 whitespace-pre-wrap">{item.description}</div>
                           )}
                         </td>
-                        <td className="py-3 px-2 text-center font-semibold text-slate-600">{item.unit || "—"}</td>
-                        <td className="py-3 px-2 text-center font-bold text-slate-800">{item.quantity}</td>
-                        <td className="py-3 px-3 text-right text-slate-700">{money(item.unitPrice, po.currency)}</td>
-                        <td className="py-3 px-3 text-right font-semibold text-slate-800">{money(item.taxableAmount, po.currency)}</td>
-                        <td className="py-3 px-2 text-center font-semibold text-slate-600">{item.gstRate}%</td>
-                        <td className="py-3 px-3 text-right text-slate-500">{money(item.cgstAmount, po.currency)}</td>
-                        <td className="py-3 px-3 text-right text-slate-500">{money(item.sgstAmount, po.currency)}</td>
-                        <td className="py-3 px-3 text-right text-slate-500">{money(item.igstAmount, po.currency)}</td>
-                        <td className="py-3 px-3 text-right font-extrabold text-slate-900">{money(item.lineTotal, po.currency)}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-slate-600 dark:text-slate-400">{item.unit || "—"}</td>
+                        <td className="py-3 px-2 text-center font-bold text-slate-800 dark:text-slate-200">{item.quantity}</td>
+                        <td className="py-3 px-3 text-right text-slate-700 dark:text-slate-300">{money(item.unitPrice, po.currency)}</td>
+                        <td className="py-3 px-3 text-right font-semibold text-slate-800 dark:text-slate-200">{money(item.taxableAmount, po.currency)}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-slate-600 dark:text-slate-400">{item.gstRate}%</td>
+                        <td className="py-3 px-3 text-right text-slate-500 dark:text-slate-400">{money(item.cgstAmount, po.currency)}</td>
+                        <td className="py-3 px-3 text-right text-slate-500 dark:text-slate-400">{money(item.sgstAmount, po.currency)}</td>
+                        <td className="py-3 px-3 text-right text-slate-500 dark:text-slate-400">{money(item.igstAmount, po.currency)}</td>
+                        <td className="py-3 px-3 text-right font-extrabold text-slate-900 dark:text-slate-100">{money(item.lineTotal, po.currency)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="12" className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                      <td colSpan="12" className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20 dark:bg-slate-950/20">
                         No items available.
                       </td>
                     </tr>
@@ -549,29 +512,29 @@ const PurchaseOrderDetails = () => {
           {/* SECTION 6: TAX SUMMARY & AMOUNT IN WORDS */}
           <section className="grid gap-6 md:grid-cols-2 pt-2">
             {/* Column Left: Amount in Words */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-5 space-y-2 h-fit">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block border-b border-slate-100 pb-1.5">Amount in Words</span>
-              <p className="text-xs font-black text-slate-800 leading-relaxed capitalize">
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40 p-5 space-y-2 h-fit">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1.5">Amount in Words</span>
+              <p className="text-xs font-black text-slate-800 dark:text-slate-100 leading-relaxed capitalize">
                 {amountToWords(po.taxSummary?.grandTotal || po.amount, po.currency)}
               </p>
             </div>
 
             {/* Column Right: Financial summaries */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/20 p-5 space-y-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block border-b border-slate-100 pb-1.5">Financial Summary</span>
-              <div className="space-y-2.5 text-xs text-slate-600">
-                <div className="flex justify-between font-semibold"><span>Subtotal (Taxable)</span><strong className="text-slate-800">{money(po.taxSummary?.taxableAmount || po.taxSummary?.subtotal, po.currency)}</strong></div>
-                <div className="flex justify-between font-semibold"><span>CGST Total</span><strong className="text-slate-800">{money(po.taxSummary?.cgstTotal, po.currency)}</strong></div>
-                <div className="flex justify-between font-semibold"><span>SGST Total</span><strong className="text-slate-800">{money(po.taxSummary?.sgstTotal, po.currency)}</strong></div>
-                <div className="flex justify-between font-semibold"><span>IGST Total</span><strong className="text-slate-800">{money(po.taxSummary?.igstTotal, po.currency)}</strong></div>
-                <div className="flex justify-between font-semibold border-t border-slate-100 pt-2 text-slate-700"><span>Total Tax / GST</span><strong className="text-slate-850 font-bold">{money(po.taxSummary?.totalGst, po.currency)}</strong></div>
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-950/20 p-5 space-y-3.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1.5">Financial Summary</span>
+              <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex justify-between font-semibold"><span>Subtotal (Taxable)</span><strong className="text-slate-800 dark:text-slate-200">{money(po.taxSummary?.taxableAmount || po.taxSummary?.subtotal, po.currency)}</strong></div>
+                <div className="flex justify-between font-semibold"><span>CGST Total</span><strong className="text-slate-800 dark:text-slate-200">{money(po.taxSummary?.cgstTotal, po.currency)}</strong></div>
+                <div className="flex justify-between font-semibold"><span>SGST Total</span><strong className="text-slate-800 dark:text-slate-200">{money(po.taxSummary?.sgstTotal, po.currency)}</strong></div>
+                <div className="flex justify-between font-semibold"><span>IGST Total</span><strong className="text-slate-800 dark:text-slate-200">{money(po.taxSummary?.igstTotal, po.currency)}</strong></div>
+                <div className="flex justify-between font-semibold border-t border-slate-100 dark:border-slate-800 pt-2 text-slate-700 dark:text-slate-300"><span>Total Tax / GST</span><strong className="text-slate-850 dark:text-slate-100 font-bold">{money(po.taxSummary?.totalGst, po.currency)}</strong></div>
                 {Number(po.taxSummary?.otherCharges || 0) > 0 && (
-                  <div className="flex justify-between font-semibold"><span>Other Charges</span><strong className="text-slate-800">{money(po.taxSummary?.otherCharges, po.currency)}</strong></div>
+                  <div className="flex justify-between font-semibold"><span>Other Charges</span><strong className="text-slate-800 dark:text-slate-200">{money(po.taxSummary?.otherCharges, po.currency)}</strong></div>
                 )}
                 {Number(po.taxSummary?.roundOff || 0) !== 0 && (
-                  <div className="flex justify-between font-semibold"><span>Round Off</span><strong className="text-slate-850">{money(po.taxSummary?.roundOff, po.currency)}</strong></div>
+                  <div className="flex justify-between font-semibold"><span>Round Off</span><strong className="text-slate-850 dark:text-slate-100">{money(po.taxSummary?.roundOff, po.currency)}</strong></div>
                 )}
-                <div className="flex justify-between border-t-2 border-slate-900 bg-slate-900 -mx-5 px-5 py-3 text-sm font-black text-white rounded-b-xl">
+                <div className="flex justify-between border-t-2 border-slate-900 dark:border-slate-700 bg-slate-900 dark:bg-slate-800 -mx-5 px-5 py-3 text-sm font-black text-white rounded-b-xl">
                   <span>NET PO AMOUNT</span>
                   <strong className="text-base font-extrabold">{money(po.taxSummary?.grandTotal || po.amount, po.currency)}</strong>
                 </div>
@@ -580,42 +543,42 @@ const PurchaseOrderDetails = () => {
           </section>
 
           {/* SECTION 7: PAYMENT TERMS & SECTION 8: TERMS AND CONDITIONS */}
-          <section className="grid gap-6 md:grid-cols-2 border-t border-slate-200 pt-6">
+          <section className="grid gap-6 md:grid-cols-2 border-t border-slate-200 dark:border-slate-800 pt-6">
             <div className="space-y-2">
-              <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Payment Conditions</h4>
-              <div className="text-xs space-y-1 text-slate-750">
+              <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Payment Conditions</h4>
+              <div className="text-xs space-y-1 text-slate-750 dark:text-slate-300">
                 <p><strong>Payment Terms:</strong> {po.paymentTerms || "No payment terms defined"}</p>
                 <p><strong>Currency:</strong> {po.currency || "INR"}</p>
                 <p><strong>Expected Delivery Date:</strong> {fmtDate(po.expectedDelivery) || "Not Available"}</p>
               </div>
             </div>
             <div className="space-y-2">
-              <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Terms and Conditions</h4>
-              <div className="text-xs text-slate-500 leading-relaxed bg-slate-50 border border-slate-100 rounded-lg p-3">
+              <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Terms and Conditions</h4>
+              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl p-3">
                 {po.description ? (
-                  <p className="whitespace-pre-line font-medium text-slate-650">{po.description}</p>
+                  <p className="whitespace-pre-line font-medium text-slate-650 dark:text-slate-300">{po.description}</p>
                 ) : (
-                  <p className="italic text-slate-400">No terms and conditions specified.</p>
+                  <p className="italic text-slate-400 dark:text-slate-500">No terms and conditions specified.</p>
                 )}
               </div>
             </div>
           </section>
 
           {/* SECTION 9: APPROVAL / AUDIT INFORMATION */}
-          <section className="grid gap-6 sm:grid-cols-3 border-t border-slate-200 pt-6 text-xs text-slate-500">
+          <section className="grid gap-6 sm:grid-cols-3 border-t border-slate-200 dark:border-slate-800 pt-6 text-xs text-slate-500 dark:text-slate-400">
             <div className="space-y-1">
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">Created</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Created</span>
               <p><strong>User:</strong> {po.createdBy}</p>
               <p><strong>Date:</strong> {fmtDate(po.createdAt)}</p>
             </div>
             <div className="space-y-1">
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">Last Modified</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Last Modified</span>
               <p><strong>User:</strong> {po.updated_by || "System"}</p>
               <p><strong>Date:</strong> {fmtDate(po.updatedAt)}</p>
             </div>
             <div className="space-y-1">
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">Workflow State</span>
-              <p className="capitalize font-bold text-slate-800">{po.status}</p>
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Workflow State</span>
+              <p className="capitalize font-bold text-slate-800 dark:text-slate-200">{po.status}</p>
             </div>
           </section>
 
@@ -654,13 +617,13 @@ const PurchaseOrderDetails = () => {
         }}
         ariaLabel="Delete purchase order confirmation"
       >
-        <label className="mt-4 block text-sm font-semibold text-slate-700">
+        <label className="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
           Delete Reason
           <textarea
             value={deleteReason}
             onChange={(event) => setDeleteReason(event.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            className="mt-2 w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
             placeholder="Explain why this Purchase Order is being deleted"
             required
           />

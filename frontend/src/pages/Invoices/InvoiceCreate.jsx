@@ -1502,16 +1502,25 @@ const InvoiceCreate = () => {
               ) : null}
             </div>
           </section>
-          ) : null}
 
           <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
             <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Information</h2>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Invoice Number</label>
-                <p className="text-sm font-medium text-slate-900">Generated automatically after submission</p>
+              <div>
+                <RequiredLabel>Invoice Number</RequiredLabel>
+                <input
+                  ref={invoiceNumberRef}
+                  name="invoiceNumber"
+                  type="text"
+                  placeholder="e.g. INV-2026-008502"
+                  value={formData.invoiceNumber}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, invoiceNumber: event.target.value }))}
+                  readOnly={isOcrRoute && Boolean(ocrInvoice.invoiceNumber)}
+                  className={`${isOcrRoute && ocrInvoice.invoiceNumber ? readOnly : input} ${fieldErrorClass(errorsByField.invoiceNumber)}`}
+                />
+                <ErrorText message={errorsByField.invoiceNumber} />
               </div>
               <div>
                 <RequiredLabel>Invoice Category</RequiredLabel>
