@@ -56,10 +56,10 @@ const getReadinessReasons = (readiness = {}) => {
   const reasons = readiness.reasons?.length
     ? readiness.reasons
     : [
-        ...(readiness.missing || []).map((field) => `Missing ${field}`),
-        ...(readiness.missingDocuments || []).map((document) => `Missing ${document}`),
-        ...(readiness.invalid || []),
-      ];
+      ...(readiness.missing || []).map((field) => `Missing ${field}`),
+      ...(readiness.missingDocuments || []).map((document) => `Missing ${document}`),
+      ...(readiness.invalid || []),
+    ];
   return reasons.length ? reasons : ["No blocking issues reported."];
 };
 

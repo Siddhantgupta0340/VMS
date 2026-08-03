@@ -3,6 +3,7 @@ import { History, X, RefreshCw, ChevronLeft, ChevronRight, Eye } from "lucide-re
 import { getAuditLogs, getAuditLogById } from "../../services/auditService";
 import { getManagersLookup } from "../../services/lookupService";
 import { toast } from "sonner";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const inputClass = "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-600 focus:outline-none";
 
@@ -236,8 +237,8 @@ const AuditLogsList = () => {
       {/* Log Feed Table Grid */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-slate-500 font-medium animate-pulse">
-            Querying Database Logs...
+          <div className="flex h-64 items-center justify-center">
+            <LoadingSpinner size="lg" text="Querying Database Logs..." />
           </div>
         ) : logs.length > 0 ? (
           <div className="overflow-x-auto">

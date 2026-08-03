@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, Mail } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { forgotPassword } from "../../services/authService";
@@ -60,92 +60,81 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div
-      className="min-h-screen bg-slate-50 text-slate-900"
-      style={{
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      }}
-    >
-      <div className="relative isolate min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.08),_transparent_24%),linear-gradient(135deg,_#f8fafc_0%,_#eef4ff_100%)] flex items-center justify-center p-4">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-slate-900/10 blur-3xl" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -left-20 -top-20 h-[500px] w-[500px] rounded-full bg-blue-600/20 blur-[120px]" />
+        <div className="absolute -right-20 -bottom-20 h-[600px] w-[600px] rounded-full bg-sky-500/15 blur-[140px]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[28px] border border-slate-800/80 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-2xl">
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition mb-6"
+        >
+          <ArrowLeft size={16} /> Back to Sign In
+        </Link>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-lg overflow-hidden">
+            <img src="/logo.png" className="h-8 w-8 object-contain" alt="Logo" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white font-heading">Reset Credentials</h1>
+            <p className="text-xs text-slate-400">Enter registered email for OTP link</p>
+          </div>
         </div>
 
-        <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/80 bg-white/90 p-8 shadow-2xl backdrop-blur-xl">
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition mb-6"
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold text-red-400">
+            {error}
+          </div>
+        )}
+
+        {successNotice && (
+          <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs font-bold text-emerald-400">
+            {successNotice}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Work Email <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError("");
+                }}
+                required
+                disabled={isSubmitting}
+                placeholder="you@company.com"
+                className="w-full h-12 rounded-xl border border-slate-800 bg-slate-950/80 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all disabled:opacity-60"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer"
           >
-            <ArrowLeft size={16} /> Back to Sign In
-          </Link>
+            <span>{isSubmitting ? "Sending reset instructions..." : "Send Reset Code"}</span>
+            <ArrowRight size={16} />
+          </button>
+        </form>
 
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white font-black shadow-md">
-              <Building2 size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-950">Forgot Password</h1>
-              <p className="text-xs text-slate-500">Enter email to receive reset instructions</p>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">
-              {error}
-            </div>
-          )}
-
-          {successNotice && (
-            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800">
-              {successNotice}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Mail
-                  size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (error) setError("");
-                  }}
-                  required
-                  disabled={isSubmitting}
-                  placeholder="Enter your registered email address"
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:opacity-60"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <span>{isSubmitting ? "Sending reset instructions..." : "Send Reset Link"}</span>
-              <ArrowRight size={16} />
-            </button>
-          </form>
-
-          <div className="mt-6 border-t border-slate-100 pt-4 text-center">
-            <p className="text-xs text-slate-400">
-              Already have an OTP?{" "}
-              <Link to="/reset-password" className="font-semibold text-blue-600 hover:underline">
-                Reset Password directly
-              </Link>
-            </p>
-          </div>
+        <div className="mt-6 border-t border-slate-800/80 pt-4 text-center">
+          <p className="text-xs text-slate-400">
+            Already received OTP code?{" "}
+            <Link to="/reset-password" className="font-bold text-blue-400 hover:underline">
+              Enter Reset Code
+            </Link>
+          </p>
         </div>
       </div>
     </div>

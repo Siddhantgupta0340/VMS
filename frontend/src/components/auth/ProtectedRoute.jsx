@@ -2,6 +2,8 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { canAccessPath } from "../../config/permissions";
 
+import LoadingSpinner from "../common/LoadingSpinner";
+
 const ProtectedRoute = ({ children }) => {
   const {
     user,
@@ -15,7 +17,7 @@ const ProtectedRoute = ({ children }) => {
   if (bootstrapping) {
     return (
       <div className="flex h-screen items-center justify-center">
-        Loading...
+        <LoadingSpinner size="lg" text="Loading..." />
       </div>
     );
   }

@@ -17,6 +17,7 @@ import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
 import { ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "-");
@@ -189,7 +190,7 @@ const MatchingList = () => {
       label: "Matching ID",
       sortable: true,
       render: (value) => (
-        <span className="block max-w-[120px] truncate font-mono text-xs text-blue-600">{value}</span>
+        <span className="block max-w-[120px] truncate">{value}</span>
       ),
     },
     { key: "poNumber", label: "Purchase Order Number", sortable: true },
@@ -220,10 +221,10 @@ const MatchingList = () => {
         <button
           type="button"
           onClick={() => navigate(`/three-way-matching/${row.id}`)}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
           aria-label={`View details for matching ${row.id}`}
         >
-          <Eye size={16} /> View Details
+          <Eye size={14} /> View Details
         </button>
       ),
     },
@@ -265,7 +266,11 @@ const MatchingList = () => {
   ];
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center">Loading matching dashboard...</div>;
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading matching dashboard..." />
+      </div>
+    );
   }
 
   return (
@@ -287,11 +292,10 @@ const MatchingList = () => {
           <button
             type="button"
             onClick={() => setActiveTab("reports")}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === "reports"
+            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "reports"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+              }`}
           >
             Matching Reports ({matches.length})
           </button>
@@ -299,11 +303,10 @@ const MatchingList = () => {
             type="button"
             onClick={() => setActiveTab("pending")}
             hidden={!canRunMatching}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === "pending"
+            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${activeTab === "pending"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+              }`}
           >
             Awaiting Match Calculation ({pendingInvoices.length})
           </button>

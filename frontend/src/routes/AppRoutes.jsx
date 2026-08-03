@@ -64,18 +64,13 @@ import ResetPassword from "../pages/Auth/ResetPassword";
 import ActivateAccount from "../pages/Auth/ActivateAccount";
 import ChangeTemporaryPassword from "../pages/Auth/ChangeTemporaryPassword";
 
-const LegacyOcrReviewRedirect = () => {
-  const { draftId } = useParams();
-  return <Navigate to={draftId ? `/invoices/create/ocr/${draftId}` : "/invoices/create/ocr"} replace />;
-};
-
 const RootRedirect = () => {
   const { user, isAuthenticated, bootstrapping } = useAuth();
 
   if (bootstrapping) {
     return (
       <div className="flex h-screen items-center justify-center">
-        Loading...
+        <LoadingSpinner size="lg" text="Loading..." />
       </div>
     );
   }

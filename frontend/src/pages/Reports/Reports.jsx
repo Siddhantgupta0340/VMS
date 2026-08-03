@@ -5,6 +5,7 @@ import { getPurchaseOrders } from "../../services/purchaseOrderServices";
 import { getPayments } from "../../services/paymentService";
 import { getVendors } from "../../services/vendorService";
 import { toast } from "sonner";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import * as XLSX from "xlsx";
 
 const Reports = () => {
@@ -143,7 +144,7 @@ const Reports = () => {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        Loading Reports & Aggregates...
+        <LoadingSpinner size="lg" text="Loading Reports &amp; Aggregates..." />
       </div>
     );
   }

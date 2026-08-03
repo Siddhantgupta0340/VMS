@@ -28,6 +28,7 @@ import {
   deleteUser,
   adminResetPassword,
 } from "../../services/userService";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import {
   getBranchesLookup,
   getDesignationsLookup,
@@ -97,7 +98,7 @@ const UsersList = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [drawerMode, setDrawerMode] = useState(null); // 'details' | 'edit' | null
   const [drawerLoading, setDrawerLoading] = useState(false);
-  
+
   // ── Edit Form State ────────────────────────────────────────────────────────
   const [editForm, setEditForm] = useState({
     firstName: "",
@@ -231,7 +232,7 @@ const UsersList = () => {
       setDrawerMode(mode);
       const user = await getUserById(userId);
       setSelectedUser(user);
-      
+
       // Populate edit fields
       setEditForm({
         firstName: user.firstName || "",
@@ -391,7 +392,7 @@ const UsersList = () => {
     try {
       await toggleUserStatus(id, nextStatus, `Status updated by administrative control`);
       notify.success(`User credentials ${actionText}d successfully.`);
-      
+
       // Update drawer if matching active user
       if (selectedUser?.id === id) {
         const updated = await getUserById(id);
@@ -434,7 +435,7 @@ const UsersList = () => {
   const handlePasswordResetSubmit = async (e) => {
     e.preventDefault();
     const errs = [];
-    
+
     // Check complexity rules
     if (newPassword.length < 8) errs.push("Password must be at least 8 characters");
     if (!/[A-Z]/.test(newPassword)) errs.push("Must contain an uppercase letter");
@@ -456,7 +457,7 @@ const UsersList = () => {
       setResetModalOpen(false);
       setNewPassword("");
       setConfirmNewPassword("");
-      
+
       // Update activity list
       const updated = await getUserById(selectedUser.id);
       setSelectedUser(updated);
@@ -617,8 +618,8 @@ const UsersList = () => {
       {/* Table grid */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-slate-500 font-medium animate-pulse">
-            Loading User Directory...
+          <div className="flex h-64 items-center justify-center">
+            <LoadingSpinner size="lg" text="Loading User Directory..." />
           </div>
         ) : users.length > 0 ? (
           <div className="overflow-x-auto">
@@ -713,11 +714,10 @@ const UsersList = () => {
                         {/* Toggle Status */}
                         <button
                           onClick={() => openStatusConfirmation(row.id, row.status)}
-                          className={`rounded-lg p-2 transition ${
-                            row.status === USER_ACCOUNT_STATUS.ACTIVE
+                          className={`rounded-lg p-2 transition ${row.status === USER_ACCOUNT_STATUS.ACTIVE
                               ? "text-slate-500 hover:bg-slate-100 hover:text-amber-600"
                               : "text-slate-400 hover:bg-slate-100 hover:text-green-600"
-                          }`}
+                            }`}
                           title={row.status === USER_ACCOUNT_STATUS.ACTIVE ? "Deactivate User" : "Activate User"}
                           aria-label={row.status === USER_ACCOUNT_STATUS.ACTIVE ? "Deactivate credentials" : "Activate credentials"}
                         >
@@ -766,11 +766,10 @@ const UsersList = () => {
               <button
                 key={idx}
                 onClick={() => setFilters(prev => ({ ...prev, page: idx + 1 }))}
-                className={`h-8 w-8 rounded-lg text-xs font-semibold transition ${
-                  filters.page === idx + 1
+                className={`h-8 w-8 rounded-lg text-xs font-semibold transition ${filters.page === idx + 1
                     ? "bg-blue-600 text-white shadow-sm"
                     : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 {idx + 1}
               </button>
@@ -790,10 +789,10 @@ const UsersList = () => {
       {drawerMode && (
         <div className="fixed inset-0 z-50 overflow-hidden select-none">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onClick={() => setDrawerMode(null)} />
-          
+
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-lg bg-white shadow-xl flex flex-col">
-              
+
               {/* Drawer Header */}
               <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <div>
@@ -816,8 +815,8 @@ const UsersList = () => {
               {/* Drawer Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6">
                 {drawerLoading ? (
-                  <div className="flex h-64 items-center justify-center text-slate-400 animate-pulse font-medium">
-                    Loading User Profile Data...
+                  <div className="flex h-64 items-center justify-center">
+                    <LoadingSpinner size="md" text="Loading User Profile Data..." />
                   </div>
                 ) : selectedUser ? (
                   drawerMode === "details" ? (
@@ -915,7 +914,7 @@ const UsersList = () => {
                           <Clock size={16} className="text-slate-500" />
                           Recent Audit Trail
                         </h4>
-                        
+
                         {selectedUser.auditHistory?.length > 0 ? (
                           <div className="relative border-l border-slate-200 ml-3.5 pl-6 space-y-6 text-sm">
                             {selectedUser.auditHistory.map((log) => (
@@ -1149,7 +1148,7 @@ const UsersList = () => {
                       {/* Lifecyle status and Reset controls */}
                       <div className="border-t border-slate-100 pt-6 space-y-4">
                         <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Credentials Actions</h4>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           {/* Force Password Reset */}
                           <button
@@ -1165,11 +1164,10 @@ const UsersList = () => {
                           <button
                             type="button"
                             onClick={handleDeactivateInDrawer}
-                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-bold transition ${
-                              selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-bold transition ${selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE
                                 ? "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100"
                                 : "border-green-200 bg-green-50/50 text-green-700 hover:bg-green-100"
-                            }`}
+                              }`}
                           >
                             {selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE ? (
                               <>
@@ -1271,7 +1269,7 @@ const UsersList = () => {
       {resetModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setResetModalOpen(false)} />
-          
+
           <div className="relative max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden z-10 border border-slate-200 select-none">
             <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900">Change Credentials Password</h3>

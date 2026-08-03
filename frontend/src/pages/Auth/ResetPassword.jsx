@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, KeyRound, Lock, Mail, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, RefreshCw } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { forgotPassword, resetPassword } from "../../services/authService";
@@ -158,8 +158,8 @@ const ResetPassword = () => {
           </Link>
 
           <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white font-black shadow-md">
-              <Building2 size={24} />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-md overflow-hidden">
+              <img src="/logo.png" className="h-8 w-8 object-contain" alt="Logo" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-950">Reset Password</h1>
