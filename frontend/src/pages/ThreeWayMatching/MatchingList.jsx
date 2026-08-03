@@ -34,6 +34,7 @@ const MatchingList = () => {
   const [receiverName, setReceiverName] = useState(user?.first_name || "");
   const [remarks, setRemarks] = useState("");
   const [validationErrors, setValidationErrors] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
   const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
   const canRunMatching = [ROLES.CASE_MANAGER, ROLES.SUPER_ADMIN].includes(user?.role);
 
@@ -41,7 +42,7 @@ const MatchingList = () => {
     try {
       setLoading(true);
       const [matchesData, invoicesData] = await Promise.all([
-        getMatches(),
+        getMatches(statusFilter ? { status: statusFilter } : {}),
         canRunMatching ? getInvoices() : Promise.resolve([]),
       ]);
       setMatches(matchesData);
@@ -52,7 +53,7 @@ const MatchingList = () => {
     } finally {
       setLoading(false);
     }
-  }, [canRunMatching]);
+  }, [canRunMatching, statusFilter]);
 
   useEffect(() => {
     loadData();
@@ -311,12 +312,41 @@ const MatchingList = () => {
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         {activeTab === "reports" ? (
-          <DataTable
-            columns={reportColumns}
-            data={matches}
-            searchableFields={["id", "invoiceNumber", "poNumber", "vendor", "status"]}
-            itemsPerPage={10}
-          />
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-900">Filter Matching Result</p>
+                <p className="mt-1 text-xs text-slate-500">Show reports by final three-way matching status.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["", "All"],
+                  ["MATCHED", "Matched"],
+                  ["MISMATCH", "Mismatched"],
+                  ["PENDING", "Pending"],
+                ].map(([value, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                      statusFilter === value
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <DataTable
+              columns={reportColumns}
+              data={matches}
+              searchableFields={["id", "invoiceNumber", "poNumber", "vendor", "status"]}
+              itemsPerPage={10}
+            />
+          </div>
         ) : (
           <div className="space-y-5">
             <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto] md:items-end">

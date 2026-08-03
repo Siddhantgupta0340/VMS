@@ -57,6 +57,27 @@ const safeVal = (value, fallback = "Not Available") => {
   return String(value);
 };
 
+const hasValue = (value) => value !== null && value !== undefined && String(value).trim() !== "" && String(value).trim() !== "N/A";
+const firstValue = (...values) => values.find(hasValue);
+const valueAt = (source, path) => {
+  if (!source || !path) return undefined;
+  return String(path).split(".").reduce((current, key) => current?.[key], source);
+};
+const resolveValue = (sources, paths) => {
+  for (const path of paths) {
+    for (const source of sources) {
+      const value = valueAt(source, path);
+      if (hasValue(value)) return value;
+    }
+  }
+  return undefined;
+};
+const displayResolved = (sources, paths, formatter = (value) => value) => {
+  const value = resolveValue(sources, paths);
+  return hasValue(value) ? formatter(value) : "Not Available";
+};
+const displayAmount = (value) => hasValue(value) ? formatINR(value) : "Not Available";
+
 const maskBankAccount = (accountNo) => {
   if (!accountNo || String(accountNo).trim() === "") return "Not Available";
   const str = String(accountNo).trim();
@@ -116,6 +137,12 @@ const totalFromItem = (item) =>
       Number(item.quantity || 0) * Number(item.unitPrice || item.rate || 0) ||
       0
   );
+
+const itemAmount = (item, keys) => firstValue(...keys.map((key) => item?.[key]));
+const itemMoney = (item, keys) => {
+  const value = itemAmount(item, keys);
+  return hasValue(value) ? formatINR(value) : "Not Available";
+};
 
 // ─── History event colours/labels ──────────────────────────────────────────────
 const historyEventMeta = (action = "") => {
@@ -419,20 +446,72 @@ const InvoiceDetails = () => {
     loadInvoiceData();
   }, [loadInvoiceData]);
 
-  const latestMatch = useMemo(() => matchReports[0] || null, [matchReports]);
+  const latestMatch = useMemo(() => matchReports[0] || invoice?.threeWayMatch || null, [matchReports, invoice?.threeWayMatch]);
   const grnNumber =
     latestMatch?.grnNumber && latestMatch.grnNumber !== "N/A"
       ? latestMatch.grnNumber
       : invoice?.grnNumber || "Not Available";
   const deliveryChallanNumber =
-    invoice?.deliveryChallanNumber ||
-    (latestMatch?.deliveryChallanNumber && latestMatch.deliveryChallanNumber !== "N/A"
+    latestMatch?.deliveryChallanNumber && latestMatch.deliveryChallanNumber !== "N/A"
       ? latestMatch.deliveryChallanNumber
-      : "Not Available");
+      : invoice?.deliveryChallanNumber || "Not Available";
 
   const summary = invoice?.taxSummary || {};
   const grandTotal = summary.grandTotal || invoice?.invoiceTotal || invoice?.amount || 0;
   const wordsText = useMemo(() => amountToWordsINR(grandTotal), [grandTotal]);
+  const ocrDraft = invoice?.ocrExtractedData?.invoiceDraft || {};
+  const ocrStructured = invoice?.ocrExtractedData?.structuredData || {};
+  const invoiceSources = [invoice, invoice?.purchaseOrder, invoice?.grn, invoice?.deliveryChallan, ocrDraft, ocrStructured, summary];
+  const invoiceInfoRows = [
+    ["Invoice Number", displayResolved(invoiceSources, ["invoiceNumber", "invoice_number", "header.invoiceNumber"])],
+    ["Invoice Date", displayResolved(invoiceSources, ["invoiceDate", "invoice_date", "header.invoiceDate"], (value) => formatDate(value) || "Not Available")],
+    ["Due Date", displayResolved(invoiceSources, ["dueDate", "due_date", "header.dueDate"], (value) => formatDate(value) || "Not Available")],
+    ["PO Number", displayResolved(invoiceSources, ["poNumber", "po_number", "references.poNumber"])],
+    ["GRN Number", safeVal(grnNumber)],
+    ["Delivery Challan Number", safeVal(deliveryChallanNumber)],
+    ["Currency", displayResolved(invoiceSources, ["currency", "header.currency"])],
+    ["Payment Terms", displayResolved(invoiceSources, ["paymentTerms", "payment_terms", "header.paymentTerms", "terms.paymentTerms"])],
+    ["Subtotal", displayAmount(firstValue(summary.subtotal, summary.taxableAmount, ocrDraft.totals?.subtotal, ocrStructured.totals?.subtotal))],
+    ["Discount", displayAmount(firstValue(summary.discount, summary.totalDiscount, ocrDraft.totals?.totalDiscount, ocrStructured.totals?.totalDiscount))],
+    ["Taxable Amount", displayAmount(firstValue(summary.taxableAmount, summary.taxable_amount, summary.subtotal, ocrDraft.totals?.taxableAmount, ocrStructured.totals?.taxableAmount))],
+    ["CGST", displayAmount(firstValue(summary.cgstTotal, summary.cgst, ocrDraft.totals?.cgstTotal, ocrStructured.totals?.cgstTotal))],
+    ["SGST", displayAmount(firstValue(summary.sgstTotal, summary.sgst, ocrDraft.totals?.sgstTotal, ocrStructured.totals?.sgstTotal))],
+    ["IGST", displayAmount(firstValue(summary.igstTotal, summary.igst, ocrDraft.totals?.igstTotal, ocrStructured.totals?.igstTotal))],
+    ["Total Tax", displayAmount(firstValue(summary.totalTax, summary.taxTotal, summary.totalGst, ocrDraft.totals?.totalTax, ocrStructured.totals?.totalTax))],
+    ["Other Charges", displayAmount(firstValue(summary.otherCharges, ocrDraft.totals?.otherCharges, ocrStructured.totals?.otherCharges))],
+    ["Round Off", displayAmount(firstValue(summary.roundOff, ocrDraft.totals?.roundOff, ocrStructured.totals?.roundOff))],
+    ["Grand Total", displayAmount(firstValue(summary.grandTotal, invoice?.invoiceTotal, invoice?.amount, ocrDraft.totals?.grandTotal, ocrStructured.totals?.grandTotal))],
+  ];
+  const checkStatusClass = (status) => {
+    const normalized = String(status || "PENDING").toUpperCase();
+    if (normalized === "MATCHED") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    if (normalized === "MISMATCH") return "border-rose-200 bg-rose-50 text-rose-800";
+    if (normalized === "PARTIAL" || normalized === "PARTIAL_MATCH") return "border-amber-200 bg-amber-50 text-amber-800";
+    if (normalized === "NOT_FOUND") return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  };
+  const matchingChecks = [
+    ["Vendor Match", latestMatch?.checks?.vendorMatch, latestMatch?.vendorMatch],
+    ["PO Match", latestMatch?.checks?.poMatch, latestMatch?.poMatch],
+    ["GRN Match", latestMatch?.checks?.grnMatch, latestMatch?.grnMatch],
+    ["Delivery Challan Match", latestMatch?.checks?.deliveryChallanMatch, latestMatch?.deliveryChallanMatch],
+    ["Item Match", latestMatch?.checks?.itemMatch, latestMatch?.itemMatch],
+    ["Quantity Match", latestMatch?.checks?.quantityMatch, latestMatch?.quantityMatch],
+    ["Unit Price Match", latestMatch?.checks?.unitPriceMatch, latestMatch?.unitPriceMatch ?? latestMatch?.priceMatch],
+    ["Tax Match", latestMatch?.checks?.taxMatch, latestMatch?.taxMatch],
+    ["Total Match", latestMatch?.checks?.totalMatch, latestMatch?.totalMatch],
+  ].map(([label, detail, booleanValue]) => ({
+    label,
+    detail,
+    status: detail?.status || (booleanValue === true ? "MATCHED" : booleanValue === false ? "MISMATCH" : "PENDING"),
+    reason: detail?.reason || "",
+    expectedValue: firstValue(detail?.poValue, detail?.po_value, detail?.grnValue, detail?.grn_value, detail?.deliveryChallanValue, detail?.delivery_challan_value),
+    actualValue: firstValue(detail?.invoiceValue, detail?.invoice_value),
+    difference: detail?.difference,
+  }));
+  const overallMatchStatus = String(latestMatch?.overallStatus || latestMatch?.status || invoice?.threeWayMatchStatus || "PENDING").toUpperCase();
+  const isOverallMatched = overallMatchStatus === "MATCHED";
+  const isOverallPartial = overallMatchStatus === "PARTIAL" || overallMatchStatus === "PARTIAL_MATCH";
 
   const company = useMemo(() => ({
     name: companyInfo?.name || "ACRE India Pvt Ltd",
@@ -741,10 +820,30 @@ const InvoiceDetails = () => {
           </div>
         </section>
 
+        {/* 3.1 Complete Invoice Information */}
+        <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-5 space-y-4">
+          <div className="flex flex-col gap-1 border-b border-blue-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xs font-black uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+              <FileText size={15} /> Invoice Information
+            </h2>
+            <span className="text-[11px] font-semibold text-blue-700">
+              Values are resolved from invoice, PO/GRN/DC relations, and saved OCR data before falling back.
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {invoiceInfoRows.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs">
+                <div className="font-bold uppercase tracking-wide text-slate-500 text-[10px]">{label}</div>
+                <div className="mt-0.5 font-bold text-slate-900">{safeVal(value)}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* 3.5 3-Way Match Verification Card */}
         {latestMatch || invoice.threeWayMatchStatus ? (
           <section className="space-y-3">
-            {(latestMatch?.overallStatus === "MATCHED" || invoice.threeWayMatchStatus === "MATCHED") ? (
+            {isOverallMatched ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-5 text-xs text-emerald-900">
                 <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
                   <span className="font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-900">
@@ -757,20 +856,51 @@ const InvoiceDetails = () => {
                 <p className="mt-3 text-slate-700 leading-relaxed font-medium">
                   PO ({safeVal(invoice.poNumber)}), GRN ({safeVal(grnNumber)}), and Invoice ({safeVal(invoice.invoiceNumber)}) vendor, quantities, unit prices, taxes, and totals match PostgreSQL live database records.
                 </p>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {matchingChecks.map((check) => (
+                    <div key={check.label} className={`rounded-lg border px-3 py-2 ${checkStatusClass(check.status)}`}>
+                      <div className="text-[10px] font-black uppercase tracking-wide">{check.label}</div>
+                      <div className="mt-0.5 text-xs font-black">{safeVal(check.status)}</div>
+                      {hasValue(check.expectedValue) || hasValue(check.actualValue) || hasValue(check.difference) ? (
+                        <div className="mt-2 space-y-0.5 text-[11px] font-medium opacity-90">
+                          {hasValue(check.expectedValue) ? <div>Expected: <span className="font-bold">{safeVal(check.expectedValue)}</span></div> : null}
+                          {hasValue(check.actualValue) ? <div>Actual: <span className="font-bold">{safeVal(check.actualValue)}</span></div> : null}
+                          {hasValue(check.difference) ? <div>Difference: <span className="font-bold">{safeVal(check.difference)}</span></div> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-5 text-xs text-rose-950">
-                <div className="flex items-center justify-between border-b border-rose-200 pb-2">
-                  <span className="font-black uppercase tracking-wider flex items-center gap-1.5 text-rose-900">
-                    <AlertCircle size={16} className="text-rose-600" /> 3-Way Matching Result: MISMATCHED
+              <div className={`rounded-xl border p-5 text-xs ${isOverallPartial ? "border-amber-200 bg-amber-50/70 text-amber-950" : "border-rose-200 bg-rose-50/70 text-rose-950"}`}>
+                <div className={`flex items-center justify-between border-b pb-2 ${isOverallPartial ? "border-amber-200" : "border-rose-200"}`}>
+                  <span className={`font-black uppercase tracking-wider flex items-center gap-1.5 ${isOverallPartial ? "text-amber-900" : "text-rose-900"}`}>
+                    <AlertCircle size={16} className={isOverallPartial ? "text-amber-600" : "text-rose-600"} /> 3-Way Matching Result: {isOverallPartial ? "PARTIAL" : "MISMATCH"}
                   </span>
-                  <span className="rounded-full bg-rose-600 px-3 py-1 font-bold text-white text-[11px]">
-                    Action Required
+                  <span className={`rounded-full px-3 py-1 font-bold text-white text-[11px] ${isOverallPartial ? "bg-amber-600" : "bg-rose-600"}`}>
+                    {isOverallPartial ? "Review Required" : "Action Required"}
                   </span>
                 </div>
                 <p className="mt-3 text-slate-800 font-medium">
-                  Automated payment approval is blocked because the document values do not match live PostgreSQL records. Below is the exact failure breakdown:
+                  Automated payment approval is blocked because one or more document values need review against live PostgreSQL records. Below is the exact check breakdown:
                 </p>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {matchingChecks.map((check) => (
+                    <div key={check.label} className={`rounded-lg border px-3 py-2 ${checkStatusClass(check.status)}`}>
+                      <div className="text-[10px] font-black uppercase tracking-wide">{check.label}</div>
+                      <div className="mt-0.5 text-xs font-black">{safeVal(check.status)}</div>
+                      {hasValue(check.expectedValue) || hasValue(check.actualValue) || hasValue(check.difference) ? (
+                        <div className="mt-2 space-y-0.5 text-[11px] font-medium opacity-90">
+                          {hasValue(check.expectedValue) ? <div>Expected: <span className="font-bold">{safeVal(check.expectedValue)}</span></div> : null}
+                          {hasValue(check.actualValue) ? <div>Actual: <span className="font-bold">{safeVal(check.actualValue)}</span></div> : null}
+                          {hasValue(check.difference) ? <div>Difference: <span className="font-bold">{safeVal(check.difference)}</span></div> : null}
+                        </div>
+                      ) : null}
+                      {check.reason ? <div className="mt-1 text-[11px] font-medium opacity-90">{check.reason}</div> : null}
+                    </div>
+                  ))}
+                </div>
                 {latestMatch?.unmatchedFields?.length ? (
                   <div className="mt-3 overflow-x-auto rounded-lg border border-rose-200 bg-white p-3">
                     <table className="w-full text-left border-collapse">
@@ -779,6 +909,7 @@ const InvoiceDetails = () => {
                           <th className="pb-2">Field</th>
                           <th className="pb-2">PO Record</th>
                           <th className="pb-2">GRN Record</th>
+                          <th className="pb-2">Delivery Challan</th>
                           <th className="pb-2">Invoice Record</th>
                           <th className="pb-2 text-right">Status</th>
                         </tr>
@@ -789,8 +920,9 @@ const InvoiceDetails = () => {
                             <td className="py-2 text-rose-900 font-bold">{field.label || field.field}</td>
                             <td className="py-2">{safeVal(field.po_value || field.poValue)}</td>
                             <td className="py-2">{safeVal(field.grn_value || field.grnValue)}</td>
+                            <td className="py-2">{safeVal(field.delivery_challan_value || field.deliveryChallanValue)}</td>
                             <td className="py-2">{safeVal(field.invoice_value || field.invoiceValue)}</td>
-                            <td className="py-2 text-right text-rose-600 font-bold">✗ Mismatch</td>
+                            <td className="py-2 text-right text-rose-600 font-bold">{safeVal(field.status || "MISMATCH")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -815,13 +947,17 @@ const InvoiceDetails = () => {
                 <tr>
                   <th className="p-3 text-center w-10">#</th>
                   <th className="p-3 w-24">Item Code</th>
-                  <th className="p-3">Item Name / Description</th>
+                  <th className="p-3 w-36">Item Name</th>
+                  <th className="p-3 min-w-48">Description</th>
                   <th className="p-3 text-center w-16">Qty</th>
-                  <th className="p-3 text-center w-16">Unit</th>
+                  <th className="p-3 text-center w-16">UOM</th>
                   <th className="p-3 text-right w-24">Unit Price</th>
+                  <th className="p-3 text-right w-24">Discount</th>
                   <th className="p-3 text-right w-28">Taxable Amt</th>
-                  <th className="p-3 text-center w-16">GST %</th>
-                  <th className="p-3 text-right w-24">GST Amt</th>
+                  <th className="p-3 text-right w-24">CGST</th>
+                  <th className="p-3 text-right w-24">SGST</th>
+                  <th className="p-3 text-right w-24">IGST</th>
+                  <th className="p-3 text-right w-24">Tax</th>
                   <th className="p-3 text-right w-28">Line Total</th>
                 </tr>
               </thead>
@@ -830,25 +966,24 @@ const InvoiceDetails = () => {
                   invoice.items.map((item, index) => (
                     <tr key={`${item.itemName || item.description}-${index}`} className="hover:bg-slate-50/80 transition odd:bg-white even:bg-slate-50/40">
                       <td className="p-3 text-center font-medium text-slate-500">{index + 1}</td>
-                      <td className="p-3 font-semibold text-slate-700">{safeVal(item.itemCode || item.code, "—")}</td>
-                      <td className="p-3">
-                        <div className="font-bold text-slate-900">{safeVal(item.itemName || item.description)}</div>
-                        {item.description && item.itemName && (
-                          <div className="text-[11px] text-slate-500 mt-0.5">{item.description}</div>
-                        )}
-                      </td>
-                      <td className="p-3 text-center font-semibold text-slate-800">{item.quantity || 0}</td>
-                      <td className="p-3 text-center text-slate-600">{safeVal(item.unit, "Nos")}</td>
-                      <td className="p-3 text-right font-medium text-slate-800">{formatINR(item.unitPrice || item.rate)}</td>
-                      <td className="p-3 text-right font-semibold text-slate-900">{formatINR(item.taxableAmount)}</td>
-                      <td className="p-3 text-center font-semibold text-slate-700">{item.gstRate || item.gstPct || 18}%</td>
-                      <td className="p-3 text-right text-slate-800">{formatINR(item.gstAmount)}</td>
-                      <td className="p-3 text-right font-bold text-slate-950">{formatINR(totalFromItem(item))}</td>
+                      <td className="p-3 font-semibold text-slate-700">{safeVal(item.itemCode || item.code || item.sku, "—")}</td>
+                      <td className="p-3 font-bold text-slate-900">{safeVal(item.itemName || item.name || item.description)}</td>
+                      <td className="p-3 text-slate-700">{safeVal(item.description || item.itemName || item.name)}</td>
+                      <td className="p-3 text-center font-semibold text-slate-800">{safeVal(item.quantity)}</td>
+                      <td className="p-3 text-center text-slate-600">{safeVal(item.unit || item.uom, "—")}</td>
+                      <td className="p-3 text-right font-medium text-slate-800">{itemMoney(item, ["unitPrice", "unit_price", "price", "rate"])}</td>
+                      <td className="p-3 text-right text-slate-800">{itemMoney(item, ["discount", "discountAmount", "discount_amount"])}</td>
+                      <td className="p-3 text-right font-semibold text-slate-900">{itemMoney(item, ["taxableAmount", "taxable_amount"])}</td>
+                      <td className="p-3 text-right text-slate-800">{itemMoney(item, ["cgstAmount", "cgst_amount", "cgst"])}</td>
+                      <td className="p-3 text-right text-slate-800">{itemMoney(item, ["sgstAmount", "sgst_amount", "sgst"])}</td>
+                      <td className="p-3 text-right text-slate-800">{itemMoney(item, ["igstAmount", "igst_amount", "igst"])}</td>
+                      <td className="p-3 text-right text-slate-800">{itemMoney(item, ["taxAmount", "tax_amount", "gstAmount", "gst_amount"])}</td>
+                      <td className="p-3 text-right font-bold text-slate-950">{itemMoney(item, ["lineTotal", "line_total", "total", "amount"])}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="p-6 text-center text-slate-500 italic">
+                    <td colSpan={14} className="p-6 text-center text-slate-500 italic">
                       No line items recorded for this invoice.
                     </td>
                   </tr>

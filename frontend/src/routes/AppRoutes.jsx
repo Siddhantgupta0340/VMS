@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import DashboardLayout from "../layouts/DashboardLayout";
 
@@ -19,6 +19,7 @@ import PurchaseOrderDetails from "../pages/PurchaseOrders/PurchaseOrderDetails";
 import InvoiceList from "../pages/Invoices/InvoiceList";
 import InvoiceDetails from "../pages/Invoices/InvoiceDetails";
 import InvoiceCreate from "../pages/Invoices/InvoiceCreate";
+import InvoiceCreateEntry from "../pages/Invoices/InvoiceCreateEntry";
 
 // Approvals
 import ApprovalsList from "../pages/Approvals/ApprovalsList";
@@ -62,6 +63,11 @@ import ForgotPassword from "../pages/Auth/ForgotPassword";
 import ResetPassword from "../pages/Auth/ResetPassword";
 import ActivateAccount from "../pages/Auth/ActivateAccount";
 import ChangeTemporaryPassword from "../pages/Auth/ChangeTemporaryPassword";
+
+const LegacyOcrReviewRedirect = () => {
+  const { draftId } = useParams();
+  return <Navigate to={draftId ? `/invoices/create/ocr/${draftId}` : "/invoices/create/ocr"} replace />;
+};
 
 const RootRedirect = () => {
   const { user, isAuthenticated, bootstrapping } = useAuth();
@@ -118,8 +124,12 @@ const AppRoutes = () => {
 
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />
-        <Route path="/invoices/new" element={<InvoiceCreate />} />
+        <Route path="/invoices/new" element={<InvoiceCreateEntry />} />
         <Route path="/invoices/create" element={<InvoiceCreate />} />
+        <Route path="/invoices/create/ocr" element={<InvoiceCreate />} />
+        <Route path="/invoices/create/ocr/:draftId" element={<InvoiceCreate />} />
+        <Route path="/invoices/ocr/review/:draftId" element={<LegacyOcrReviewRedirect />} />
+        <Route path="/invoices/ocr" element={<Navigate to="/invoices/create/ocr" replace />} />
         <Route path="/invoices/:id" element={<InvoiceDetails />} />
         <Route path="/invoices/:id/edit" element={<InvoiceCreate />} />
         <Route path="/invoices/:id/preview" element={<InvoiceDetails />} />

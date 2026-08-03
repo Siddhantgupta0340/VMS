@@ -13,6 +13,7 @@ import userRoutes from './modules/users/user.routes.js';
 import vendorRoutes from './modules/vendors/vendor.routes.js';
 import purchaseOrderRoutes from './modules/purchase-orders/po.routes.js';
 import invoiceRoutes from './modules/invoices/invoice.routes.js';
+import invoiceOcrRoutes from './modules/invoices/invoice.ocr.routes.js';
 import paymentRoutes from './modules/payments/payment.routes.js';
 import approvalRoutes from './modules/approvals/approval.routes.js';
 import paymentApprovalRoutes from './modules/payment-approvals/payment-approval.routes.js';
@@ -44,10 +45,19 @@ const withTimeout = (promise, timeoutMs) => {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
 };
 
+const checkDatabaseHealth = async () => {
+  await withTimeout(prisma.$connect(), HEALTH_QUERY_TIMEOUT_MS);
+  const [result] = await withTimeout(prisma.$queryRawUnsafe('SELECT 1::int AS ok'), HEALTH_QUERY_TIMEOUT_MS);
+  if (result?.ok !== 1) {
+    throw new Error('HEALTH_CHECK_FAILED');
+  }
+};
+
 // ─── 1. Security & Global Middleware ─────────────────────────────────────────
 app.use(helmet());
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : null,
+  'https://vms-ten-zeta.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
@@ -120,27 +130,38 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ─── 4. Health Check ──────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.status(200).json({
+app.get('/health', async (req, res) => {
+  const requestId = getRequestId(req);
+  const basePayload = {
     success: true,
-    status: 'healthy',
     service: 'vms-backend',
     environment: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.floor((Date.now() - APPLICATION_STARTED_AT) / 1000),
     timestamp: new Date().toISOString(),
-    requestId: getRequestId(req),
-  });
+    requestId,
+  };
+
+  try {
+    await checkDatabaseHealth();
+    res.status(200).json({
+      ...basePayload,
+      status: 'ok',
+      database: 'connected',
+    });
+  } catch {
+    res.status(200).json({
+      ...basePayload,
+      status: 'degraded',
+      database: 'unavailable',
+    });
+  }
 });
 
 // ─── 5. API Routes ────────────────────────────────────────────────────────────
 app.get('/health/ready', async (req, res) => {
   const requestId = getRequestId(req);
   try {
-    await withTimeout(prisma.$connect(), HEALTH_QUERY_TIMEOUT_MS);
-    const [result] = await withTimeout(prisma.$queryRawUnsafe('SELECT 1::int AS ok'), HEALTH_QUERY_TIMEOUT_MS);
-    if (result?.ok !== 1) {
-      throw new Error('HEALTH_CHECK_FAILED');
-    }
+    await checkDatabaseHealth();
 
     res.status(200).json({
       success: true,
@@ -170,14 +191,11 @@ app.get('/health/ready', async (req, res) => {
 app.get('/api/v1/health/database', async (req, res) => {
   const requestId = getRequestId(req);
   try {
-    await withTimeout(prisma.$connect(), HEALTH_QUERY_TIMEOUT_MS);
-    const [result] = await withTimeout(prisma.$queryRawUnsafe('SELECT 1::int AS ok'), HEALTH_QUERY_TIMEOUT_MS);
-    if (result?.ok !== 1) {
-      throw new Error('HEALTH_CHECK_FAILED');
-    }
+    await checkDatabaseHealth();
 
     res.status(200).json({
       success: true,
+      status: 'ok',
       database: 'connected',
       timestamp: new Date().toISOString(),
       requestId,
@@ -185,6 +203,7 @@ app.get('/api/v1/health/database', async (req, res) => {
   } catch {
     res.status(503).json({
       success: false,
+      status: 'degraded',
       database: 'unavailable',
       message: 'The service is temporarily unavailable.',
       timestamp: new Date().toISOString(),
@@ -198,6 +217,7 @@ app.use('/api/v1/users',              userRoutes);
 app.use('/api/v1/vendors',            vendorRoutes);
 app.use('/api/v1/purchase-orders',    purchaseOrderRoutes);
 app.use('/api/v1/invoices',           invoiceRoutes);
+app.use('/api/v1/ocr',                invoiceOcrRoutes);
 app.use('/api/v1/payments',           paymentRoutes);
 app.use('/api/v1/approvals',          approvalRoutes);
 app.use('/api/v1/payment-approvals',  paymentApprovalRoutes);

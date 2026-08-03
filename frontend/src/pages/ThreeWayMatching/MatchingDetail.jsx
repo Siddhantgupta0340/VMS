@@ -11,15 +11,25 @@ import { fieldErrorClass, focusValidationField, validateRequiredFields } from ".
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
+const normalizeCheckStatus = (status) => {
+  const normalized = String(status || "MISMATCH").toUpperCase();
+  if (normalized === "UNMATCHED" || normalized === "PARTIAL_MATCH") return "MISMATCH";
+  if (normalized === "MISSING_DATA" || normalized === "NOT_FOUND") return "PENDING";
+  if (["MATCHED", "MISMATCH", "PENDING"].includes(normalized)) return normalized;
+  return "MISMATCH";
+};
+
 const resultLabel = (item) => {
-  if (item.status === "MISSING_DATA") return "Missing Data";
-  if (item.status === "PARTIAL_MATCH") return "Partial Match";
+  const status = normalizeCheckStatus(item.status);
+  if (status === "MATCHED") return "Matched";
+  if (status === "PENDING") return "Pending";
   return "Mismatch";
 };
 
 const resultClass = (item) => {
-  if (item.status === "MISSING_DATA") return "bg-amber-50 text-amber-700 border-amber-200";
-  if (item.status === "PARTIAL_MATCH") return "bg-blue-50 text-blue-700 border-blue-200";
+  const status = normalizeCheckStatus(item.status);
+  if (status === "MATCHED") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (status === "PENDING") return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-red-50 text-red-700 border-red-200";
 };
 
@@ -34,6 +44,7 @@ const MatchingDetail = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [checkStatusFilter, setCheckStatusFilter] = useState("ALL");
   const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
 
   const loadReport = useCallback(async () => {
@@ -132,6 +143,35 @@ const MatchingDetail = () => {
   const canReview = [ROLES.FINANCE_HEAD, ROLES.SUPER_ADMIN].includes(user?.role);
   const isPendingReview = report.adminReviewStatus === "PENDING";
   const summary = report.summary || {};
+  const matchedCheckRows = (report.matchedFields || []).map((field) => ({
+    field,
+    status: "MATCHED",
+    reason: "Values matched across the available PO, Delivery Challan, GRN, and Invoice records.",
+    poValue: "Matched",
+    deliveryChallanValue: "Matched",
+    grnValue: "Matched",
+    invoiceValue: "Matched",
+  }));
+  const mismatchCheckRows = (report.unmatchedFields || []).map((item) => ({
+    ...item,
+    status: normalizeCheckStatus(item.status),
+  }));
+  const allCheckRows = [...mismatchCheckRows, ...matchedCheckRows];
+  const filteredCheckRows = checkStatusFilter === "ALL"
+    ? allCheckRows
+    : allCheckRows.filter((item) => normalizeCheckStatus(item.status) === checkStatusFilter);
+  const filteredMismatchFields = ["ALL", "MISMATCH", "PENDING"].includes(checkStatusFilter)
+    ? mismatchCheckRows.filter((item) => checkStatusFilter === "ALL" || normalizeCheckStatus(item.status) === checkStatusFilter)
+    : [];
+  const filteredMatchedFields = ["ALL", "MATCHED"].includes(checkStatusFilter)
+    ? matchedCheckRows.map((item) => item.field)
+    : [];
+  const statusCounts = {
+    ALL: allCheckRows.length,
+    MATCHED: matchedCheckRows.length,
+    MISMATCH: mismatchCheckRows.filter((item) => normalizeCheckStatus(item.status) === "MISMATCH").length,
+    PENDING: mismatchCheckRows.filter((item) => normalizeCheckStatus(item.status) === "PENDING").length,
+  };
 
   return (
     <div className="space-y-6">
@@ -280,11 +320,80 @@ const MatchingDetail = () => {
         ))}
       </div>
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">Matching Check Filter</h3>
+            <p className="mt-1 text-sm text-slate-500">Identify which checks are MATCHED, MISMATCH, or PENDING.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["ALL", "All"],
+              ["MATCHED", "Matched"],
+              ["MISMATCH", "Mismatched"],
+              ["PENDING", "Pending"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCheckStatusFilter(value)}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                  checkStatusFilter === value
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {label} ({statusCounts[value] || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-600">
+                <th className="p-3">Check</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Reason</th>
+                <th className="p-3 text-right">PO</th>
+                <th className="p-3 text-right">Delivery Challan</th>
+                <th className="p-3 text-right">GRN</th>
+                <th className="p-3 text-right">Invoice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCheckRows.map((item, index) => (
+                <tr key={`${item.field}-${index}`} className="border-b last:border-b-0 hover:bg-slate-50">
+                  <td className="p-3 font-semibold capitalize text-slate-800">{String(item.field || "-").replace(/_/g, " ")}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${resultClass(item)}`}>
+                      {resultLabel(item)}
+                    </span>
+                  </td>
+                  <td className="p-3 text-slate-600">{item.reason || "-"}</td>
+                  <td className="p-3 text-right text-slate-600">{item.poValue ?? "-"}</td>
+                  <td className="p-3 text-right text-slate-600">{item.deliveryChallanValue ?? "-"}</td>
+                  <td className="p-3 text-right text-slate-600">{item.grnValue ?? "-"}</td>
+                  <td className="p-3 text-right font-bold text-slate-800">{item.invoiceValue ?? "-"}</td>
+                </tr>
+              ))}
+              {!filteredCheckRows.length ? (
+                <tr>
+                  <td colSpan={7} className="p-6 text-center text-sm text-slate-500">
+                    No checks found for this filter.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Discrepancies Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Mismatched Fields */}
-          {report.unmatchedFields.length > 0 ? (
+          {filteredMismatchFields.length > 0 ? (
             <div className="rounded-2xl border border-red-200 overflow-hidden shadow-sm">
               <div className="bg-red-50/50 p-4 border-b border-red-200 flex items-center text-red-700 gap-2">
                 <AlertTriangle size={18} />
@@ -306,7 +415,7 @@ const MatchingDetail = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {report.unmatchedFields.map((item, index) => (
+                    {filteredMismatchFields.map((item, index) => (
                       <tr key={index} className="border-b hover:bg-slate-50/50">
                         <td className="p-4 font-semibold text-slate-800 capitalize">
                           {item.field?.replace(/_/g, " ")}
@@ -337,7 +446,7 @@ const MatchingDetail = () => {
                 </table>
               </div>
             </div>
-          ) : (
+          ) : checkStatusFilter === "MATCHED" ? null : (
             <div className="rounded-2xl border border-green-200 bg-green-50/20 p-6 flex items-start gap-3">
               <CheckCircle className="text-green-600 shrink-0" size={24} />
               <div>
@@ -355,10 +464,10 @@ const MatchingDetail = () => {
               <CheckCircle className="text-green-600" size={18} /> Reconciled & Matched Criteria
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              {report.matchedFields.length === 0 ? (
+              {filteredMatchedFields.length === 0 ? (
                 <p className="text-slate-500 italic">No matching checks passed.</p>
               ) : (
-                report.matchedFields.map((f, idx) => (
+                filteredMatchedFields.map((f, idx) => (
                   <div
                     key={idx}
                     className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-slate-700 font-medium capitalize"

@@ -41,6 +41,21 @@ const nextNumber = async (tx, sequenceName, prefix) => {
   return `${prefix}-${currentYear()}-${String(value).padStart(6, '0')}`;
 };
 
+const deriveMatchFlags = (comparison) => {
+  const mismatchedFields = new Set((comparison.unmatched_fields || []).map((field) => field.field));
+  const hasField = (name) => !mismatchedFields.has(name);
+  return {
+    vendor_match: hasField('vendor'),
+    po_match: hasField('purchase_order'),
+    item_match: hasField('item'),
+    quantity_match: hasField('quantity'),
+    price_match: hasField('unit_price'),
+    tax_match: hasField('gst'),
+    total_match: hasField('line_total') && hasField('amount') && hasField('grn_amount') && hasField('delivery_challan_amount'),
+  };
+};
+
+
 const assertEditableByCreator = (record, user, label) => {
   if (!record) throw new ApiError(404, `${label} not found.`);
   if (record.deleted_at) throw new ApiError(400, `${label} has already been deleted.`);
@@ -381,6 +396,7 @@ class MatchingService {
         grn,
         deliveryChallan,
       });
+      const matchFlags = deriveMatchFlags(comparison);
 
       const now = new Date();
 
@@ -403,6 +419,20 @@ class MatchingService {
             matched_fields:          comparison.matched_fields,
             unmatched_fields:        comparison.unmatched_fields,
             warnings:                comparison.warnings,
+            vendor_match:            matchFlags.vendor_match,
+            po_match:                matchFlags.po_match,
+            item_match:              matchFlags.item_match,
+            quantity_match:          matchFlags.quantity_match,
+            price_match:             matchFlags.price_match,
+            tax_match:               matchFlags.tax_match,
+            total_match:             matchFlags.total_match,
+            mismatch_details:        {
+              summary: comparison.summary,
+              matching: comparison.matching,
+              comparisonResults: comparison.comparison_results,
+              unmatchedFields: comparison.unmatched_fields,
+              warnings: comparison.warnings,
+            },
             approval_recommendation: comparison.approval_recommendation,
             po_snapshot:             comparison.snapshots.purchaseOrder,
             grn_snapshot:            comparison.snapshots.goodsReceiptNote,

@@ -50,9 +50,10 @@ const ForgotPassword = () => {
         toast.error(errMsg);
       }
     } catch (err) {
-      console.error("[ForgotPassword] Error:", err);
-      setError("Server is temporarily unavailable. Please try again later.");
-      toast.error("Unable to send reset instructions.");
+      console.error("[ForgotPassword] Unexpected Error:", err);
+      const fallbackMsg = err?.message || "Unable to process your request. Please try again shortly.";
+      setError(fallbackMsg);
+      toast.error(fallbackMsg);
     } finally {
       setIsSubmitting(false);
     }

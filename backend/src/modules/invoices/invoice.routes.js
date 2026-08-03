@@ -98,11 +98,20 @@ router.post(
   '/process-ocr',
   authorize([
     ROLES.CASE_MANAGER,
-    ROLES.FINANCE_HEAD,
     ROLES.SUPER_ADMIN,
   ]),
   uploadInvoiceFile.single('invoiceFile'),
   invoiceController.processInvoiceOcr
+);
+
+router.get(
+  '/ocr/drafts/:draftId',
+  authorize([
+    ROLES.CASE_MANAGER,
+    ROLES.FINANCE_HEAD,
+    ROLES.SUPER_ADMIN,
+  ]),
+  invoiceController.getOcrInvoiceDraft,
 );
 
 // ─── Base Collection Routes ───────────────────────────────────────────────────

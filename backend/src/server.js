@@ -16,22 +16,44 @@ const PORT = process.env.PORT || 5000;
 let server;
 
 const STARTUP_DATABASE_ERROR_CATEGORIES = new Set([
-  'DATABASE_AUTHENTICATION_FAILED',
   'DATABASE_CONNECTION_TIMEOUT',
+  'DATABASE_CONNECTION_REFUSED',
   'DATABASE_DNS_FAILURE',
   'DATABASE_HOST_UNREACHABLE',
-  'DATABASE_QUERY_FAILED',
-  'DATABASE_SSL_FAILED',
 ]);
 
 const describeStartupError = (error) => {
   const category = classifyDatabaseError(error);
 
-  if (category === 'DATABASE_ENV_INVALID') {
+  if (category === 'DATABASE_URL_MISSING' || category === 'DATABASE_URL_INVALID') {
     return {
       category,
-      label: 'Database environment invalid',
+      label: category === 'DATABASE_URL_MISSING' ? 'Database URL missing' : 'Database URL invalid',
       detail: 'DATABASE_URL is missing or invalid. Fix the sanitized startup details before retrying.',
+    };
+  }
+
+  if (category === 'DATABASE_AUTH_FAILED') {
+    return {
+      category,
+      label: 'Database authentication failed',
+      detail: 'PostgreSQL rejected the configured database credentials. Fix DATABASE_URL credentials before retrying.',
+    };
+  }
+
+  if (category === 'DATABASE_SSL_ERROR') {
+    return {
+      category,
+      label: 'Database SSL configuration failed',
+      detail: 'PostgreSQL SSL/TLS negotiation failed. Fix DATABASE_URL sslmode or certificate trust before retrying.',
+    };
+  }
+
+  if (category === 'DATABASE_NOT_FOUND') {
+    return {
+      category,
+      label: 'Database not found',
+      detail: 'The configured PostgreSQL database name does not exist on the target server.',
     };
   }
 
@@ -44,7 +66,7 @@ const describeStartupError = (error) => {
   }
 
   if (
-    ['P1000', 'P1001', 'P1002'].includes(error?.code) ||
+    ['P1001', 'P1002'].includes(error?.code) ||
     (error?.code === 'P2010' && /can't reach database server/i.test(error?.message || ''))
   ) {
     return {
@@ -71,7 +93,7 @@ const describeStartupError = (error) => {
 
 const canStartWithoutDatabase = (startupError) => (
   process.env.NODE_ENV !== 'production' &&
-  process.env.ALLOW_DEGRADED_STARTUP !== 'false' &&
+  process.env.ALLOW_DEGRADED_STARTUP === 'true' &&
   STARTUP_DATABASE_ERROR_CATEGORIES.has(startupError.category)
 );
 
@@ -111,7 +133,7 @@ const startServer = async () => {
       console.log(`VMS Backend Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
       if (startupMode === 'degraded') {
         console.warn('[startup] Running in degraded mode. Database-backed routes will return service-unavailable responses until PostgreSQL is reachable.');
-        console.warn('[startup] Set ALLOW_DEGRADED_STARTUP=false to make local development fail fast like production.');
+        console.warn('[startup] Degraded startup was explicitly enabled with ALLOW_DEGRADED_STARTUP=true.');
       }
     });
 
@@ -141,7 +163,7 @@ const startServer = async () => {
         const isTransient = isTransientDatabaseError(error);
 
         if (!isLast && isTransient) {
-          const delayMs = 1000 * attempt; // 1s, 2s
+          const delayMs = 1000 * (2 ** (attempt - 1)); // 1s, 2s, 4s...
           console.warn(`[startup] Database connection attempt ${attempt}/${maxAttempts} failed (transient). Retrying in ${delayMs}ms…`);
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         } else {

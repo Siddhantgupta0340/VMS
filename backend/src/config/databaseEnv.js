@@ -1,10 +1,10 @@
 const ALLOWED_SSL_MODES = new Set(['verify-full', 'require', 'prefer', 'verify-ca']);
 
 class DatabaseConfigError extends Error {
-  constructor(message, details = {}) {
+  constructor(message, details = {}, code = 'DATABASE_URL_INVALID') {
     super(message);
     this.name = 'DatabaseConfigError';
-    this.code = 'DATABASE_ENV_INVALID';
+    this.code = code;
     this.details = details;
   }
 }
@@ -22,7 +22,7 @@ const sanitizeDatabaseUrl = (url) => {
 
 const validateDatabaseUrl = (url = process.env.DATABASE_URL) => {
   if (!url) {
-    throw new DatabaseConfigError('DATABASE_URL is required.');
+    throw new DatabaseConfigError('DATABASE_URL is required.', {}, 'DATABASE_URL_MISSING');
   }
 
   const rawUrl = String(url);
@@ -84,7 +84,7 @@ const validateDatabaseUrl = (url = process.env.DATABASE_URL) => {
     throw new DatabaseConfigError('DATABASE_URL has an unsupported sslmode.', {
       sslmode,
       sanitizedUrl: sanitizeDatabaseUrl(trimmedUrl),
-    });
+    }, 'DATABASE_SSL_ERROR');
   }
 
   return {

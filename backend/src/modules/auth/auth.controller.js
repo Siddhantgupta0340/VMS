@@ -135,9 +135,11 @@ class AuthController {
    */
   forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
+    console.log(`\n[HTTP ROUTE] 👉 POST /api/v1/auth/forgot-password - Incoming request for email: ${email || 'none'}`);
+
     const message = await authService.forgotPassword(email);
 
-    // Required response format
+    console.log(`[HTTP ROUTE] ✅ POST /api/v1/auth/forgot-password - Responding 200 OK`);
     return res.status(200).json({
       success: true,
       message: message || "OTP sent successfully",
@@ -151,8 +153,11 @@ class AuthController {
    */
   verifyOtp = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
+    console.log(`\n[HTTP ROUTE] 👉 POST /api/v1/auth/verify-otp - Incoming request for email: ${email || 'none'}`);
+
     const message = await authService.verifyOtp(email, otp);
 
+    console.log(`[HTTP ROUTE] ✅ POST /api/v1/auth/verify-otp - Responding 200 OK`);
     res.status(200).json({ success: true, message });
   });
 
@@ -163,6 +168,7 @@ class AuthController {
    */
   resetPassword = asyncHandler(async (req, res) => {
     const { email, otp, newPassword } = req.body;
+    console.log(`\n[HTTP ROUTE] 👉 POST /api/v1/auth/reset-password - Incoming request for email: ${email || 'none'}`);
 
     const message = await authService.resetPassword(
       email,
@@ -170,6 +176,7 @@ class AuthController {
       newPassword,
     );
 
+    console.log(`[HTTP ROUTE] ✅ POST /api/v1/auth/reset-password - Responding 200 OK`);
     res.status(200).json({ success: true, message });
   });
 

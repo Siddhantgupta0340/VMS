@@ -27,7 +27,7 @@ const mapPrismaError = (err) => {
 
   const isDatabaseError = (
     err?.name?.startsWith('Prisma') ||
-    err?.code === 'DATABASE_ENV_INVALID' ||
+    String(err?.code || '').startsWith('DATABASE_') ||
     /^P\d{4}$/.test(String(err?.code || '')) ||
     ['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', '28P01', '3D000', '42703'].includes(err?.code)
   );
@@ -50,9 +50,10 @@ const mapPrismaError = (err) => {
   if ([
     'DATABASE_DNS_FAILURE',
     'DATABASE_HOST_UNREACHABLE',
+    'DATABASE_CONNECTION_REFUSED',
     'DATABASE_CONNECTION_TIMEOUT',
-    'DATABASE_SSL_FAILED',
-    'DATABASE_QUERY_FAILED',
+    'DATABASE_SSL_ERROR',
+    'DATABASE_UNKNOWN_ERROR',
   ].includes(category)) {
     return {
       statusCode: 503,
@@ -62,7 +63,7 @@ const mapPrismaError = (err) => {
     };
   }
 
-  if (category === 'DATABASE_AUTHENTICATION_FAILED') {
+  if (category === 'DATABASE_AUTH_FAILED') {
     return {
       statusCode: 503,
       code: 'DATABASE_UNAVAILABLE',
@@ -115,6 +116,7 @@ const mapPrismaError = (err) => {
 export const errorHandler = (err, req, res, _next) => {
   const requestId = req.headers['x-request-id'] || randomUUID();
   const isDev = process.env.NODE_ENV !== 'production';
+  const databaseCategory = classifyDatabaseError(err);
   const mappedPrismaError = mapPrismaError(err);
 
   const statusCode = mappedPrismaError?.statusCode || err.statusCode || (err.status && typeof err.status === 'number' ? err.status : 500);
@@ -140,7 +142,7 @@ export const errorHandler = (err, req, res, _next) => {
     message,
     code: errorCode,
     requestId,
-    category: classifyDatabaseError(err),
+    category: databaseCategory,
     errors: err.errors,
     stack: mappedPrismaError ? null : err.stack,
   });

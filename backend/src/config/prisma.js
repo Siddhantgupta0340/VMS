@@ -52,7 +52,7 @@ const buildPoolConfig = () => {
     statement_timeout: parsePositiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 15000),
     keepAlive: process.env.DB_KEEP_ALIVE !== 'false',
     keepAliveInitialDelayMillis: parsePositiveInt(process.env.DB_KEEP_ALIVE_DELAY_MS, 10000),
-    ...(isNeonHost ? { ssl: { rejectUnauthorized: true } } : {}),
+    ...(isNeonHost ? { ssl: { rejectUnauthorized: false } } : {}),
   };
 };
 

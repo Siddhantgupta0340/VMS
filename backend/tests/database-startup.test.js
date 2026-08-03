@@ -66,15 +66,16 @@ test('development seeding is explicit and does not run by default during startup
   assert.doesNotMatch(seedDevUsers, /findByEmail\(u\.email\)/);
 });
 
-test('development startup can run in degraded mode when remote database is unreachable', () => {
+test('development startup can run in degraded mode only when explicitly enabled', () => {
   const server = read('src', 'server.js');
 
   assert.match(server, /STARTUP_DATABASE_ERROR_CATEGORIES = new Set/);
   assert.match(server, /DATABASE_HOST_UNREACHABLE/);
   assert.match(server, /process\.env\.NODE_ENV !== 'production'/);
-  assert.match(server, /process\.env\.ALLOW_DEGRADED_STARTUP !== 'false'/);
+  assert.match(server, /process\.env\.ALLOW_DEGRADED_STARTUP === 'true'/);
   assert.match(server, /listen\('degraded'\)/);
   assert.match(server, /Database-backed routes will return service-unavailable responses/);
+  assert.match(server, /Degraded startup was explicitly enabled/);
 });
 
 test('startup still fails fast for production and invalid database configuration', () => {
@@ -84,8 +85,14 @@ test('startup still fails fast for production and invalid database configuration
     server.indexOf(']);', server.indexOf('const STARTUP_DATABASE_ERROR_CATEGORIES'))
   );
 
-  assert.match(server, /DATABASE_ENV_INVALID/);
-  assert.equal(categoryList.includes('DATABASE_ENV_INVALID'), false);
+  assert.match(server, /DATABASE_URL_MISSING/);
+  assert.match(server, /DATABASE_URL_INVALID/);
+  assert.match(server, /DATABASE_AUTH_FAILED/);
+  assert.match(server, /DATABASE_SSL_ERROR/);
+  assert.equal(categoryList.includes('DATABASE_URL_MISSING'), false);
+  assert.equal(categoryList.includes('DATABASE_URL_INVALID'), false);
+  assert.equal(categoryList.includes('DATABASE_AUTH_FAILED'), false);
+  assert.equal(categoryList.includes('DATABASE_SSL_ERROR'), false);
   assert.match(server, /process\.env\.NODE_ENV !== 'production'/);
   assert.match(server, /process\.exit\(1\)/);
 });
@@ -93,6 +100,10 @@ test('startup still fails fast for production and invalid database configuration
 test('database retry helper retries transient failures only', async () => {
   assert.equal(isTransientDatabaseError({ code: 'P1002', message: 'timeout' }), true);
   assert.equal(isTransientDatabaseError(new Error('Query read timeout')), true);
+  assert.equal(isTransientDatabaseError({ code: 'P1000', message: 'Authentication failed' }), false);
+  assert.equal(isTransientDatabaseError({ code: '28P01' }), false);
+  assert.equal(isTransientDatabaseError({ code: 'DATABASE_URL_MISSING' }), false);
+  assert.equal(isTransientDatabaseError({ code: 'DATABASE_SSL_ERROR' }), false);
   assert.equal(isTransientDatabaseError({ code: 'P2002', message: 'unique constraint' }), false);
 
   let attempts = 0;
@@ -128,16 +139,22 @@ test('database retry helper retries transient failures only', async () => {
 });
 
 test('database error classifier distinguishes common Neon connection failures', () => {
-  assert.equal(classifyDatabaseError({ code: 'DATABASE_ENV_INVALID' }), 'DATABASE_ENV_INVALID');
+  assert.equal(classifyDatabaseError({ code: 'DATABASE_URL_MISSING' }), 'DATABASE_URL_MISSING');
+  assert.equal(classifyDatabaseError({ code: 'DATABASE_URL_INVALID' }), 'DATABASE_URL_INVALID');
+  assert.equal(classifyDatabaseError({ code: 'DATABASE_ENV_INVALID' }), 'DATABASE_URL_INVALID');
   assert.equal(classifyDatabaseError({ code: 'ENOTFOUND' }), 'DATABASE_DNS_FAILURE');
-  assert.equal(classifyDatabaseError({ code: 'ECONNREFUSED' }), 'DATABASE_HOST_UNREACHABLE');
+  assert.equal(classifyDatabaseError({ code: 'ECONNREFUSED' }), 'DATABASE_CONNECTION_REFUSED');
+  assert.equal(classifyDatabaseError({ code: 'EHOSTUNREACH' }), 'DATABASE_HOST_UNREACHABLE');
+  assert.equal(classifyDatabaseError({ code: 'EACCES' }), 'DATABASE_HOST_UNREACHABLE');
   assert.equal(classifyDatabaseError({ code: 'ETIMEDOUT' }), 'DATABASE_CONNECTION_TIMEOUT');
   assert.equal(classifyDatabaseError(new Error('Query read timeout')), 'DATABASE_CONNECTION_TIMEOUT');
-  assert.equal(classifyDatabaseError({ code: '28P01' }), 'DATABASE_AUTHENTICATION_FAILED');
-  assert.equal(classifyDatabaseError({ message: 'self signed certificate in certificate chain' }), 'DATABASE_SSL_FAILED');
+  assert.equal(classifyDatabaseError({ code: '28P01' }), 'DATABASE_AUTH_FAILED');
+  assert.equal(classifyDatabaseError({ code: 'P1000', message: 'Authentication failed' }), 'DATABASE_AUTH_FAILED');
+  assert.equal(classifyDatabaseError({ message: 'self signed certificate in certificate chain' }), 'DATABASE_SSL_ERROR');
   assert.equal(classifyDatabaseError({ code: '3D000' }), 'DATABASE_NOT_FOUND');
   assert.equal(classifyDatabaseError({ code: 'P2022' }), 'DATABASE_SCHEMA_MISMATCH');
   assert.equal(classifyDatabaseError({ code: 'P2010', message: "Can't reach database server at host" }), 'DATABASE_HOST_UNREACHABLE');
+  assert.equal(classifyDatabaseError({ code: 'P9999', message: 'Unexpected database failure' }), 'DATABASE_UNKNOWN_ERROR');
 });
 
 test('auth middleware retries transient database lookup failures', () => {

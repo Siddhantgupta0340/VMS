@@ -7,6 +7,7 @@ import {
 } from "../services/notificationService";
 
 const NotificationContext = createContext();
+const unreadCountRequests = new Map();
 
 export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
@@ -21,9 +22,15 @@ export const NotificationProvider = ({ children }) => {
       return 0;
     }
 
+    const userRequestKey = user.id || user.email || "current-user";
+
     try {
       setCountLoading(true);
-      const count = await getUnreadCount();
+      const request = unreadCountRequests.get(userRequestKey) || getUnreadCount().finally(() => {
+        unreadCountRequests.delete(userRequestKey);
+      });
+      unreadCountRequests.set(userRequestKey, request);
+      const count = await request;
       setUnreadCount(count);
       setCountError(false);
       return count;

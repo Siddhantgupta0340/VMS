@@ -28,12 +28,13 @@ const request = async (pathname) => {
   }
 };
 
-test('/health returns safe liveness payload without authentication', async () => {
+test('/health returns safe database-aware payload without authentication', async () => {
   const { response, body } = await request('/health');
 
   assert.equal(response.status, 200);
   assert.equal(body.success, true);
-  assert.equal(body.status, 'healthy');
+  assert.match(body.status, /^(ok|degraded)$/);
+  assert.match(body.database, /^(connected|unavailable)$/);
   assert.equal(body.service, 'vms-backend');
   assert.equal(body.requestId, 'test-request-id');
   assert.equal(typeof body.uptimeSeconds, 'number');
@@ -44,9 +45,14 @@ test('/health/ready uses shared Prisma Client and safe response structures', () 
   const appSource = backendSource('app.js');
 
   assert.match(appSource, /import prisma from '\.\/config\/prisma\.js'/);
+  assert.match(appSource, /const checkDatabaseHealth = async \(\) =>/);
   assert.match(appSource, /prisma\.\$connect\(\)/);
   assert.match(appSource, /prisma\.\$queryRawUnsafe\('SELECT 1::int AS ok'\)/);
   assert.match(appSource, /HEALTH_QUERY_TIMEOUT_MS/);
+  assert.match(appSource, /status: 'ok'/);
+  assert.match(appSource, /status: 'degraded'/);
+  assert.match(appSource, /database: 'connected'/);
+  assert.match(appSource, /database: 'unavailable'/);
   assert.match(appSource, /status: 'ready'/);
   assert.match(appSource, /status: 'not_ready'/);
   assert.match(appSource, /database: 'up'/);

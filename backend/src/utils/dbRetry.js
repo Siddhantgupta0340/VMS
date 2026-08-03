@@ -16,19 +16,19 @@ const TRANSIENT_MESSAGE_PATTERNS = [
   /transaction (already closed|api error|expired|timed out)/i,
 ];
 
+const TRANSIENT_DATABASE_CATEGORIES = new Set([
+  'DATABASE_DNS_FAILURE',
+  'DATABASE_HOST_UNREACHABLE',
+  'DATABASE_CONNECTION_REFUSED',
+  'DATABASE_CONNECTION_TIMEOUT',
+]);
+
 const sleep = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);
 });
 
 const isTransientDatabaseError = (error) => {
-  const code = error?.code || error?.cause?.code;
-  const message = `${error?.message || ''} ${error?.cause?.message || ''}`;
-
-  if (TRANSIENT_PRISMA_CODES.has(code) || TRANSIENT_DATABASE_CODES.has(code)) {
-    return true;
-  }
-
-  return TRANSIENT_MESSAGE_PATTERNS.some((pattern) => pattern.test(message));
+  return TRANSIENT_DATABASE_CATEGORIES.has(classifyDatabaseError(error));
 };
 
 const classifyDatabaseError = (error) => {
@@ -36,15 +36,27 @@ const classifyDatabaseError = (error) => {
   const message = `${error?.message || ''} ${error?.cause?.message || ''}`;
   const lowerMessage = message.toLowerCase();
 
-  if (code === 'DATABASE_ENV_INVALID' || error?.name === 'DatabaseConfigError') {
-    return 'DATABASE_ENV_INVALID';
+  if (code === 'DATABASE_URL_MISSING') {
+    return 'DATABASE_URL_MISSING';
+  }
+
+  if (code === 'DATABASE_SSL_ERROR') {
+    return 'DATABASE_SSL_ERROR';
+  }
+
+  if (code === 'DATABASE_ENV_INVALID' || code === 'DATABASE_URL_INVALID' || error?.name === 'DatabaseConfigError') {
+    return 'DATABASE_URL_INVALID';
   }
 
   if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
     return 'DATABASE_DNS_FAILURE';
   }
 
-  if (code === 'ECONNREFUSED' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH') {
+  if (code === 'ECONNREFUSED') {
+    return 'DATABASE_CONNECTION_REFUSED';
+  }
+
+  if (code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'EACCES') {
     return 'DATABASE_HOST_UNREACHABLE';
   }
 
@@ -56,20 +68,20 @@ const classifyDatabaseError = (error) => {
     return 'DATABASE_CONNECTION_TIMEOUT';
   }
 
-  if (code === '28P01' || lowerMessage.includes('password authentication failed')) {
-    return 'DATABASE_AUTHENTICATION_FAILED';
+  if (code === '28P01' || code === 'P1000' || lowerMessage.includes('password authentication failed') || lowerMessage.includes('authentication failed')) {
+    return 'DATABASE_AUTH_FAILED';
   }
 
   if (lowerMessage.includes('certificate') || lowerMessage.includes('ssl') || lowerMessage.includes('tls')) {
-    return 'DATABASE_SSL_FAILED';
-  }
-
-  if (code === '3D000' || lowerMessage.includes('database') && lowerMessage.includes('does not exist')) {
-    return 'DATABASE_NOT_FOUND';
+    return 'DATABASE_SSL_ERROR';
   }
 
   if (code === 'P2022' || code === '42703' || lowerMessage.includes('column') && lowerMessage.includes('does not exist')) {
     return 'DATABASE_SCHEMA_MISMATCH';
+  }
+
+  if (code === '3D000' || lowerMessage.includes('database') && lowerMessage.includes('does not exist')) {
+    return 'DATABASE_NOT_FOUND';
   }
 
   if (code === 'P2010' && lowerMessage.includes("can't reach database server")) {
@@ -80,7 +92,11 @@ const classifyDatabaseError = (error) => {
     return 'DATABASE_CONNECTION_TIMEOUT';
   }
 
-  return 'DATABASE_QUERY_FAILED';
+  if (TRANSIENT_PRISMA_CODES.has(code) || TRANSIENT_DATABASE_CODES.has(code) || TRANSIENT_MESSAGE_PATTERNS.some((pattern) => pattern.test(message))) {
+    return 'DATABASE_CONNECTION_TIMEOUT';
+  }
+
+  return 'DATABASE_UNKNOWN_ERROR';
 };
 
 const toSafeErrorLog = (error) => ({

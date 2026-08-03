@@ -6,61 +6,89 @@ datasource db {
   provider = "postgresql"
 }
 
+enum OCRProcessingStatus {
+  UPLOADED
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum OCRStatus {
+  NOT_STARTED
+  PROCESSING
+  SUCCESS
+  PARTIAL_SUCCESS
+  LOW_CONFIDENCE
+  FAILED
+}
+
+enum OCRDocumentType {
+  INVOICE
+  PURCHASE_ORDER
+  DELIVERY_CHALLAN
+  GOODS_RECEIPT_NOTE
+  OTHER
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // USER
 // Roles: SUPER_ADMIN | CASE_MANAGER | TEAM_LEAD | MANAGER | FINANCE_HEAD
 // ─────────────────────────────────────────────────────────────────────────────
 model User {
-  id                          String    @id @default(uuid())
-  employee_id                 String    @unique @default(dbgenerated("'EMP' || lpad((nextval('employee_id_seq'::regclass))::text, 6, '0'::text)"))
-  email                       String    @unique
-  password                    String?
-  role                        String // SUPER_ADMIN | CASE_MANAGER | TEAM_LEAD | MANAGER | FINANCE_HEAD
-  first_name                  String?
-  last_name                   String?
-  phone                       String?
-  alternate_phone             String?
-  designation                 String?
-  branch                      String?
-  region                      String?
-  status                      String    @default("ACTIVE")
-  status_changed_at           DateTime?
-  status_changed_by           String?
-  updated_by                  String?
-  deleted_at                  DateTime?
-  deleted_by_id               String?
-  last_login_at               DateTime?
-  refresh_token               String?
-  password_reset_otp          String?
-  password_reset_otp_expires  DateTime?
-  activation_token_hash       String?
-  activation_token_expires_at DateTime?
-  activation_token_used_at    DateTime?
-  activation_sent_at          DateTime?
-  activation_last_sent_at     DateTime?
-  activation_resend_count     Int       @default(0)
-  activated_at                DateTime?
-  password_set_at             DateTime?
-  must_change_password        Boolean   @default(false)
+  id                            String    @id @default(uuid())
+  employee_id                   String    @unique @default(dbgenerated("'EMP' || lpad((nextval('employee_id_seq'::regclass))::text, 6, '0'::text)"))
+  email                         String    @unique
+  password                      String?
+  role                          String // SUPER_ADMIN | CASE_MANAGER | TEAM_LEAD | MANAGER | FINANCE_HEAD
+  first_name                    String?
+  last_name                     String?
+  phone                         String?
+  alternate_phone               String?
+  designation                   String?
+  branch                        String?
+  region                        String?
+  status                        String    @default("ACTIVE")
+  status_changed_at             DateTime?
+  status_changed_by             String?
+  updated_by                    String?
+  deleted_at                    DateTime?
+  deleted_by_id                 String?
+  last_login_at                 DateTime?
+  refresh_token                 String?
+  password_reset_otp            String?
+  password_reset_otp_expires    DateTime?
+  activation_token_hash         String?
+  activation_token_expires_at   DateTime?
+  activation_token_used_at      DateTime?
+  activation_sent_at            DateTime?
+  activation_last_sent_at       DateTime?
+  activation_resend_count       Int       @default(0)
+  activated_at                  DateTime?
+  password_set_at               DateTime?
+  must_change_password          Boolean   @default(false)
   temporary_password_expires_at DateTime?
-  password_changed_at         DateTime?
-  credentials_email_status    String?
-  credentials_email_sent_at   DateTime?
-  failed_login_attempts       Int       @default(0)
-  locked_until                DateTime?
-  created_at                  DateTime  @default(now())
-  updated_at                  DateTime  @updatedAt
+  password_changed_at           DateTime?
+  credentials_email_status      String?
+  credentials_email_sent_at     DateTime?
+  failed_login_attempts         Int       @default(0)
+  locked_until                  DateTime?
+  created_at                    DateTime  @default(now())
+  updated_at                    DateTime  @updatedAt
 
   // Vendor relations
-  vendors_created  Vendor[] @relation("VendorCreatedBy")
-  vendors_approved Vendor[] @relation("VendorApprovedBy")
+  vendors_created           Vendor[]         @relation("VendorCreatedBy")
+  vendors_approved          Vendor[]         @relation("VendorApprovedBy")
   vendor_documents_uploaded VendorDocument[] @relation("VendorDocumentUploadedBy")
-  deleted_by       User?    @relation("UserDeletedBy", fields: [deleted_by_id], references: [id], onDelete: SetNull)
-  deleted_users    User[]   @relation("UserDeletedBy")
+  deleted_by                User?            @relation("UserDeletedBy", fields: [deleted_by_id], references: [id], onDelete: SetNull)
+  deleted_users             User[]           @relation("UserDeletedBy")
 
   // Purchase Order relations
-  purchase_orders_created PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  purchase_orders_created      PurchaseOrder[]     @relation("PurchaseOrderCreatedBy")
   invoice_attachments_uploaded InvoiceAttachment[] @relation("InvoiceAttachmentUploadedBy")
+  ocr_invoice_drafts_created   OCRInvoiceDraft[]   @relation("OCRInvoiceDraftCreatedBy")
+  ocr_documents_uploaded       OCRDocument[]       @relation("OCRDocumentUploadedBy")
+  ocr_extractions_created      OCRExtraction[]     @relation("OCRExtractionCreatedBy")
 
   // Invoice relations
   invoices_created               Invoice[] @relation("InvoiceCreatedBy")
@@ -79,8 +107,8 @@ model User {
   admin_reviews_done Invoice[] @relation("InvoiceAdminReviewedBy")
 
   // GRN relations
-  grns_created GoodsReceiptNote[] @relation("GRNCreatedBy")
-  delivery_challans_created DeliveryChallan[] @relation("DeliveryChallanCreatedBy")
+  grns_created              GoodsReceiptNote[] @relation("GRNCreatedBy")
+  delivery_challans_created DeliveryChallan[]  @relation("DeliveryChallanCreatedBy")
 
   // Payment relations
   payments_created   Payment[] @relation("PaymentCreatedBy")
@@ -95,10 +123,10 @@ model User {
   payments_blocked_old  PaymentOld[] @relation("PaymentOldBlockedBy")
 
   // Payment Approval relations
-  payment_approvals_assigned    PaymentApproval[] @relation("PaymentApprovalAssignedTo")
-  payment_approvals_requested   PaymentApproval[] @relation("PaymentApprovalRequestedBy")
-  payment_approvals_approved    PaymentApproval[] @relation("PaymentApprovalApprovedBy")
-  payment_approvals_rejected    PaymentApproval[] @relation("PaymentApprovalRejectedBy")
+  payment_approvals_assigned    PaymentApproval[]        @relation("PaymentApprovalAssignedTo")
+  payment_approvals_requested   PaymentApproval[]        @relation("PaymentApprovalRequestedBy")
+  payment_approvals_approved    PaymentApproval[]        @relation("PaymentApprovalApprovedBy")
+  payment_approvals_rejected    PaymentApproval[]        @relation("PaymentApprovalRejectedBy")
   payment_approval_history_done PaymentApprovalHistory[] @relation("PaymentApprovalHistoryPerformedBy")
 
   // Audit & Notification relations
@@ -118,66 +146,68 @@ model User {
 // Created by Case Manager, reviewed/approved by Finance Head
 // ─────────────────────────────────────────────────────────────────────────────
 model Vendor {
-  id               String    @id @default(uuid())
-  name             String
-  vendor_code      String    @unique
-  email            String    @unique
-  phone            String
-  address          String
-  city             String?
-  district         String?
-  state            String?
-  country          String?
-  zip_code         String?
-  address_line1    String?
-  address_line2    String?
-  tax_id           String    @unique
-  gst_number       String?
-  pan_number       String?   @unique
-  cin              String?
-  msme_number      String?
-  tax_type         String?
-  category         String
-  vendor_type      String?
-  contact_person   String?
-  contact_designation String?
-  alternate_phone  String?
-  bank_name        String?
-  account_holder   String?
-  bank_account_no  String?
-  ifsc_code        String?
-  bank_branch      String?
-  payment_terms    String?
-  billing_address  String?
-  delivery_address String?
-  status           String    @default("PENDING") // PENDING | ACTIVE | INACTIVE | BLOCKED
-  approval_status  String    @default("PENDING") // PENDING | APPROVED | REJECTED | BLOCKED
-  approval_remarks String?
-  pending_changes  Json?
-  pending_change_status String?
+  id                             String    @id @default(uuid())
+  name                           String
+  vendor_code                    String    @unique
+  email                          String    @unique
+  phone                          String
+  address                        String
+  city                           String?
+  district                       String?
+  state                          String?
+  country                        String?
+  zip_code                       String?
+  address_line1                  String?
+  address_line2                  String?
+  tax_id                         String    @unique
+  gst_number                     String?
+  pan_number                     String?   @unique
+  cin                            String?
+  msme_number                    String?
+  tax_type                       String?
+  category                       String
+  vendor_type                    String?
+  contact_person                 String?
+  contact_designation            String?
+  alternate_phone                String?
+  bank_name                      String?
+  account_holder                 String?
+  bank_account_no                String?
+  ifsc_code                      String?
+  bank_branch                    String?
+  payment_terms                  String?
+  billing_address                String?
+  delivery_address               String?
+  status                         String    @default("PENDING") // PENDING | ACTIVE | INACTIVE | BLOCKED
+  approval_status                String    @default("PENDING") // PENDING | APPROVED | REJECTED | BLOCKED
+  approval_remarks               String?
+  pending_changes                Json?
+  pending_change_status          String?
   pending_change_requested_by_id String?
-  pending_change_requested_at DateTime?
-  created_by_id    String?
-  approved_by_id   String?
-  approved_at      DateTime?
-  activated_at     DateTime?
-  rejected_at      DateTime?
-  blocked_at       DateTime?
-  is_active        Boolean   @default(false)
-  deleted_at       DateTime?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  pending_change_requested_at    DateTime?
+  created_by_id                  String?
+  approved_by_id                 String?
+  approved_at                    DateTime?
+  activated_at                   DateTime?
+  rejected_at                    DateTime?
+  blocked_at                     DateTime?
+  is_active                      Boolean   @default(false)
+  deleted_at                     DateTime?
+  created_at                     DateTime  @default(now())
+  updated_at                     DateTime  @updatedAt
 
-  created_by      User?              @relation("VendorCreatedBy", fields: [created_by_id], references: [id])
-  approved_by     User?              @relation("VendorApprovedBy", fields: [approved_by_id], references: [id])
-  purchase_orders PurchaseOrder[]
-  invoices        Invoice[]
+  created_by          User?               @relation("VendorCreatedBy", fields: [created_by_id], references: [id])
+  approved_by         User?               @relation("VendorApprovedBy", fields: [approved_by_id], references: [id])
+  purchase_orders     PurchaseOrder[]
+  invoices            Invoice[]
   invoice_attachments InvoiceAttachment[]
-  payments        Payment[]
-  payment_approvals PaymentApproval[]
-  grns            GoodsReceiptNote[]
-  delivery_challans DeliveryChallan[]
-  documents       VendorDocument[]
+  payments            Payment[]
+  payment_approvals   PaymentApproval[]
+  grns                GoodsReceiptNote[]
+  delivery_challans   DeliveryChallan[]
+  ocr_invoice_drafts  OCRInvoiceDraft[]
+  ocr_documents       OCRDocument[]
+  documents           VendorDocument[]
 
   @@index([status])
   @@index([approval_status])
@@ -218,51 +248,53 @@ model VendorDocument {
 // PURCHASE ORDER
 // ─────────────────────────────────────────────────────────────────────────────
 model PurchaseOrder {
-  id                     String    @id @default(uuid())
-  po_number              String    @unique
-  vendor_id              String
-  created_by_id          String?
-  updated_by_id          String?
-  amount                 Decimal   @db.Decimal(14, 2)
-  currency               String    @default("INR")
-  status                 String    @default("created") // created | closed | cancelled
-  description            String?
-  delivery_terms         String?
-  payment_terms          String?
-  billing_address        String?
-  delivery_address       String?
-  order_date             DateTime  @default(now())
-  expected_delivery_date DateTime?
-  po_type                String    @default("STANDARD")
+  id                          String    @id @default(uuid())
+  po_number                   String    @unique
+  vendor_id                   String
+  created_by_id               String?
+  updated_by_id               String?
+  amount                      Decimal   @db.Decimal(14, 2)
+  currency                    String    @default("INR")
+  status                      String    @default("created") // created | closed | cancelled
+  description                 String?
+  delivery_terms              String?
+  payment_terms               String?
+  billing_address             String?
+  delivery_address            String?
+  order_date                  DateTime  @default(now())
+  expected_delivery_date      DateTime?
+  po_type                     String    @default("STANDARD")
   purchase_requisition_number String?
-  department             String?
-  cost_center            String?
-  requester              String?
-  buyer                  String?
-  quotation_date         DateTime?
-  closed_at              DateTime?
-  cancelled_at           DateTime?
-  deleted_at             DateTime?
-  deleted_by_id          String?
-  delete_reason          String?
-  created_at             DateTime  @default(now())
-  updated_at             DateTime  @updatedAt
+  department                  String?
+  cost_center                 String?
+  requester                   String?
+  buyer                       String?
+  quotation_date              DateTime?
+  closed_at                   DateTime?
+  cancelled_at                DateTime?
+  deleted_at                  DateTime?
+  deleted_by_id               String?
+  delete_reason               String?
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime  @updatedAt
 
   // Line items (stored as JSON for flexibility)
-  line_items Json?
+  line_items  Json?
   tax_summary Json?
 
-  vendor            Vendor             @relation(fields: [vendor_id], references: [id])
-  created_by        User?              @relation("PurchaseOrderCreatedBy", fields: [created_by_id], references: [id])
-  invoices          Invoice[]
-  invoice_attachments InvoiceAttachment[]
-  payments          Payment[]
-  payment_approvals PaymentApproval[]
-  grns              GoodsReceiptNote[]
-  goods_receipt_items GoodsReceiptItem[]
-  delivery_challans DeliveryChallan[]
+  vendor                 Vendor                @relation(fields: [vendor_id], references: [id])
+  created_by             User?                 @relation("PurchaseOrderCreatedBy", fields: [created_by_id], references: [id])
+  invoices               Invoice[]
+  invoice_attachments    InvoiceAttachment[]
+  payments               Payment[]
+  payment_approvals      PaymentApproval[]
+  grns                   GoodsReceiptNote[]
+  goods_receipt_items    GoodsReceiptItem[]
+  delivery_challans      DeliveryChallan[]
   delivery_challan_items DeliveryChallanItem[]
-  three_way_matches ThreeWayMatch[]
+  three_way_matches      ThreeWayMatch[]
+  ocr_invoice_drafts     OCRInvoiceDraft[]
+  ocr_documents          OCRDocument[]
 
   @@index([vendor_id])
   @@index([status])
@@ -311,18 +343,19 @@ model GoodsReceiptNote {
   line_items Json?
   items      GoodsReceiptItem[]
 
-  remarks    String?
-  deleted_at DateTime?
+  remarks       String?
+  deleted_at    DateTime?
   deleted_by_id String?
   delete_reason String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
 
-  vendor            Vendor          @relation(fields: [vendor_id], references: [id])
-  purchase_order    PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
-  delivery_challan  DeliveryChallan? @relation(fields: [delivery_challan_id], references: [id])
-  created_by        User?           @relation("GRNCreatedBy", fields: [created_by_id], references: [id])
-  three_way_matches ThreeWayMatch[]
+  vendor             Vendor            @relation(fields: [vendor_id], references: [id])
+  purchase_order     PurchaseOrder     @relation(fields: [purchase_order_id], references: [id])
+  delivery_challan   DeliveryChallan?  @relation(fields: [delivery_challan_id], references: [id])
+  created_by         User?             @relation("GRNCreatedBy", fields: [created_by_id], references: [id])
+  three_way_matches  ThreeWayMatch[]
+  ocr_invoice_drafts OCRInvoiceDraft[]
 
   @@index([vendor_id])
   @@index([purchase_order_id])
@@ -331,21 +364,21 @@ model GoodsReceiptNote {
 }
 
 model GoodsReceiptItem {
-  id                   String   @id @default(uuid())
+  id                    String   @id @default(uuid())
   goods_receipt_note_id String
-  purchase_order_id    String
-  item_name            String
-  description          String?
-  ordered_quantity     Decimal  @default(0) @db.Decimal(14, 3)
-  received_quantity    Decimal  @default(0) @db.Decimal(14, 3)
-  accepted_quantity    Decimal  @default(0) @db.Decimal(14, 3)
-  rejected_quantity    Decimal  @default(0) @db.Decimal(14, 3)
-  unit_price           Decimal  @default(0) @db.Decimal(14, 2)
-  gst_amount           Decimal  @default(0) @db.Decimal(14, 2)
-  line_total           Decimal  @default(0) @db.Decimal(14, 2)
-  remarks              String?
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
+  purchase_order_id     String
+  item_name             String
+  description           String?
+  ordered_quantity      Decimal  @default(0) @db.Decimal(14, 3)
+  received_quantity     Decimal  @default(0) @db.Decimal(14, 3)
+  accepted_quantity     Decimal  @default(0) @db.Decimal(14, 3)
+  rejected_quantity     Decimal  @default(0) @db.Decimal(14, 3)
+  unit_price            Decimal  @default(0) @db.Decimal(14, 2)
+  gst_amount            Decimal  @default(0) @db.Decimal(14, 2)
+  line_total            Decimal  @default(0) @db.Decimal(14, 2)
+  remarks               String?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
 
   goods_receipt_note GoodsReceiptNote @relation(fields: [goods_receipt_note_id], references: [id], onDelete: Cascade)
   purchase_order     PurchaseOrder    @relation(fields: [purchase_order_id], references: [id])
@@ -356,44 +389,45 @@ model GoodsReceiptItem {
 }
 
 model DeliveryChallan {
-  id                        String    @id @default(uuid())
-  delivery_challan_number   String    @unique
-  vendor_id                 String
-  purchase_order_id         String
-  created_by_id             String?
-  status                    String    @default("created")
+  id                      String  @id @default(uuid())
+  delivery_challan_number String  @unique
+  vendor_id               String
+  purchase_order_id       String
+  created_by_id           String?
+  status                  String  @default("created")
 
-  vendor_name     String?
-  vendor_code     String?
-  gst_number      String?
-  delivery_date   DateTime?
+  vendor_name      String?
+  vendor_code      String?
+  gst_number       String?
+  delivery_date    DateTime?
   delivery_address String?
-  transporter     String?
-  vehicle_number  String?
-  driver_name     String?
-  driver_contact  String?
-  delivery_status String @default("CREATED")
-  document_url    String?
-  document_name   String?
-  vehicle_details String?
-  currency        String    @default("INR")
-  subtotal        Decimal   @default(0) @db.Decimal(14, 2)
-  gst_amount      Decimal   @default(0) @db.Decimal(14, 2)
-  total_amount    Decimal   @default(0) @db.Decimal(14, 2)
-  line_items      Json?
-  items           DeliveryChallanItem[]
-  remarks         String?
-  deleted_at      DateTime?
-  deleted_by_id   String?
-  delete_reason   String?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+  transporter      String?
+  vehicle_number   String?
+  driver_name      String?
+  driver_contact   String?
+  delivery_status  String                @default("CREATED")
+  document_url     String?
+  document_name    String?
+  vehicle_details  String?
+  currency         String                @default("INR")
+  subtotal         Decimal               @default(0) @db.Decimal(14, 2)
+  gst_amount       Decimal               @default(0) @db.Decimal(14, 2)
+  total_amount     Decimal               @default(0) @db.Decimal(14, 2)
+  line_items       Json?
+  items            DeliveryChallanItem[]
+  remarks          String?
+  deleted_at       DateTime?
+  deleted_by_id    String?
+  delete_reason    String?
+  created_at       DateTime              @default(now())
+  updated_at       DateTime              @updatedAt
 
-  vendor            Vendor          @relation(fields: [vendor_id], references: [id])
-  purchase_order    PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
-  created_by        User?           @relation("DeliveryChallanCreatedBy", fields: [created_by_id], references: [id])
+  vendor              Vendor             @relation(fields: [vendor_id], references: [id])
+  purchase_order      PurchaseOrder      @relation(fields: [purchase_order_id], references: [id])
+  created_by          User?              @relation("DeliveryChallanCreatedBy", fields: [created_by_id], references: [id])
   goods_receipt_notes GoodsReceiptNote[]
-  three_way_matches ThreeWayMatch[]
+  three_way_matches   ThreeWayMatch[]
+  ocr_invoice_drafts  OCRInvoiceDraft[]
 
   @@index([vendor_id])
   @@index([purchase_order_id])
@@ -402,19 +436,19 @@ model DeliveryChallan {
 }
 
 model DeliveryChallanItem {
-  id                   String   @id @default(uuid())
-  delivery_challan_id   String
-  purchase_order_id     String
-  item_name             String
-  description           String?
-  ordered_quantity      Decimal  @default(0) @db.Decimal(14, 3)
-  delivered_quantity    Decimal  @default(0) @db.Decimal(14, 3)
-  unit_price            Decimal  @default(0) @db.Decimal(14, 2)
-  gst_amount            Decimal  @default(0) @db.Decimal(14, 2)
-  line_total            Decimal  @default(0) @db.Decimal(14, 2)
-  remarks               String?
-  created_at            DateTime @default(now())
-  updated_at            DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  delivery_challan_id String
+  purchase_order_id   String
+  item_name           String
+  description         String?
+  ordered_quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  delivered_quantity  Decimal  @default(0) @db.Decimal(14, 3)
+  unit_price          Decimal  @default(0) @db.Decimal(14, 2)
+  gst_amount          Decimal  @default(0) @db.Decimal(14, 2)
+  line_total          Decimal  @default(0) @db.Decimal(14, 2)
+  remarks             String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
   delivery_challan DeliveryChallan @relation(fields: [delivery_challan_id], references: [id], onDelete: Cascade)
   purchase_order   PurchaseOrder   @relation(fields: [purchase_order_id], references: [id])
@@ -437,19 +471,19 @@ model Invoice {
   updated_by_id     String?
 
   // Amounts
-  amount           Decimal @db.Decimal(14, 2)
-  currency         String  @default("INR")
-  invoice_total    Decimal @default(0.00) @db.Decimal(14, 2)
-  paid_amount      Decimal @default(0.00) @db.Decimal(14, 2)
-  remaining_amount Decimal @default(0.00) @db.Decimal(14, 2)
-  line_items       Json?
-  tax_summary      Json?
-  invoice_creation_method String @default("MANUAL")
-  invoice_category String?
-  invoice_source   String?
-  ocr_status       String? @default("NOT_STARTED")
-  ocr_confidence   Decimal? @db.Decimal(5, 2)
-  ocr_extracted_data Json?
+  amount                  Decimal  @db.Decimal(14, 2)
+  currency                String   @default("INR")
+  invoice_total           Decimal  @default(0.00) @db.Decimal(14, 2)
+  paid_amount             Decimal  @default(0.00) @db.Decimal(14, 2)
+  remaining_amount        Decimal  @default(0.00) @db.Decimal(14, 2)
+  line_items              Json?
+  tax_summary             Json?
+  invoice_creation_method String   @default("MANUAL")
+  invoice_category        String?
+  invoice_source          String?
+  ocr_status              String?  @default("NOT_STARTED")
+  ocr_confidence          Decimal? @db.Decimal(5, 2)
+  ocr_extracted_data      Json?
 
   // Approval workflow
   status                 String  @default("PENDING_TEAM_LEAD")
@@ -525,11 +559,13 @@ model Invoice {
   deleted_by            User? @relation("InvoiceDeletedBy", fields: [deleted_by_id], references: [id])
   admin_reviewed_by     User? @relation("InvoiceAdminReviewedBy", fields: [admin_reviewed_by_id], references: [id])
 
-  payments          Payment[]
-  payments_old      PaymentOld[]
-  payment_approvals PaymentApproval[]
-  three_way_matches ThreeWayMatch[]
-  attachments       InvoiceAttachment[]
+  payments           Payment[]
+  payments_old       PaymentOld[]
+  payment_approvals  PaymentApproval[]
+  three_way_matches  ThreeWayMatch[]
+  attachments        InvoiceAttachment[]
+  ocr_invoice_drafts OCRInvoiceDraft[]
+  ocr_documents      OCRDocument[]
 
   @@index([status])
   @@index([vendor_id])
@@ -544,27 +580,27 @@ model Invoice {
 // Comparison record between PO, GRN, and Invoice
 // ─────────────────────────────────────────────────────────────────────────────
 model InvoiceAttachment {
-  id                 String   @id @default(uuid())
-  invoice_id         String
-  purchase_order_id  String
-  vendor_id          String
-  invoice_creation_method String @default("MANUAL")
-  invoice_category   String?
-  invoice_source     String?
-  attachment_type    String   @default("INVOICE")
-  original_file_name String
-  stored_file_name   String
-  file_url           String
-  file_type          String
-  file_size          Int
-  ocr_status         String   @default("NOT_STARTED")
-  ocr_confidence     Decimal? @db.Decimal(5, 2)
-  ocr_extracted_data Json?
-  uploaded_by_id     String?
-  uploaded_at        DateTime @default(now())
-  deleted_at         DateTime?
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+  id                      String    @id @default(uuid())
+  invoice_id              String
+  purchase_order_id       String
+  vendor_id               String
+  invoice_creation_method String    @default("MANUAL")
+  invoice_category        String?
+  invoice_source          String?
+  attachment_type         String    @default("INVOICE")
+  original_file_name      String
+  stored_file_name        String
+  file_url                String
+  file_type               String
+  file_size               Int
+  ocr_status              String    @default("NOT_STARTED")
+  ocr_confidence          Decimal?  @db.Decimal(5, 2)
+  ocr_extracted_data      Json?
+  uploaded_by_id          String?
+  uploaded_at             DateTime  @default(now())
+  deleted_at              DateTime?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
 
   invoice        Invoice       @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   purchase_order PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
@@ -578,30 +614,229 @@ model InvoiceAttachment {
   @@map("invoice_attachments")
 }
 
+model OCRDocument {
+  id                      String              @id @default(uuid())
+  original_file_name      String
+  stored_file_name        String?
+  file_reference          String?
+  file_type               String?
+  mime_type               String?
+  file_size               Int?
+  document_type           OCRDocumentType     @default(INVOICE)
+  processing_status       OCRProcessingStatus @default(UPLOADED)
+  ocr_status              OCRStatus           @default(NOT_STARTED)
+  ocr_confidence          Decimal?            @db.Decimal(5, 2)
+  processing_started_at   DateTime?
+  processing_completed_at DateTime?
+  error_message           String?
+  uploaded_by_id          String?
+  uploaded_at             DateTime            @default(now())
+  invoice_id              String?
+  purchase_order_id       String?
+  vendor_id               String?
+  created_at              DateTime            @default(now())
+  updated_at              DateTime            @updatedAt
+  deleted_at              DateTime?
+
+  uploaded_by    User?             @relation("OCRDocumentUploadedBy", fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  invoice        Invoice?          @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+  purchase_order PurchaseOrder?    @relation(fields: [purchase_order_id], references: [id], onDelete: SetNull)
+  vendor         Vendor?           @relation(fields: [vendor_id], references: [id], onDelete: SetNull)
+  extractions    OCRExtraction[]
+  invoice_drafts OCRInvoiceDraft[]
+
+  @@index([uploaded_by_id])
+  @@index([invoice_id])
+  @@index([purchase_order_id])
+  @@index([vendor_id])
+  @@index([document_type])
+  @@index([processing_status])
+  @@index([ocr_status])
+  @@index([uploaded_at])
+  @@map("ocr_documents")
+}
+
+model OCRExtraction {
+  id                      String              @id @default(uuid())
+  ocr_document_id         String
+  extraction_version      Int                 @default(1)
+  extraction_engine       String?
+  engine_version          String?
+  language                String?
+  page_count              Int?
+  processing_status       OCRProcessingStatus @default(PROCESSING)
+  ocr_status              OCRStatus           @default(PROCESSING)
+  ocr_confidence          Decimal?            @db.Decimal(5, 2)
+  started_at              DateTime?
+  completed_at            DateTime?
+  error_message           String?
+  invoice_number          String?
+  invoice_date            DateTime?
+  due_date                DateTime?
+  invoice_type            String?
+  currency                String?
+  payment_terms           String?
+  po_number               String?
+  grn_number              String?
+  delivery_challan_number String?
+  vendor_name             String?
+  vendor_code             String?
+  gst_number              String?
+  pan_number              String?
+  contact_person          String?
+  email                   String?
+  phone                   String?
+  vendor_address          String?
+  subtotal                Decimal?            @db.Decimal(14, 2)
+  discount                Decimal?            @db.Decimal(14, 2)
+  taxable_amount          Decimal?            @db.Decimal(14, 2)
+  cgst                    Decimal?            @db.Decimal(14, 2)
+  sgst                    Decimal?            @db.Decimal(14, 2)
+  igst                    Decimal?            @db.Decimal(14, 2)
+  total_tax               Decimal?            @db.Decimal(14, 2)
+  other_charges           Decimal?            @db.Decimal(14, 2)
+  round_off               Decimal?            @db.Decimal(14, 2)
+  grand_total             Decimal?            @db.Decimal(14, 2)
+  raw_text                String?
+  raw_text_summary        String?
+  raw_ocr_response        Json?
+  structured_data         Json?
+  invoice_draft           Json?
+  extraction_summary      Json?
+  matching_readiness      Json?
+  vendor_match_conflict   Json?
+  duplicate_invoice       Json?
+  created_by_id           String?
+  created_at              DateTime            @default(now())
+  updated_at              DateTime            @updatedAt
+  deleted_at              DateTime?
+
+  ocr_document OCRDocument         @relation(fields: [ocr_document_id], references: [id], onDelete: Cascade)
+  created_by   User?               @relation("OCRExtractionCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  items        OCRExtractionItem[]
+
+  @@unique([ocr_document_id, extraction_version])
+  @@index([ocr_document_id])
+  @@index([created_by_id])
+  @@index([processing_status])
+  @@index([ocr_status])
+  @@index([created_at])
+  @@map("ocr_extractions")
+}
+
+model OCRExtractionItem {
+  id                String   @id @default(uuid())
+  ocr_extraction_id String
+  line_number       Int
+  item_name         String?
+  item_code         String?
+  description       String?
+  hsn_code          String?
+  quantity          Decimal? @db.Decimal(14, 3)
+  uom               String?
+  unit_price        Decimal? @db.Decimal(14, 2)
+  discount          Decimal? @db.Decimal(14, 2)
+  taxable_amount    Decimal? @db.Decimal(14, 2)
+  tax_rate          Decimal? @db.Decimal(5, 2)
+  cgst              Decimal? @db.Decimal(14, 2)
+  sgst              Decimal? @db.Decimal(14, 2)
+  igst              Decimal? @db.Decimal(14, 2)
+  line_total        Decimal? @db.Decimal(14, 2)
+  confidence        Decimal? @db.Decimal(5, 2)
+  source_text       String?
+  bounding_box      Json?
+  raw_item          Json?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  ocr_extraction OCRExtraction @relation(fields: [ocr_extraction_id], references: [id], onDelete: Cascade)
+
+  @@index([ocr_extraction_id])
+  @@index([line_number])
+  @@map("ocr_extraction_items")
+}
+
+model OCRInvoiceDraft {
+  id                           String    @id @default(uuid())
+  ocr_document_id              String?
+  source_file_name             String
+  file_url                     String?
+  mime_type                    String?
+  file_size                    Int?
+  ocr_status                   String    @default("PROCESSING")
+  ocr_confidence               Decimal?  @db.Decimal(5, 2)
+  page_count                   Int?
+  draft_status                 String    @default("READY_FOR_REVIEW")
+  raw_text                     String?
+  raw_text_summary             String?
+  structured_data              Json?
+  invoice_draft                Json?
+  extraction_summary           Json?
+  matching_readiness           Json?
+  vendor_match_conflict        Json?
+  duplicate_invoice            Json?
+  invoice_id                   String?
+  matched_vendor_id            String?
+  matched_purchase_order_id    String?
+  selected_grn_id              String?
+  selected_delivery_challan_id String?
+  created_by_id                String?
+  created_at                   DateTime  @default(now())
+  updated_at                   DateTime  @updatedAt
+  deleted_at                   DateTime?
+
+  created_by                User?             @relation("OCRInvoiceDraftCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  ocr_document              OCRDocument?      @relation(fields: [ocr_document_id], references: [id], onDelete: SetNull)
+  invoice                   Invoice?          @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+  matched_vendor            Vendor?           @relation(fields: [matched_vendor_id], references: [id], onDelete: SetNull)
+  matched_purchase_order    PurchaseOrder?    @relation(fields: [matched_purchase_order_id], references: [id], onDelete: SetNull)
+  selected_grn              GoodsReceiptNote? @relation(fields: [selected_grn_id], references: [id], onDelete: SetNull)
+  selected_delivery_challan DeliveryChallan?  @relation(fields: [selected_delivery_challan_id], references: [id], onDelete: SetNull)
+
+  @@index([created_by_id])
+  @@index([ocr_document_id])
+  @@index([invoice_id])
+  @@index([matched_vendor_id])
+  @@index([matched_purchase_order_id])
+  @@index([selected_grn_id])
+  @@index([selected_delivery_challan_id])
+  @@index([draft_status])
+  @@index([ocr_status])
+  @@map("ocr_invoice_drafts")
+}
+
 model ThreeWayMatch {
-  id                String  @id @default(uuid())
-  invoice_id        String
-  purchase_order_id String
-  grn_id            String?
+  id                  String  @id @default(uuid())
+  invoice_id          String
+  purchase_order_id   String
+  grn_id              String?
   delivery_challan_id String?
 
   // Match result
-  status               String  @default("PENDING") // PENDING | MATCHED | UNMATCHED
-  match_percentage     Decimal @default(0) @db.Decimal(5, 2)
-  matched_fields_count Int     @default(0)
-  total_fields_count   Int     @default(0)
+  status               String   @default("PENDING") // PENDING | MATCHED | UNMATCHED
+  match_percentage     Decimal  @default(0) @db.Decimal(5, 2)
+  matched_fields_count Int      @default(0)
+  total_fields_count   Int      @default(0)
   unmatched_fields     Json? // Array of { field, poValue, grnValue, invoiceValue }
   matched_fields       Json? // Array of matched field names
   warnings             Json? // Partial matches / warnings
+  vendor_match         Boolean?
+  po_match             Boolean?
+  item_match           Boolean?
+  quantity_match       Boolean?
+  price_match          Boolean?
+  tax_match            Boolean?
+  total_match          Boolean?
+  mismatch_details     Json?
 
   // Approval recommendation
   approval_recommendation String? // APPROVE | REJECT | REVIEW
 
   // Snapshot data (stored at time of matching)
-  po_snapshot      Json? // PO data at matching time
-  grn_snapshot     Json? // GRN data at matching time
+  po_snapshot               Json? // PO data at matching time
+  grn_snapshot              Json? // GRN data at matching time
   delivery_challan_snapshot Json?
-  invoice_snapshot Json? // Invoice data at matching time
+  invoice_snapshot          Json? // Invoice data at matching time
 
   // Completion tracking
   completed_by_id String?
@@ -627,6 +862,8 @@ model ThreeWayMatch {
   payments          Payment[]
 
   @@index([invoice_id])
+  @@index([purchase_order_id])
+  @@index([grn_id])
   @@index([delivery_challan_id])
   @@index([status])
   @@map("three_way_matches")
@@ -641,11 +878,11 @@ model Payment {
   invoice_id               String
   vendor_id                String
   purchase_order_id        String
-  three_way_match_id       String?   // Link to matched 3-way match record
+  three_way_match_id       String? // Link to matched 3-way match record
   amount                   Decimal   @db.Decimal(14, 2)
   currency                 String    @default("INR")
   status                   String    @default("PENDING_APPROVAL") // PENDING_APPROVAL | PENDING | INITIATED | PROCESSING | SUCCESS | FAILED | CANCELLED | RETURNED | REFUNDED
-  approval_status          String    @default("PENDING")          // PENDING | APPROVED | REJECTED
+  approval_status          String    @default("PENDING") // PENDING | APPROVED | REJECTED
   payment_method           String?
   payment_type             String    @default("FULL")
   payment_provider         String    @default("MANUAL")
@@ -667,15 +904,15 @@ model Payment {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  invoice           Invoice        @relation(fields: [invoice_id], references: [id])
-  vendor            Vendor         @relation(fields: [vendor_id], references: [id])
-  purchase_order    PurchaseOrder  @relation(fields: [purchase_order_id], references: [id])
-  three_way_match   ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
+  invoice         Invoice        @relation(fields: [invoice_id], references: [id])
+  vendor          Vendor         @relation(fields: [vendor_id], references: [id])
+  purchase_order  PurchaseOrder  @relation(fields: [purchase_order_id], references: [id])
+  three_way_match ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
 
-  processed_by      User? @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
-  approved_by       User? @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
-  created_by        User? @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
-  updated_by        User? @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
+  processed_by User? @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
+  approved_by  User? @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
+  created_by   User? @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
+  updated_by   User? @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
 
   payment_approvals PaymentApproval[]
 
@@ -768,18 +1005,18 @@ model ApprovalLog {
 // NOTIFICATION
 // ─────────────────────────────────────────────────────────────────────────────
 model Notification {
-  id          String    @id @default(uuid())
-  user_id     String
-  title       String
-  message     String
-  type        String
-  role        String?
+  id           String    @id @default(uuid())
+  user_id      String
+  title        String
+  message      String
+  type         String
+  role         String?
   reference_id String?
-  entity_type String?
-  entity_id   String?
-  is_read     Boolean   @default(false)
-  read_at     DateTime?
-  created_at  DateTime  @default(now())
+  entity_type  String?
+  entity_id    String?
+  is_read      Boolean   @default(false)
+  read_at      DateTime?
+  created_at   DateTime  @default(now())
 
   user User @relation("NotificationRecipient", fields: [user_id], references: [id])
 
@@ -798,48 +1035,48 @@ model Notification {
 // This is what the approver sees in the Payment Approval module.
 // ─────────────────────────────────────────────────────────────────────────────
 model PaymentApproval {
-  id                  String    @id @default(uuid())
-  payment_id          String?
-  invoice_id          String
-  purchase_order_id   String
-  vendor_id           String
-  three_way_match_id  String?
+  id                 String  @id @default(uuid())
+  payment_id         String?
+  invoice_id         String
+  purchase_order_id  String
+  vendor_id          String
+  three_way_match_id String?
 
-  amount              Decimal   @db.Decimal(14, 2)
-  currency            String    @default("INR")
-  approval_level      Int       @default(1)
-  required_role       String    // TEAM_LEAD | MANAGER | FINANCE_HEAD
+  amount         Decimal @db.Decimal(14, 2)
+  currency       String  @default("INR")
+  approval_level Int     @default(1)
+  required_role  String // TEAM_LEAD | MANAGER | FINANCE_HEAD
 
-  approver_id         String    // Exact assigned user ID — must always be set
-  status              String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  approver_id String // Exact assigned user ID — must always be set
+  status      String @default("PENDING") // PENDING | APPROVED | REJECTED
 
-  remarks             String?
-  rejection_reason    String?
+  remarks          String?
+  rejection_reason String?
 
-  requested_by_id     String?
-  requested_at        DateTime  @default(now())
+  requested_by_id String?
+  requested_at    DateTime @default(now())
 
-  approved_by_id      String?
-  approved_at         DateTime?
-  rejected_by_id      String?
-  rejected_at         DateTime?
+  approved_by_id String?
+  approved_at    DateTime?
+  rejected_by_id String?
+  rejected_at    DateTime?
 
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   // Relations
-  payment         Payment?      @relation(fields: [payment_id], references: [id])
-  invoice         Invoice       @relation(fields: [invoice_id], references: [id])
-  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
-  vendor          Vendor        @relation(fields: [vendor_id], references: [id])
+  payment         Payment?       @relation(fields: [payment_id], references: [id])
+  invoice         Invoice        @relation(fields: [invoice_id], references: [id])
+  purchase_order  PurchaseOrder  @relation(fields: [purchase_order_id], references: [id])
+  vendor          Vendor         @relation(fields: [vendor_id], references: [id])
   three_way_match ThreeWayMatch? @relation(fields: [three_way_match_id], references: [id])
 
-  approver        User          @relation("PaymentApprovalAssignedTo", fields: [approver_id], references: [id])
-  requested_by    User?         @relation("PaymentApprovalRequestedBy", fields: [requested_by_id], references: [id])
-  approved_by     User?         @relation("PaymentApprovalApprovedBy", fields: [approved_by_id], references: [id])
-  rejected_by     User?         @relation("PaymentApprovalRejectedBy", fields: [rejected_by_id], references: [id])
+  approver     User  @relation("PaymentApprovalAssignedTo", fields: [approver_id], references: [id])
+  requested_by User? @relation("PaymentApprovalRequestedBy", fields: [requested_by_id], references: [id])
+  approved_by  User? @relation("PaymentApprovalApprovedBy", fields: [approved_by_id], references: [id])
+  rejected_by  User? @relation("PaymentApprovalRejectedBy", fields: [rejected_by_id], references: [id])
 
-  history         PaymentApprovalHistory[]
+  history PaymentApprovalHistory[]
 
   @@index([payment_id])
   @@index([approver_id, status])
@@ -854,18 +1091,18 @@ model PaymentApproval {
 // Immutable audit trail for every action on a PaymentApproval record.
 // ─────────────────────────────────────────────────────────────────────────────
 model PaymentApprovalHistory {
-  id                    String   @id @default(uuid())
-  payment_approval_id   String
-  payment_id            String?
-  invoice_id            String?
+  id                  String  @id @default(uuid())
+  payment_approval_id String
+  payment_id          String?
+  invoice_id          String?
 
-  action                String   // REQUESTED | ASSIGNED | NOTIFICATION_SENT | APPROVED | REJECTED
-  previous_status       String?
-  new_status            String?
-  performed_by_id       String?
-  remarks               String?
+  action          String // REQUESTED | ASSIGNED | NOTIFICATION_SENT | APPROVED | REJECTED
+  previous_status String?
+  new_status      String?
+  performed_by_id String?
+  remarks         String?
 
-  created_at            DateTime @default(now())
+  created_at DateTime @default(now())
 
   payment_approval PaymentApproval @relation(fields: [payment_approval_id], references: [id], onDelete: Cascade)
   performed_by     User?           @relation("PaymentApprovalHistoryPerformedBy", fields: [performed_by_id], references: [id])

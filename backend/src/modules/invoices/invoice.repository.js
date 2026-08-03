@@ -4,22 +4,37 @@ const invoiceInclude = {
   vendor: true,
   purchase_order: {
     include: {
+      vendor: true,
       grns: {
         where: { deleted_at: null },
+        include: {
+          items: true,
+          vendor: true,
+          purchase_order: true,
+        },
         orderBy: { created_at: 'desc' },
         take: 1,
       },
       delivery_challans: {
         where: { deleted_at: null },
+        include: {
+          items: true,
+          vendor: true,
+          purchase_order: true,
+        },
         orderBy: { created_at: 'desc' },
         take: 1,
       },
     },
   },
   three_way_matches: {
-    where: { status: 'MATCHED' },
     orderBy: { created_at: 'desc' },
     take: 1,
+    include: {
+      grn: true,
+      delivery_challan: true,
+      purchase_order: true,
+    },
   },
   payment_approvals: {
     where: { status: 'APPROVED' },
