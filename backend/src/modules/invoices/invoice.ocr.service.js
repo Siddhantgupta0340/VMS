@@ -19,9 +19,11 @@ const DATE_VALUE = String.raw`([0-3]?\d[./-][01]?\d[./-](?:\d{4}|\d{2})|\d{4}[./
 const MONEY_VALUE = String.raw`(?:₹|Rs\.?|INR|USD|\$)?\s*([-+]?\d[\d,]*(?:\.\d{1,2})?)`;
 const GSTIN_PATTERN = /\b\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]\b/gi;
 const PAN_PATTERN = /\b[A-Z]{5}\d{4}[A-Z]\b/g;
-const OCR_TARGET_WIDTH = 3200;
-const OCR_MAX_WIDTH = 4200;
-const PDF_RENDER_SCALE = 5;
+const OCR_TARGET_WIDTH = Number(process.env.OCR_TARGET_WIDTH || 2400);
+const OCR_MAX_WIDTH = Number(process.env.OCR_MAX_WIDTH || 3200);
+const PDF_RENDER_SCALE = Number(process.env.OCR_PDF_RENDER_SCALE || 2.5);
+const OCR_MAX_PAGES = Math.max(1, Number(process.env.OCR_MAX_PAGES || 3));
+const OCR_MAX_FALLBACK_PASSES = Math.max(0, Number(process.env.OCR_MAX_FALLBACK_PASSES || 3));
 const OCR_MIN_ACCEPTABLE_SCORE = 92;
 const OCR_PRIMARY_IMAGE_CANDIDATES = Object.freeze([
   { label: 'enhanced', options: { threshold: false } },
@@ -60,6 +62,15 @@ const debugOcrStage = (label, details = {}) => {
     ? '[OCR NORMALIZATION]'
     : '[OCR EXTRACTION]';
   console.log(prefix, label, details);
+};
+
+const nowMs = () => Date.now();
+const elapsedMs = (startedAt) => Date.now() - startedAt;
+const perfTime = (label) => {
+  try { console.time(label); } catch {}
+};
+const perfTimeEnd = (label) => {
+  try { console.timeEnd(label); } catch {}
 };
 
 if (!globalThis.DOMMatrix) globalThis.DOMMatrix = DOMMatrix;
@@ -149,6 +160,7 @@ const preprocessImage = async (buffer, {
   normalize = true,
   grayscale = true,
 } = {}) => {
+  perfTime('[OCR PERF] Image preprocessing');
   const image = sharp(buffer, { failOn: 'error', limitInputPixels: 160_000_000 }).rotate();
   const metadata = await image.metadata();
   const width = metadata.width || 0;
@@ -173,25 +185,45 @@ const preprocessImage = async (buffer, {
 
   if (threshold) pipeline = pipeline.threshold(175, { grayscale: true });
 
-  return pipeline
-    .png({ compressionLevel: 6, adaptiveFiltering: true })
-    .toBuffer();
+  try {
+    return await pipeline
+      .png({ compressionLevel: 6, adaptiveFiltering: true })
+      .toBuffer();
+  } finally {
+    perfTimeEnd('[OCR PERF] Image preprocessing');
+  }
 };
 
 const buildOcrImageCandidates = async (buffer, candidates = OCR_PRIMARY_IMAGE_CANDIDATES) => {
-  return Promise.all(candidates.map(async (candidate) => ({
-    ...candidate,
-    buffer: await preprocessImage(buffer, candidate.options),
-  })));
+  const prepared = [];
+  for (const candidate of candidates) {
+    prepared.push({
+      ...candidate,
+      buffer: await preprocessImage(buffer, candidate.options),
+    });
+  }
+  return prepared;
 };
 
 const recognizeImage = async (buffer) => {
   const recognizePrepared = async (prepared) => {
     const worker = await getOcrWorker();
+    const startedAt = nowMs();
     console.info('[OCR] OCR Started', {
       imageBytes: Buffer.isBuffer(prepared) ? prepared.length : null,
     });
-    const result = await worker.recognize(prepared);
+    perfTime('[OCR PERF] Tesseract');
+    let result;
+    try {
+      result = await worker.recognize(prepared);
+    } finally {
+      perfTimeEnd('[OCR PERF] Tesseract');
+    }
+    console.info('[OCR TIMING]', {
+      stage: 'tesseract',
+      tesseractMs: elapsedMs(startedAt),
+      imageBytes: Buffer.isBuffer(prepared) ? prepared.length : null,
+    });
     return {
       text: result.data?.text || '',
       confidence: Math.max(0, Math.min(100, Math.round(result.data?.confidence || 0))),
@@ -207,8 +239,15 @@ const recognizeImage = async (buffer) => {
     let best = primaryResults.sort((left, right) => right.score - left.score)[0];
     let allResults = [...primaryResults];
 
-    if (best?.score < OCR_MIN_ACCEPTABLE_SCORE) {
-      const fallbackCandidates = await buildOcrImageCandidates(buffer, OCR_FALLBACK_IMAGE_CANDIDATES);
+    if (
+      best?.score < OCR_MIN_ACCEPTABLE_SCORE
+      && !isMeaningfulInvoiceText(best?.text)
+      && OCR_MAX_FALLBACK_PASSES > 0
+    ) {
+      const fallbackCandidates = await buildOcrImageCandidates(
+        buffer,
+        OCR_FALLBACK_IMAGE_CANDIDATES.slice(0, OCR_MAX_FALLBACK_PASSES),
+      );
       const fallbackResults = [];
       for (const candidate of fallbackCandidates) {
         const recognized = await recognizePrepared(candidate.buffer);
@@ -361,16 +400,31 @@ const textItemsToLines = (items) => {
 };
 
 const renderPdfPage = async (page, scale = PDF_RENDER_SCALE) => {
+  const startedAt = nowMs();
+  perfTime('[OCR PERF] PDF rendering');
   const viewport = page.getViewport({ scale });
   const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
   const context = canvas.getContext('2d');
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: context, viewport }).promise;
+  try {
+    await page.render({ canvasContext: context, viewport }).promise;
+  } finally {
+    perfTimeEnd('[OCR PERF] PDF rendering');
+  }
+  console.info('[OCR TIMING]', {
+    stage: 'pdfRender',
+    pdfRenderMs: elapsedMs(startedAt),
+    width: canvas.width,
+    height: canvas.height,
+    scale,
+  });
   return canvas.toBuffer('image/png');
 };
 
 const extractPdf = async (buffer) => {
+  const startedAt = nowMs();
+  perfTime('[OCR PERF] PDF parsing');
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   debugOcrStage('[OCR] Starting document preprocessing', {
     documentKind: 'PDF',
@@ -383,8 +437,10 @@ const extractPdf = async (buffer) => {
     isEvalSupported: false,
   });
   const document = await loadingTask.promise;
+  const pagesToProcess = Math.min(document.numPages, OCR_MAX_PAGES);
   console.info('[OCR] PDF Loaded', {
     pageCount: document.numPages,
+    pagesToProcess,
     fileSize: buffer.length,
     renderScale: PDF_RENDER_SCALE,
   });
@@ -392,42 +448,26 @@ const extractPdf = async (buffer) => {
   if (ocrDebugEnabled()) console.log('[OCR] Number of pages:', document.numPages);
   debugOcrStage('[OCR] Extracting text from all pages', {
     pageCount: document.numPages,
+    pagesToProcess,
+    pageLimitApplied: document.numPages > pagesToProcess,
   });
   try {
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber += 1) {
+      const pageStartedAt = nowMs();
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent({ includeMarkedContent: false });
       const embeddedText = textItemsToLines(content.items);
       if (isMeaningfulEmbeddedPdfText(embeddedText)) {
         const embeddedScore = scoreOcrText({ text: embeddedText, confidence: 98 });
-        let pageText = embeddedText;
-        let mergedFromOcr = false;
-        let mergedPasses = [];
-        if (embeddedScore < 150) {
-          const image = await renderPdfPage(page);
-          const recognized = await recognizeImage(image);
-          const merged = mergeRecognizedTexts([
-            { text: embeddedText, confidence: 98, preprocessing: 'pdf-text-layer', score: embeddedScore },
-            {
-              text: recognized.text,
-              confidence: recognized.confidence,
-              preprocessing: recognized.preprocessing || 'pdf-render-ocr',
-              score: scoreOcrText(recognized),
-            },
-          ]);
-          pageText = merged.text || embeddedText;
-          mergedFromOcr = isMeaningfulInvoiceText(recognized.text);
-          mergedPasses = merged.mergedPasses || [];
-        }
-        pages.push({ pageNumber, source: 'PDF_TEXT', text: pageText, confidence: 98, mergedFromOcr, mergedPasses });
+        pages.push({ pageNumber, source: 'PDF_TEXT', text: embeddedText, confidence: 98, mergedFromOcr: false, mergedPasses: [] });
         debugOcrStage('[OCR EXTRACT] PDF page processed', {
           pageNumber,
           source: 'PDF_TEXT',
           confidence: 98,
-          textLength: pageText.length,
+          textLength: embeddedText.length,
           meaningful: true,
           embeddedScore,
-          mergedFromOcr,
+          pageMs: elapsedMs(pageStartedAt),
         });
       } else {
         const image = await renderPdfPage(page);
@@ -440,6 +480,7 @@ const extractPdf = async (buffer) => {
           textLength: String(recognized.text || '').length,
           meaningful: isMeaningfulInvoiceText(recognized.text),
           reason: 'Embedded PDF text was missing or not meaningful; OCR fallback was used.',
+          pageMs: elapsedMs(pageStartedAt),
         });
       }
       page.cleanup();
@@ -448,16 +489,28 @@ const extractPdf = async (buffer) => {
     if (typeof document.cleanup === 'function') await document.cleanup();
     if (typeof loadingTask.destroy === 'function') await loadingTask.destroy();
   }
-  console.info('[OCR] PDF parsed', {
-    pageCount: pages.length,
-    pages: pages.map((page) => ({
-      pageNumber: page.pageNumber,
-      source: page.source,
-      confidence: page.confidence,
-      textLength: String(page.text || '').length,
-    })),
-  });
-  return pages;
+  try {
+    console.info('[OCR] PDF parsed', {
+      pageCount: pages.length,
+      totalPages: document.numPages,
+      pageLimitApplied: document.numPages > pages.length,
+      pages: pages.map((page) => ({
+        pageNumber: page.pageNumber,
+        source: page.source,
+        confidence: page.confidence,
+        textLength: String(page.text || '').length,
+      })),
+    });
+    console.info('[OCR TIMING]', {
+      stage: 'pdfExtraction',
+      pdfExtractionMs: elapsedMs(startedAt),
+      pagesProcessed: pages.length,
+      totalPages: document.numPages,
+    });
+    return pages;
+  } finally {
+    perfTimeEnd('[OCR PERF] PDF parsing');
+  }
 };
 
 const extractDocumentText = async (file, buffer) => {
@@ -551,6 +604,7 @@ const KEYWORD_ALIASES = {
     'Payable Amount', 'Bill Amount',
   ],
   invoiceDate: ['Invoice Date', 'Inv Date', 'Invoice Dt', 'Inv Dt', 'Bill Date', 'Date of Invoice'],
+  receiptDate: ['Receipt Date', 'Received Date', 'Invoice Receipt Date', 'Invoice Received Date', 'Date Received'],
   dueDate: ['Due Date', 'Payment Due Date', 'Payment Due', 'Due', 'Due On', 'Pay By', 'Due Dt', 'Payment Date'],
   poDate: ['PO Date', 'Purchase Order Date', 'Order Date'],
   status: ['Invoice Status', 'Payment Status', 'Status'],
@@ -585,6 +639,7 @@ export const OCR_FIELD_EXTRACTION_MAP = Object.freeze({
   invoice: {
     invoiceNumber: KEYWORD_ALIASES.invoiceNumber,
     invoiceDate: KEYWORD_ALIASES.invoiceDate,
+    receiptDate: KEYWORD_ALIASES.receiptDate,
     dueDate: KEYWORD_ALIASES.dueDate,
     invoiceCategory: KEYWORD_ALIASES.invoiceCategory,
     currency: KEYWORD_ALIASES.currency,
@@ -1308,6 +1363,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   ], (value) => value.toUpperCase());
 
   const invoiceDate = findKeywordValue(text, KEYWORD_ALIASES.invoiceDate, DATE_VALUE, normalizeDate, 96);
+  const receiptDate = findKeywordValue(text, KEYWORD_ALIASES.receiptDate, DATE_VALUE, normalizeDate, 92);
   const dueDate = findKeywordValue(text, KEYWORD_ALIASES.dueDate, DATE_VALUE, normalizeDate, 96);
   const poDate = findKeywordValue(text, KEYWORD_ALIASES.poDate, DATE_VALUE, normalizeDate, 94);
   if (!poDate.value) {
@@ -1450,6 +1506,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
     header: {
       invoiceNumber: invoiceNumber.confidence,
       invoiceDate: invoiceDate.value ? invoiceDate.confidence : 0,
+      receiptDate: receiptDate.value ? receiptDate.confidence : 0,
       dueDate: dueDate.value ? dueDate.confidence : 0,
       currency: currency.confidence,
       paymentTerms: paymentTerms.confidence,
@@ -1554,7 +1611,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   const coreFieldCoverage = Math.round((coreFieldsExtracted / coreTotalFields) * 100);
 
   const coverageValues = [
-    invoiceNumber.value, invoiceDate.value, dueDate.value, currency.value, paymentTerms.value, invoiceStatus.value, priority.value, category,
+    invoiceNumber.value, invoiceDate.value, receiptDate.value, dueDate.value, currency.value, paymentTerms.value, invoiceStatus.value, priority.value, category,
     vendorParty.name.value, vendorCode.value, vendorCategory.value, vendorType.value, vendorParty.address.value,
     vendorGstin.value, pan.value, contactPerson.value, email.value, phone.value,
     companyParty.name.value, companyParty.address.value, companyGstin.value, companyPan.value,
@@ -1576,6 +1633,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   const expectedEvidence = [
     invoiceNumber,
     invoiceDate,
+    receiptDate,
     dueDate,
     vendorCode,
     vendorParty.name,
@@ -1692,6 +1750,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   const structuredInvoice = {
     invoiceNumber: invoiceNumber.value,
     invoiceDate: invoiceDate.value,
+    receiptDate: receiptDate.value,
     dueDate: dueDate.value,
     invoiceCategory: category,
     currency: currency.value,
@@ -1728,6 +1787,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   if (ocrDebugEnabled()) {
     console.log('[OCR] Invoice Number:', invoiceNumber.value);
     console.log('[OCR] Invoice Date:', invoiceDate.value);
+    console.log('[OCR] Receipt Date:', receiptDate.value);
     console.log('[OCR] Due Date:', dueDate.value);
     console.log('[OCR] PO Number:', poNumber.value);
     console.log('[OCR] GRN Number:', grnNumber.value);
@@ -1743,6 +1803,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
   console.info('[OCR] Regex Matched', {
     invoiceNumber: Boolean(invoiceNumber.value),
     invoiceDate: Boolean(invoiceDate.value),
+    receiptDate: Boolean(receiptDate.value),
     dueDate: Boolean(dueDate.value),
     vendorName: Boolean(vendorParty.name.value),
     vendorCode: Boolean(vendorCode.value),
@@ -1771,6 +1832,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
     extractedFieldPresence: {
       invoiceNumber: Boolean(invoiceNumber.value),
       invoiceDate: Boolean(invoiceDate.value),
+      receiptDate: Boolean(receiptDate.value),
       dueDate: Boolean(dueDate.value),
       vendorName: Boolean(vendorParty.name.value),
       vendorCode: Boolean(vendorCode.value),
@@ -1812,6 +1874,7 @@ const parseInvoice = (text, fileName, documentConfidence, pageResults) => {
       header: {
         invoiceNumber: invoiceNumber.value,
         invoiceDate: invoiceDate.value,
+        receiptDate: receiptDate.value,
         dueDate: dueDate.value,
         invoiceType: documentType,
         currency: currency.value,
@@ -1944,17 +2007,38 @@ const failureResult = (status, reason) => ({
 });
 
 export const processInvoiceOcr = async (file) => {
+  const totalStartedAt = nowMs();
+  perfTime('[OCR PERF] Total OCR processing');
   if (!shouldAttemptOcr(file)) {
     debugOcrStage('[OCR EXTRACT] unsupported file rejected', {
       originalFileName: file?.originalname || file?.name || null,
       mimeType: file?.mimetype || file?.type || null,
     });
+    perfTimeEnd('[OCR PERF] Total OCR processing');
     return failureResult('FAILED', 'Unsupported file format. Please upload a PDF, PNG, JPG, JPEG, or TIFF file.');
   }
 
   try {
-    const buffer = await readFileBuffer(file);
+    const fileReadStartedAt = nowMs();
+    perfTime('[OCR PERF] File processing');
+    let buffer;
+    try {
+      buffer = await readFileBuffer(file);
+    } finally {
+      perfTimeEnd('[OCR PERF] File processing');
+    }
+    console.info('[OCR TIMING]', {
+      stage: 'fileRead',
+      fileReadMs: elapsedMs(fileReadStartedAt),
+      fileSize: buffer.length,
+    });
+    const extractionStartedAt = nowMs();
     const pageResults = await extractDocumentText(file, buffer);
+    console.info('[OCR TIMING]', {
+      stage: 'documentExtraction',
+      documentExtractionMs: elapsedMs(extractionStartedAt),
+      pagesProcessed: pageResults.length,
+    });
     debugOcrStage('[OCR EXTRACT] text extraction completed', {
       originalFileName: file?.originalname || file?.name || null,
       totalPagesProcessed: pageResults.length,
@@ -2007,12 +2091,23 @@ export const processInvoiceOcr = async (file) => {
       meaningfulPages: meaningfulPages.length,
       combinedTextLength: text.length,
     });
-    const parsed = parseInvoice(
-      text,
-      path.basename(file.originalname || file.name || 'uploaded_invoice'),
-      documentConfidence,
-      pageResults,
-    );
+    const parsingStartedAt = nowMs();
+    perfTime('[OCR PERF] Field extraction');
+    let parsed;
+    try {
+      parsed = parseInvoice(
+        text,
+        path.basename(file.originalname || file.name || 'uploaded_invoice'),
+        documentConfidence,
+        pageResults,
+      );
+    } finally {
+      perfTimeEnd('[OCR PERF] Field extraction');
+    }
+    console.info('[OCR TIMING]', {
+      stage: 'parsing',
+      parsingMs: elapsedMs(parsingStartedAt),
+    });
     const parsedData = parsed.extractedData || {};
     const failedFields = [
       ...(parsedData.extractionSummary?.missingCriticalFields || []),
@@ -2055,8 +2150,16 @@ export const processInvoiceOcr = async (file) => {
       lineItemsExtracted: parsed.extractedData?.extractionSummary?.lineItemsExtracted || 0,
       missingCriticalFields: parsed.extractedData?.extractionSummary?.missingCriticalFields || [],
     });
+    console.info('[OCR TIMING]', {
+      stage: 'total',
+      totalMs: elapsedMs(totalStartedAt),
+      status: parsed.status,
+      confidence: parsed.confidence,
+    });
+    perfTimeEnd('[OCR PERF] Total OCR processing');
     return parsed;
   } catch (error) {
+    perfTimeEnd('[OCR PERF] Total OCR processing');
     const message = String(error?.message || '');
     if (/password|encrypted/i.test(message)) {
       return failureResult('FAILED', 'Password-protected PDFs are not supported. Please upload an unlocked document.');

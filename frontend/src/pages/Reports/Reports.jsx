@@ -6,6 +6,7 @@ import { getPayments } from "../../services/paymentService";
 import { getVendors } from "../../services/vendorService";
 import { toast } from "sonner";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import FilterSelect from "../../components/common/FilterSelect";
 import * as XLSX from "xlsx";
 
 const Reports = () => {
@@ -182,16 +183,17 @@ const Reports = () => {
       <div className="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-6 text-xl font-semibold">Generate Reports Sheet</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          <select
+          <FilterSelect
             value={reportType}
-            onChange={(e) => setReportType(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none text-sm"
-          >
-            <option value="Vendor Report">Vendor Report</option>
-            <option value="Invoice Report">Invoice Report</option>
-            <option value="Purchase Order Report">Purchase Order Report</option>
-            <option value="Payment Report">Payment Report</option>
-          </select>
+            onChange={setReportType}
+            options={[
+              { value: "Vendor Report", label: "Vendor Report" },
+              { value: "Invoice Report", label: "Invoice Report" },
+              { value: "Purchase Order Report", label: "Purchase Order Report" },
+              { value: "Payment Report", label: "Payment Report" },
+            ]}
+            ariaLabel="Report type selector"
+          />
 
           <button
             onClick={handleExportExcel}

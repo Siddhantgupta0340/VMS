@@ -31,6 +31,7 @@ import {
   returnPayment,
   cancelPayment,
 } from "../../services/paymentService";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
 import { toast } from "sonner";
@@ -476,7 +477,7 @@ const PaymentsList = () => {
                 <Detail label="Requested Amount" value={money(viewPaymentModal.amount, viewPaymentModal.currency)} />
                 <Detail label="Current Status" value={<StatusBadge status={viewPaymentModal.status} />} />
                 <Detail label="Priority" value={viewPaymentModal.priority} />
-                <Detail label="Required Approver Role" value={viewPaymentModal.requiredApprovalRole || "—"} />
+                <Detail label="Required Approver Role" value={formatRoleLabel(viewPaymentModal.requiredApprovalRole) || "—"} />
                 <Detail label="Approval Band" value={viewPaymentModal.approvalBand || "—"} />
                 <Detail label="Requested By" value={viewPaymentModal.createdBy || viewPaymentModal.requestedBy} />
                 <Detail
@@ -524,7 +525,7 @@ const PaymentsList = () => {
                               {entry.performedBy}
                               {entry.role && (
                                 <span className="ml-2 rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                                  {entry.role}
+                                  {formatRoleLabel(entry.role)}
                                 </span>
                               )}
                             </p>

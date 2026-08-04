@@ -16,10 +16,12 @@ import {
 } from "lucide-react";
 
 import ConfirmationModal from "../../components/common/ConfirmationModal";
+import DateInput from "../../components/common/DateInput";
 import StatusBadge from "../../components/common/StatusBadge";
 import VendorDocumentsPanel from "../../components/vendors/VendorDocumentsPanel";
 import { hasPermission, PERMISSIONS } from "../../config/permissions";
 import { useAuth } from "../../context/AuthContext";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 import {
   approveVendor,
   blockVendor,
@@ -327,7 +329,7 @@ const FinanceHeadVendorReview = () => {
                     <p className="text-xs font-semibold text-slate-500">{formatDate(entry.created_at)}</p>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">{entry.remarks || "No comments provided."}</p>
-                  <p className="mt-2 text-xs text-slate-500">By {actorName} {actor?.role ? `(${actor.role})` : ""}</p>
+                  <p className="mt-2 text-xs text-slate-500">By {actorName} {actor?.role ? `(${formatRoleLabel(actor.role)})` : ""}</p>
                 </article>
               );
             })}
@@ -398,11 +400,11 @@ const FinanceHeadVendorReview = () => {
               </label>
               <label className="block text-sm font-semibold text-slate-700">
                 Follow-up date
-                <input
-                  type="date"
-                  className="mt-2 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
+                <DateInput
                   value={reviewForm.followUpDate}
-                  onChange={(event) => setReviewForm((current) => ({ ...current, followUpDate: event.target.value }))}
+                  onChange={(nextValue) => setReviewForm((current) => ({ ...current, followUpDate: nextValue }))}
+                  className="mt-2"
+                  ariaLabel="Vendor follow-up date"
                 />
               </label>
             </>

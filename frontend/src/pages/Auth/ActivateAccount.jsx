@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { setActivationPassword, validateActivationToken } from "../../services/authService";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 
 const passwordChecks = (value) => ({
   length: value.length >= 8,
@@ -103,7 +104,7 @@ const ActivateAccount = () => {
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">{profile?.firstName} {profile?.lastName}</p>
-              <p>{profile?.employeeId} · {profile?.role}</p>
+              <p>{profile?.employeeId} · {formatRoleLabel(profile?.role)}</p>
               <p>{profile?.email}</p>
             </div>
 

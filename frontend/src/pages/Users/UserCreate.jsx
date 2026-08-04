@@ -9,9 +9,21 @@ import {
   getRegionsLookup,
 } from "../../services/lookupService";
 import { getErrorMessage, notify } from "../../utils/feedback";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import { inputClass as sharedInputClass } from "../../utils/formStyles";
+import { useAuth } from "../../context/AuthContext";
+import { ROLES } from "../../config/permissions";
+import FilterSelect from "../../components/common/FilterSelect";
 
-const inputClass = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 disabled:bg-slate-50 disabled:cursor-not-allowed";
-const labelClass = "block text-sm font-medium text-slate-700 mb-2";
+const inputClass = `${sharedInputClass} h-12 w-full px-4`;
+const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2";
+const ROLE_RANK = {
+  [ROLES.SUPER_ADMIN]: 5,
+  [ROLES.FINANCE_HEAD]: 4,
+  [ROLES.MANAGER]: 3,
+  [ROLES.TEAM_LEAD]: 2,
+  [ROLES.CASE_MANAGER]: 1,
+};
 const passwordRules = [
   { label: "At least 8 characters", test: (value) => value.length >= 8 },
   { label: "One uppercase letter", test: (value) => /[A-Z]/.test(value) },
@@ -22,6 +34,7 @@ const passwordRules = [
 
 const UserCreate = () => {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   
   // ── Form Values State ──────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
@@ -48,6 +61,12 @@ const UserCreate = () => {
   const [regions, setRegions] = useState([]);
   const [loadingLookups, setLoadingLookups] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const visibleRoles = roles.filter((role) => {
+    if (currentUser?.role === ROLES.SUPER_ADMIN) return true;
+    const requesterRank = ROLE_RANK[currentUser?.role] || 0;
+    const targetRank = ROLE_RANK[role.value] || 0;
+    return role.value !== ROLES.SUPER_ADMIN && targetRank > 0 && targetRank < requesterRank;
+  });
 
   // ── Password Rules Check ───────────────────────────────────────────────────
   // ── Load Lookups from APIs ─────────────────────────────────────────────────
@@ -235,18 +254,18 @@ const UserCreate = () => {
           </button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Add New User</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Add New User</h1>
           <p className="mt-1 text-slate-500">Create a new system user profile and credentials</p>
         </div>
       </div>
 
       {/* Main Form container */}
-      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-sm dark:shadow-slate-950/40">
         <form onSubmit={handleSubmit} className="space-y-8" noValidate>
           
           {/* Profile Details */}
           <div>
-            <h2 className="mb-6 text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">
+            <h2 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">
               Personal Information
             </h2>
             
@@ -406,22 +425,18 @@ const UserCreate = () => {
               {/* Role Permission Guard (Loaded dynamically) */}
               <div>
                 <label htmlFor="role" className={labelClass}>Role Permission Guard *</label>
-                <select
-                  id="role"
-                  name="role"
+                <FilterSelect
+                  ariaLabel="Role Permission Guard"
                   value={formData.role}
-                  onChange={(e) => handleRoleChange(e.target.value)}
-                  className={`${inputClass} ${fieldErrors.role ? 'border-red-500' : ''}`}
+                  onChange={handleRoleChange}
+                  options={visibleRoles.map((r) => ({
+                    value: r.value,
+                    label: formatRoleLabel(r.value || r.name),
+                  }))}
+                  placeholder="Select system role"
+                  className={fieldErrors.role ? "rounded-xl ring-2 ring-red-500/20" : ""}
                   disabled={submitting || loadingLookups}
-                  required
-                >
-                  <option value="">Select system role</option>
-                  {roles.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                />
                 {loadingLookups && (
                   <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                     <span className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-500 shrink-0" />
@@ -436,7 +451,7 @@ const UserCreate = () => {
           </div>
 
           <div>
-            <h2 className="mb-6 border-b border-slate-100 pb-2 text-lg font-semibold text-slate-900">
+            <h2 className="mb-6 border-b border-slate-100 dark:border-slate-800 pb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
               Login Credentials
             </h2>
 

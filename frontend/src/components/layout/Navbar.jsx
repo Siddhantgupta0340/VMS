@@ -1,32 +1,29 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   CheckCircle2,
   Menu,
-  User,
   Sun,
   Moon,
   ChevronDown,
-  FileText,
-  Receipt,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useTheme } from "../../context/ThemeContext";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   getNotifications,
   markRead,
 } from "../../services/notificationService";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { refreshUnreadCount, unreadCount } = useNotifications();
   const { openMobileSidebar } = useSidebar();
-  const location = useLocation();
   const navigate = useNavigate();
 
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -205,7 +202,7 @@ const Navbar = () => {
             </div>
             <div className="hidden md:flex flex-col text-left">
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">{displayName}</span>
-              <span className="text-[10px] font-semibold text-[#0090B8] uppercase tracking-wider">{user?.role?.replace("_", " ")}</span>
+              <span className="text-[10px] font-semibold text-[#0090B8] uppercase tracking-wider">{formatRoleLabel(user?.role)}</span>
             </div>
             <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
           </button>

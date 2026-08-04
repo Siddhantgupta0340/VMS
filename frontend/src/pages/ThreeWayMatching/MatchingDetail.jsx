@@ -359,7 +359,7 @@ const MatchingDetail = () => {
                 <th className="p-3 text-right">PO</th>
                 <th className="p-3 text-right">Delivery Challan</th>
                 <th className="p-3 text-right">GRN</th>
-                <th className="p-3 text-right">Invoice</th>
+                <th className="p-3 text-right">Invoice Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -412,7 +412,7 @@ const MatchingDetail = () => {
                       <th className="p-4 text-right">PO Reference</th>
                       <th className="p-4 text-right">Delivery Challan</th>
                       <th className="p-4 text-right">GRN Value</th>
-                      <th className="p-4 text-right text-red-600">Invoice Value</th>
+                      <th className="p-4 text-right text-red-600">Invoice Amount</th>
                     </tr>
                   </thead>
                   <tbody>

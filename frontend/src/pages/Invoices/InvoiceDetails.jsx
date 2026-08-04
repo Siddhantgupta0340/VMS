@@ -34,6 +34,7 @@ import {
   getCompanyInfo,
 } from "../../services/invoiceService";
 import { getMatchReportByInvoice } from "../../services/matchingService";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 import api from "../../api/axios";
 
 // ─── Utilities & Formatting Helpers ───────────────────────────────────────────
@@ -802,22 +803,22 @@ const InvoiceDetails = () => {
         </section>
 
         {/* 3. Procurement References Bar (PO, GRN, Delivery Challan) */}
-        <section className="rounded-xl border border-slate-200 bg-slate-100/80 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+        <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
-            <div className="font-bold uppercase text-slate-500 text-[10px]">PO Number</div>
-            <div className="font-black text-slate-900 text-sm mt-0.5">{safeVal(invoice.poNumber)}</div>
+            <div className="font-bold uppercase text-slate-500 dark:text-slate-400 text-[10px]">PO Number</div>
+            <div className="font-black text-blue-700 dark:text-blue-400 text-sm mt-0.5">{safeVal(invoice.poNumber)}</div>
           </div>
           <div>
-            <div className="font-bold uppercase text-slate-500 text-[10px]">PO Date</div>
-            <div className="font-semibold text-slate-800 mt-0.5">{formatDate(invoice.poDate) || "Not Available"}</div>
+            <div className="font-bold uppercase text-slate-500 dark:text-slate-400 text-[10px]">PO Date</div>
+            <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{formatDate(invoice.poDate) || "Not Available"}</div>
           </div>
           <div>
-            <div className="font-bold uppercase text-slate-500 text-[10px]">GRN Number</div>
-            <div className="font-semibold text-slate-800 mt-0.5">{safeVal(grnNumber)}</div>
+            <div className="font-bold uppercase text-slate-500 dark:text-slate-400 text-[10px]">GRN Number</div>
+            <div className="font-semibold text-blue-700 dark:text-blue-400 mt-0.5">{safeVal(grnNumber)}</div>
           </div>
           <div>
-            <div className="font-bold uppercase text-slate-500 text-[10px]">Delivery Challan</div>
-            <div className="font-semibold text-slate-800 mt-0.5">{safeVal(deliveryChallanNumber)}</div>
+            <div className="font-bold uppercase text-slate-500 dark:text-slate-400 text-[10px]">Delivery Challan</div>
+            <div className="font-semibold text-blue-700 dark:text-blue-400 mt-0.5">{safeVal(deliveryChallanNumber)}</div>
           </div>
         </section>
 
@@ -1201,7 +1202,7 @@ const InvoiceDetails = () => {
                         {performedBy}
                         {role && (
                           <span className="ml-2 rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                            {role}
+                            {formatRoleLabel(role)}
                           </span>
                         )}
                       </p>

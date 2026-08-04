@@ -9,6 +9,9 @@ import ReportTable from "../../components/reports/ReportTable";
 import ReportDetailDrawer, { DetailField, DetailSection } from "../../components/reports/ReportDetailDrawer";
 import ExportButton from "../../components/reports/ExportButton";
 import StatusBadge from "../../components/common/StatusBadge";
+import FilterSelect from "../../components/common/FilterSelect";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import { inputClass as sharedInputClass } from "../../utils/formStyles";
 
 import {
   getVendorReport,
@@ -216,9 +219,9 @@ const VendorReport = () => {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">Filters</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</p>
           {hasActiveFilters && (
             <button
               onClick={handleClearFilters}
@@ -238,7 +241,7 @@ const VendorReport = () => {
               placeholder="Search name, code, email…"
               defaultValue={filters.search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-60 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+              className={`${sharedInputClass} w-full sm:w-60 pl-9`}
             />
           </div>
 
@@ -252,26 +255,25 @@ const VendorReport = () => {
           />
 
           {/* Status */}
-          <select
+          <FilterSelect
             value={filters.status}
-            onChange={(e) => updateFilter("status", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
-          >
-            {VENDOR_STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>{s ? s.charAt(0).toUpperCase() + s.slice(1) : "All Statuses"}</option>
-            ))}
-          </select>
+            onChange={(nextValue) => updateFilter("status", nextValue)}
+            options={VENDOR_STATUS_OPTIONS.map((s) => ({
+              value: s,
+              label: s ? s.charAt(0).toUpperCase() + s.slice(1) : "All Statuses",
+            }))}
+            placeholder="All Statuses"
+            className="w-full sm:w-44"
+          />
 
           {/* Category */}
-          <select
+          <FilterSelect
             value={filters.category}
-            onChange={(e) => updateFilter("category", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
-          >
-            {CATEGORY_OPTIONS.map((c) => (
-              <option key={c} value={c}>{c || "All Categories"}</option>
-            ))}
-          </select>
+            onChange={(nextValue) => updateFilter("category", nextValue)}
+            options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c || "All Categories" }))}
+            placeholder="All Categories"
+            className="w-full sm:w-48"
+          />
 
           {/* Refresh */}
           <button
@@ -381,7 +383,7 @@ const VendorReport = () => {
             <DetailField label="Payments"        value={drawerRecord._count?.payments ?? 0} />
 
             <DetailSection title="Audit" />
-            <DetailField label="Created By"    value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${drawerRecord.created_by.role})` : "—"} />
+            <DetailField label="Created By"    value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${formatRoleLabel(drawerRecord.created_by.role)})` : "—"} />
             <DetailField label="Created Date"  value={drawerRecord.created_at ? new Date(drawerRecord.created_at).toLocaleString("en-IN") : "—"} />
             <DetailField label="Approved By"   value={drawerRecord.approved_by ? `${drawerRecord.approved_by.first_name} ${drawerRecord.approved_by.last_name}` : "—"} />
             <DetailField label="Approved Date" value={drawerRecord.approved_at ? new Date(drawerRecord.approved_at).toLocaleString("en-IN") : "—"} />

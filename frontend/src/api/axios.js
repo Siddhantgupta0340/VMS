@@ -1,15 +1,17 @@
 import axios from "axios";
 import {
+  AUTH_EVENTS,
+  broadcastAuthEvent,
   clearAuthSession,
   getAccessToken,
-  getRefreshToken,
   updateStoredTokens,
 } from "../services/authSession";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
-  "https://vms-5rht.onrender.com/api";
+  //"http://localhost:5000/api";
+ "https://vms-5rht.onrender.com/api";
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication required. Redirecting to login.") {
@@ -46,8 +48,7 @@ const PUBLIC_AUTH_PATHS = [
 
 const isSkippedAuthPath = (url = "") =>
   PUBLIC_AUTH_PATHS.some((path) => url.includes(path)) ||
-  url.includes("/health") ||
-  url.includes("/v1/auth/logout");
+  url.includes("/health");
 
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;
@@ -56,21 +57,36 @@ const redirectToLogin = () => {
   window.location.replace(`/login?redirect=${encodeURIComponent(currentPath)}`);
 };
 
-const refreshAccessToken = async () => {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new Error("No refresh token available");
+export const refreshAccessToken = async () => {
+  if (refreshPromise) {
+    console.log("[AUTH] Access token refresh already running; waiting");
+    return refreshPromise;
   }
 
-  const response = await axios.post(`${API_BASE_URL}/v1/auth/refresh-token`, { refreshToken }, {
-    headers: { "Content-Type": "application/json" },
+  refreshPromise ||= (async () => {
+    console.log("[AUTH] Access token refresh started");
+
+    const response = await axios.post(
+      `${API_BASE_URL}/v1/auth/refresh-token`,
+      {},
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
+      }
+    );
+    const { accessToken } = response.data?.data || {};
+    if (!accessToken) {
+      throw new Error("Refresh did not return an access token");
+    }
+    updateStoredTokens(accessToken);
+    broadcastAuthEvent(AUTH_EVENTS.SESSION_UPDATED);
+    console.log("[AUTH] Access token refresh successful");
+    return accessToken;
+  })().finally(() => {
+    refreshPromise = null;
   });
-  const { accessToken, refreshToken: nextRefreshToken } = response.data?.data || {};
-  if (!accessToken) {
-    throw new Error("Refresh did not return an access token");
-  }
-  updateStoredTokens(accessToken, nextRefreshToken);
-  return accessToken;
+
+  return refreshPromise;
 };
 
 api.interceptors.request.use((config) => {
@@ -80,14 +96,11 @@ api.interceptors.request.use((config) => {
   }
 
   const token = getAccessToken();
-  if (!token) {
-    clearAuthSession();
-    redirectToLogin();
-    return Promise.reject(new AuthRequiredError());
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
-  config.headers = config.headers || {};
-  config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -97,25 +110,41 @@ api.interceptors.response.use(
     const originalRequest = error.config || {};
     const status = error.response?.status;
 
-    if (status !== 401 || originalRequest.__isRetryRequest || isSkippedAuthPath(originalRequest.url)) {
+    if (
+      status !== 401 ||
+      originalRequest.__isRetryRequest ||
+      originalRequest.__skipAuthRefresh ||
+      isSkippedAuthPath(originalRequest.url)
+    ) {
       return Promise.reject(error);
     }
 
+    console.log("[AUTH] Access token expired");
+
     try {
-      if (!getRefreshToken()) {
-        throw new AuthRequiredError("Refresh token missing. Redirecting to login.");
-      }
-      refreshPromise ||= refreshAccessToken().finally(() => {
-        refreshPromise = null;
-      });
-      const token = await refreshPromise;
+      const token = await refreshAccessToken();
       originalRequest.__isRetryRequest = true;
       originalRequest.headers = originalRequest.headers || {};
       originalRequest.headers.Authorization = `Bearer ${token}`;
+      console.log("[AUTH] Original request retrying");
       return api(originalRequest);
     } catch (refreshError) {
-      clearAuthSession();
-      redirectToLogin();
+      const refreshStatus = refreshError.response?.status;
+      const refreshCode = refreshError.response?.data?.code;
+
+      if (refreshStatus === 503 || refreshCode === "DATABASE_UNAVAILABLE") {
+        return Promise.reject(refreshError);
+      }
+
+      if (refreshStatus === 401 || refreshStatus === 403) {
+        console.log("[AUTH] Session expired");
+        if (!originalRequest.__skipAuthClear) {
+          clearAuthSession();
+        }
+        if (!originalRequest.__skipAuthRedirect) {
+          redirectToLogin();
+        }
+      }
       return Promise.reject(refreshError);
     }
   }

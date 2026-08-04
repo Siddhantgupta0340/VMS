@@ -23,6 +23,7 @@ import {
   sendActivationEmail,
 } from "./onboarding.service.js";
 import notificationService from "../notifications/notification.service.js";
+import sessionService from "./session.service.js";
 
 const GENERIC_ACTIVATION_MESSAGE = 'If the account is eligible, an activation email has been sent.';
 const MAX_FAILED_LOGIN_ATTEMPTS = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS || 5);
@@ -48,7 +49,7 @@ class AuthService {
   /**
    * LOGIN
    */
-  async login(email, password) {
+  async login(email, password, meta = {}) {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await userRepository.findByEmail(normalizedEmail);
 
@@ -122,6 +123,13 @@ class AuthService {
       [UserEntity.columns.LAST_LOGIN_AT]: new Date(),
       [UserEntity.columns.FAILED_LOGIN_ATTEMPTS]: 0,
       [UserEntity.columns.LOCKED_UNTIL]: null,
+    });
+
+    await sessionService.createSession({
+      userId: user[idField],
+      refreshToken,
+      userAgent: meta.userAgent,
+      ipAddress: meta.ipAddress,
     });
 
     await prisma.auditLog.create({
@@ -246,11 +254,17 @@ class AuthService {
   /**
    * LOGOUT
    */
-  async logout(userId) {
+  async logout(userId, refreshToken = null) {
     const user = await userRepository.findById(userId);
 
     if (!user) {
       throw new ApiError(404, AUTH_MESSAGES.USER_NOT_FOUND);
+    }
+
+    if (refreshToken) {
+      await sessionService.revokeSessionByToken(refreshToken);
+    } else {
+      await sessionService.revokeAllUserSessions(userId);
     }
 
     await userRepository.updateUser(userId, {
@@ -263,33 +277,16 @@ class AuthService {
   /**
    * REFRESH TOKEN
    */
-  async refreshToken(oldRefreshToken) {
-    const decoded = verifyRefreshToken(oldRefreshToken);
-
-    const idField = UserEntity.columns.ID;
-
-    if (!decoded || !decoded[idField]) {
+  async refreshToken(oldRefreshToken, meta = {}) {
+    if (!oldRefreshToken) {
       throw new ApiError(401, AUTH_MESSAGES.UNAUTHORIZED);
     }
 
-    const user = await userRepository.findByRefreshToken(oldRefreshToken);
-
-    if (!user || user[idField] !== decoded[idField]) {
-      throw new ApiError(401, AUTH_MESSAGES.UNAUTHORIZED);
-    }
-
-    const roleField = UserEntity.columns.ROLE;
-
-    const { accessToken, refreshToken } = generateAuthTokens(
-      user[idField],
-      user[roleField],
-    );
-
-    await userRepository.updateUser(user[idField], {
-      [UserEntity.columns.REFRESH_TOKEN]: refreshToken,
+    return await sessionService.rotateSession({
+      oldRefreshToken,
+      userAgent: meta.userAgent,
+      ipAddress: meta.ipAddress,
     });
-
-    return { accessToken, refreshToken };
   }
 
   /**
@@ -377,6 +374,11 @@ class AuthService {
     await userRepository.updateUser(updatedUser.id, {
       [UserEntity.columns.REFRESH_TOKEN]: refreshToken,
       [UserEntity.columns.LAST_LOGIN_AT]: now,
+    });
+
+    await sessionService.createSession({
+      userId: updatedUser.id,
+      refreshToken,
     });
 
     await prisma.auditLog.create({

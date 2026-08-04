@@ -3,6 +3,7 @@ import invoiceService from './invoice.service.js';
 import { generateInvoicePdf } from './invoice.pdf.js';
 import { processInvoiceOcr as processInvoiceOcrService } from './invoice.ocr.service.js';
 import invoiceOcrPersistenceService from './invoice.ocr.persistence.service.js';
+import invoiceOcrJobService from './invoice.ocr.job.service.js';
 import purchaseOrderService from '../purchase-orders/po.service.js';
 import { COMPANY_CONFIG } from '../../config/company.js';
 import ApiError from '../../utils/ApiError.js';
@@ -60,6 +61,12 @@ const buildSafeOcrResponseLog = (payload = {}) => ({
 });
 /** @deprecated Use ocrLog() instead */
 const debugOcrFlow = (label, details = {}) => ocrLog('API', label, details);
+const perfTime = (label) => {
+  try { console.time(label); } catch {}
+};
+const perfTimeEnd = (label) => {
+  try { console.timeEnd(label); } catch {}
+};
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
 const compactIdentifier = (value) => String(value || '').trim().replace(/\s+/g, '').toUpperCase();
 const uniqueValues = (values) => [...new Set(values.filter(hasValue))];
@@ -773,6 +780,7 @@ export const buildInvoiceDraft = ({ extracted, matchedVendor, matchedPurchaseOrd
     matchedPurchaseOrder?.payment_terms || matchedVendor?.payment_terms,
   );
   const invoiceDate = mergeDraftValue(sources, 'header', 'invoiceDate', ocrHeader.invoiceDate, null);
+  const receiptDate = mergeDraftValue(sources, 'header', 'receiptDate', ocrHeader.receiptDate, null);
   const dueDate = mergeDraftValue(
     sources, 'header', 'dueDate',
     ocrHeader.dueDate,
@@ -795,6 +803,7 @@ export const buildInvoiceDraft = ({ extracted, matchedVendor, matchedPurchaseOrd
     header: {
       invoiceNumber,
       invoiceDate,
+      receiptDate,
       dueDate,
       invoiceType: extracted.documentType || ocrHeader.invoiceType || null,
       invoiceCategory: mergeDraftValue(sources, 'header', 'invoiceCategory', ocrHeader.invoiceCategory, null),
@@ -894,6 +903,7 @@ const buildNormalizedOcrResponse = ({
     invoice: {
       invoiceNumber: header.invoiceNumber || null,
       invoiceDate: header.invoiceDate || null,
+      receiptDate: header.receiptDate || null,
       dueDate: header.dueDate || null,
       poNumber: references.poNumber || null,
       grnNumber: references.grnNumber || null,
@@ -1060,6 +1070,7 @@ const buildOcrDraftResponsePayload = async (draft) => {
     extraction: {
       invoiceNumber: invoiceDraft.header?.invoiceNumber || null,
       invoiceDate: invoiceDraft.header?.invoiceDate || null,
+      receiptDate: invoiceDraft.header?.receiptDate || null,
       dueDate: invoiceDraft.header?.dueDate || null,
       poNumber: references.poNumber || null,
       grnNumber: references.grnNumber || matchedGrn?.grn_number || null,
@@ -1283,11 +1294,25 @@ class InvoiceController {
     });
 
     const ocrDocument = await invoiceOcrPersistenceService.createProcessingDocument({ file, user: req.user });
+    console.info('[OCR PERF] Job created:', ocrDocument.id);
+    const totalStartedAt = Date.now();
+    const runPipeline = async () => {
+    perfTime('[OCR PERF] Total OCR job');
     let ocrResult = null;
     try {
       ocrLog('API', 'OCR extraction started', { ocrDocumentId: ocrDocument.id });
+      invoiceOcrJobService.updateJob(ocrDocument.id, {
+        status: 'PROCESSING',
+        stage: 'TEXT_EXTRACTION',
+        progress: 20,
+      });
       
       ocrResult = await processInvoiceOcrService(file);
+      invoiceOcrJobService.updateJob(ocrDocument.id, {
+        status: 'PROCESSING',
+        stage: 'FIELD_MAPPING',
+        progress: 55,
+      });
       ocrLog('API', 'OCR extraction completed', {
         ocrDocumentId: ocrDocument.id,
         status: ocrResult.status,
@@ -1318,12 +1343,19 @@ class InvoiceController {
         ocrDocumentId: ocrDocument.id,
         errorMessage: ocrError?.message || 'OCR processing failed.',
       });
+      perfTimeEnd('[OCR PERF] Total OCR job');
       throw ocrError;
     }
     const extracted = ocrResult.extractedData || {};
     const vendorData = extracted.vendor || {};
     const references = extracted.references || {};
     const invoiceNumber = extracted.header?.invoiceNumber;
+    const databaseStartedAt = Date.now();
+    invoiceOcrJobService.updateJob(ocrDocument.id, {
+      status: 'PROCESSING',
+      stage: 'VENDOR_LOOKUP',
+      progress: 60,
+    });
     ocrLog('DB', 'Database enrichment started', {
       ocrDocumentId: ocrDocument.id,
       vendorCode: vendorData.vendorCode || null,
@@ -1366,26 +1398,38 @@ class InvoiceController {
     });
     const purchaseOrderLookupPromise = references.poNumber
       ? (async () => {
+          perfTime('[OCR PERF] PO lookup');
           ocrLog('DB', 'PO lookup', {
             ocrDocumentId: ocrDocument.id,
             poNumber: references.poNumber,
             source: 'PURCHASE_ORDER_SERVICE',
           });
-          const poReference = await prisma.purchaseOrder.findFirst({
-            where: {
-              ...insensitiveEqualsAny('po_number', references.poNumber),
-              deleted_at: null,
-            },
-            select: { id: true, po_number: true },
-          });
-          if (!poReference || !poNumberMatches(poReference.po_number, references.poNumber)) return null;
-          return purchaseOrderService.getPurchaseOrderById(poReference.id, req.user);
+          try {
+            const poReference = await prisma.purchaseOrder.findFirst({
+              where: {
+                ...insensitiveEqualsAny('po_number', references.poNumber),
+                deleted_at: null,
+              },
+              select: { id: true, po_number: true },
+            });
+            if (!poReference || !poNumberMatches(poReference.po_number, references.poNumber)) return null;
+            return purchaseOrderService.getPurchaseOrderById(poReference.id, req.user);
+          } finally {
+            perfTimeEnd('[OCR PERF] PO lookup');
+          }
         })()
       : Promise.resolve(null);
+    perfTime('[OCR PERF] Vendor lookup');
     const [vendorLookup, matchedPurchaseOrder] = await Promise.all([
       vendorLookupPromise,
       purchaseOrderLookupPromise,
     ]);
+    perfTimeEnd('[OCR PERF] Vendor lookup');
+    invoiceOcrJobService.updateJob(ocrDocument.id, {
+      status: 'PROCESSING',
+      stage: 'PO_LOOKUP',
+      progress: 68,
+    });
     let matchedVendor = vendorLookup.vendor;
     let vendorMatchMethod = vendorLookup.method;
     let vendorMatchValue = vendorLookup.value;
@@ -1462,6 +1506,12 @@ class InvoiceController {
       grnNumber: references.grnNumber || null,
       purchaseOrderId: matchedPurchaseOrder?.id || null,
     });
+    invoiceOcrJobService.updateJob(ocrDocument.id, {
+      status: 'PROCESSING',
+      stage: 'GRN_LOOKUP',
+      progress: 74,
+    });
+    perfTime('[OCR PERF] GRN lookup');
     const matchedGrn = references.grnNumber
       ? await prisma.goodsReceiptNote.findFirst({
           where: {
@@ -1477,6 +1527,7 @@ class InvoiceController {
           },
         })
       : matchedPurchaseOrder?.grns?.[0] || null;
+    perfTimeEnd('[OCR PERF] GRN lookup');
     ocrLog('DB', 'GRN lookup result', {
       ocrDocumentId: ocrDocument.id,
       grnId: matchedGrn?.id || null,
@@ -1497,6 +1548,12 @@ class InvoiceController {
       deliveryChallanNumber: references.deliveryChallanNumber || null,
       purchaseOrderId: matchedPurchaseOrder?.id || null,
     });
+    invoiceOcrJobService.updateJob(ocrDocument.id, {
+      status: 'PROCESSING',
+      stage: 'DC_LOOKUP',
+      progress: 82,
+    });
+    perfTime('[OCR PERF] DC lookup');
     const matchedDeliveryChallan = references.deliveryChallanNumber
       ? await prisma.deliveryChallan.findFirst({
           where: {
@@ -1507,6 +1564,7 @@ class InvoiceController {
           include: { items: true, purchase_order: true, vendor: true },
         })
       : matchedGrn?.delivery_challan || matchedPurchaseOrder?.delivery_challans?.[0] || null;
+    perfTimeEnd('[OCR PERF] DC lookup');
     ocrLog('DB', 'DC lookup result', {
       ocrDocumentId: ocrDocument.id,
       deliveryChallanId: matchedDeliveryChallan?.id || null,
@@ -1525,6 +1583,15 @@ class InvoiceController {
           select: { id: true, invoice_number: true, vendor_id: true, purchase_order_id: true, status: true },
         })
       : null;
+    ocrLog('DB', 'Database enrichment completed', {
+      ocrDocumentId: ocrDocument.id,
+      databaseMs: Date.now() - databaseStartedAt,
+      vendorMatched: Boolean(matchedVendor),
+      purchaseOrderMatched: Boolean(matchedPurchaseOrder),
+      grnMatched: Boolean(matchedGrn),
+      deliveryChallanMatched: Boolean(matchedDeliveryChallan),
+      duplicateInvoiceFound: Boolean(duplicateInvoice),
+    });
 
     const isFailed = ['FAILED', 'LOW_CONFIDENCE'].includes(ocrResult.status);
     const invoiceDraft = buildInvoiceDraft({
@@ -1538,6 +1605,7 @@ class InvoiceController {
       ocrDocumentId: ocrDocument.id,
       invoiceNumber: invoiceDraft.header?.invoiceNumber || null,
       invoiceDate: invoiceDraft.header?.invoiceDate || null,
+      receiptDate: invoiceDraft.header?.receiptDate || null,
       vendorCode: invoiceDraft.vendor?.vendorCode || null,
       poNumber: invoiceDraft.references?.poNumber || null,
       grnNumber: invoiceDraft.references?.grnNumber || null,
@@ -1556,6 +1624,7 @@ class InvoiceController {
       systemGenerated: {
         invoiceNumber: !extracted.header?.invoiceNumber,
         invoiceDate: !extracted.header?.invoiceDate,
+        receiptDate: !extracted.header?.receiptDate,
         dueDate: !extracted.header?.dueDate,
       },
       lineItemsInDraft: invoiceDraft.lineItems.length,
@@ -1659,6 +1728,13 @@ class InvoiceController {
     });
     let ocrDraft = null;
     try {
+      const persistenceStartedAt = Date.now();
+      invoiceOcrJobService.updateJob(ocrDocument.id, {
+        status: 'PROCESSING',
+        stage: 'DATABASE_SAVE',
+        progress: 92,
+      });
+      perfTime('[OCR PERF] Database persistence');
       ocrDraft = await invoiceOcrPersistenceService.completeDocumentWithExtraction({
         ocrDocumentId: ocrDocument.id,
         file,
@@ -1680,8 +1756,12 @@ class InvoiceController {
         ocrDraftId: ocrDraft?.id,
         ocrExtractionId: ocrDraft?.ocrExtractionId,
         itemCount: invoiceDraft.lineItems.length,
+        persistenceMs: Date.now() - persistenceStartedAt,
       });
+      perfTimeEnd('[OCR PERF] Database persistence');
     } catch (draftError) {
+      perfTimeEnd('[OCR PERF] Database persistence');
+      perfTimeEnd('[OCR PERF] Total OCR job');
       console.error('[Invoice OCR] Draft persistence failed:', draftError);
       throw new ApiError(500, 'OCR extraction completed, but the review draft could not be saved. Please run the latest database migration and try again.');
     }
@@ -1724,6 +1804,7 @@ class InvoiceController {
         extraction: {
           invoiceNumber: invoiceDraft.header?.invoiceNumber || null,
           invoiceDate: invoiceDraft.header?.invoiceDate || null,
+          receiptDate: invoiceDraft.header?.receiptDate || null,
           dueDate: invoiceDraft.header?.dueDate || null,
           poNumber: invoiceDraft.references?.poNumber || null,
           grnNumber: invoiceDraft.references?.grnNumber || null,
@@ -1840,11 +1921,77 @@ class InvoiceController {
       );
     }
 
-    res.status(200).json({
+    const responsePayload = {
       success: !isFailed,
       message,
       data: normalizedOCRData,
-    });
+    };
+    perfTimeEnd('[OCR PERF] Total OCR job');
+    return responsePayload;
+    };
+
+    const shouldRunSynchronously = req.query?.sync === 'true' || req.headers?.['x-ocr-sync'] === 'true';
+    if (!shouldRunSynchronously) {
+      const queuedJob = invoiceOcrJobService.enqueue({
+        jobId: ocrDocument.id,
+        onStart: async () => {
+          await invoiceOcrPersistenceService.markDocumentProcessing({ ocrDocumentId: ocrDocument.id });
+          ocrLog('API', 'Background OCR job started', {
+            ocrDocumentId: ocrDocument.id,
+            queuedMs: Date.now() - totalStartedAt,
+          });
+        },
+        task: runPipeline,
+        onSuccess: async (result) => {
+          ocrLog('API', 'Background OCR job completed', {
+            ocrDocumentId: ocrDocument.id,
+            draftId: result?.data?.draftId || null,
+            status: result?.data?.ocrStatus || null,
+            totalMs: Date.now() - totalStartedAt,
+          });
+        },
+        onFailure: async (error) => {
+          const safeErrorMessage = /timed out/i.test(String(error?.message || ''))
+            ? 'OCR processing took too long. Please upload a clearer or smaller invoice document.'
+            : error?.message || 'OCR processing failed.';
+          console.error('[Invoice OCR] Background processing failed:', {
+            ocrDocumentId: ocrDocument.id,
+            name: error?.name,
+            message: safeErrorMessage,
+          });
+          await invoiceOcrPersistenceService.markDocumentFailed({
+            ocrDocumentId: ocrDocument.id,
+            errorMessage: safeErrorMessage,
+          });
+        },
+      });
+
+      res.status(202).json({
+        success: true,
+        message: 'Invoice processing started.',
+        data: {
+          jobId: ocrDocument.id,
+          ocrId: ocrDocument.id,
+          ocrDocumentId: ocrDocument.id,
+          status: 'UPLOADED',
+          processingStatus: 'UPLOADED',
+          ocrStatus: 'NOT_STARTED',
+          fileName: ocrDocument.fileName,
+          fileType: ocrDocument.fileType,
+          fileSize: ocrDocument.fileSize,
+          queuePosition: queuedJob.queuePosition,
+          activeJobs: queuedJob.activeCount,
+          concurrency: queuedJob.concurrency,
+          timeoutMs: queuedJob.timeoutMs,
+          statusUrl: `/api/v1/invoices/ocr/${ocrDocument.id}/status`,
+          enrichmentUrl: `/api/v1/ocr/invoice/${ocrDocument.id}/enrichment`,
+        },
+      });
+      return;
+    }
+
+    const result = await runPipeline();
+    res.status(200).json(result);
   });
 
   getOcrInvoiceDraft = asyncHandler(async (req, res) => {
@@ -1861,10 +2008,116 @@ class InvoiceController {
     });
   });
 
+  getOcrInvoiceStatus = asyncHandler(async (req, res) => {
+    const ocrId = req.params.ocrId;
+    const inMemoryJob = invoiceOcrJobService.getJob(ocrId);
+    const draft = await invoiceOcrPersistenceService.getDraftRecord(ocrId, req.user)
+      || await invoiceOcrPersistenceService.getDraftRecordByOcrDocumentId(ocrId, req.user);
+
+    if (draft) {
+      const data = await buildOcrDraftResponsePayload(draft);
+      const status = draft.draft_status === 'READY_FOR_REVIEW'
+        ? 'READY'
+        : draft.ocr_status === 'FAILED' || draft.draft_status === 'FAILED'
+          ? 'FAILED'
+          : draft.ocr_status === 'PARTIAL_SUCCESS' || draft.draft_status === 'REQUIRES_MANUAL_INPUT'
+            ? 'PARTIAL'
+            : 'PROCESSING';
+      res.status(200).json({
+        success: status !== 'FAILED',
+        message: status === 'READY' || status === 'PARTIAL'
+          ? 'Invoice OCR draft is ready for review.'
+          : 'Invoice OCR is still processing.',
+        data: {
+          ...data,
+          jobId: data.ocrDraft?.ocrDocumentId || ocrId,
+          ocrId: data.ocrDraft?.ocrDocumentId || ocrId,
+          status,
+          processingStatus: status,
+          stage: status === 'FAILED' ? 'FAILED' : 'COMPLETED',
+          progress: 100,
+        },
+      });
+      return;
+    }
+
+    const document = await invoiceOcrPersistenceService.getDocumentRecord(ocrId, req.user);
+    if (!document) {
+      throw new ApiError(404, 'OCR document not found.');
+    }
+
+    const processingStatus = String(document.processing_status || 'PROCESSING');
+    const ocrStatus = String(document.ocr_status || 'PROCESSING');
+    const isFailed = processingStatus === 'FAILED' || ocrStatus === 'FAILED';
+    const jobStage = inMemoryJob?.stage || (
+      processingStatus === 'UPLOADED'
+        ? 'UPLOAD'
+        : isFailed
+          ? 'FAILED'
+          : 'OCR_EXTRACTION'
+    );
+    const jobProgress = Number.isFinite(Number(inMemoryJob?.progress))
+      ? Number(inMemoryJob.progress)
+      : processingStatus === 'UPLOADED'
+        ? 5
+        : isFailed
+          ? 100
+          : 25;
+    const safeErrorMessage = isFailed
+      ? document.error_message || inMemoryJob?.errorMessage || 'OCR processing failed. Please try again.'
+      : null;
+    res.status(200).json({
+      success: !isFailed,
+      message: isFailed
+        ? safeErrorMessage
+        : 'Invoice OCR is still processing.',
+      data: {
+        jobId: document.id,
+        ocrId: document.id,
+        ocrDocumentId: document.id,
+        status: isFailed ? 'FAILED' : processingStatus,
+        processingStatus,
+        ocrStatus,
+        stage: jobStage,
+        progress: jobProgress,
+        ocrConfidence: Number(document.ocr_confidence || 0),
+        fileName: document.original_file_name,
+        fileType: document.file_type || document.mime_type,
+        fileSize: document.file_size,
+        startedAt: document.processing_started_at,
+        completedAt: document.processing_completed_at,
+        errorStage: isFailed ? 'OCR_PROCESSING' : null,
+        errorMessage: safeErrorMessage,
+      },
+    });
+  });
+
   getOcrInvoiceEnrichment = asyncHandler(async (req, res) => {
     const draft = await invoiceOcrPersistenceService.getDraftRecord(req.params.ocrId, req.user)
       || await invoiceOcrPersistenceService.getDraftRecordByOcrDocumentId(req.params.ocrId, req.user);
     if (!draft) {
+      const document = await invoiceOcrPersistenceService.getDocumentRecord(req.params.ocrId, req.user);
+      if (document) {
+        const processingStatus = String(document.processing_status || 'PROCESSING');
+        const ocrStatus = String(document.ocr_status || 'PROCESSING');
+        const isFailed = processingStatus === 'FAILED' || ocrStatus === 'FAILED';
+        res.status(200).json({
+          success: !isFailed,
+          message: isFailed ? 'OCR processing failed. Please try again.' : 'Invoice OCR is still processing.',
+          data: {
+            ocrId: document.id,
+            ocrDocumentId: document.id,
+            status: isFailed ? 'FAILED' : processingStatus,
+            processingStatus,
+            ocrStatus,
+            ocrConfidence: Number(document.ocr_confidence || 0),
+            fileName: document.original_file_name,
+            fileType: document.file_type || document.mime_type,
+            fileSize: document.file_size,
+          },
+        });
+        return;
+      }
       throw new ApiError(404, 'OCR invoice enrichment record not found.');
     }
 

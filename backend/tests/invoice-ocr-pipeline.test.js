@@ -124,6 +124,7 @@ test('structured parser extracts compact uploaded invoice fields', () => {
   assert.deepEqual(result.extractedData.invoice, {
     invoiceNumber: 'INV-2026-008502',
     invoiceDate: '2026-07-28',
+    receiptDate: null,
     dueDate: '2026-07-30',
     invoiceCategory: 'TAX_INVOICE',
     currency: 'INR',

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays, Check, ChevronDown } from "lucide-react";
+import DateInput from "../common/DateInput";
 
 const PRESETS = [
   { label: "Today",         value: "today" },
@@ -86,36 +87,37 @@ const DateRangePicker = ({ startDate = "", endDate = "", onChange }) => {
   const activePresetLabel = PRESETS.find((p) => p.value === activePreset)?.label;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {/* Preset selector */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
           type="button"
           onClick={() => setShowPresets((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
+          aria-expanded={showPresets}
+          className="inline-flex h-10 min-w-40 max-w-full items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm font-medium text-slate-800 dark:text-slate-100 shadow-sm outline-none transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
         >
           <CalendarDays size={15} className="text-blue-600" />
-          {activePresetLabel || "Date Range"}
-          <ChevronDown size={14} />
+          <span className="min-w-0 flex-1 truncate text-left">{activePresetLabel || "Date Range"}</span>
+          <ChevronDown size={14} className={`shrink-0 transition-transform ${showPresets ? "rotate-180" : ""}`} />
         </button>
 
         {/* Custom date inputs */}
         {(activePreset === "custom" || (!activePreset && (startDate || endDate))) && (
           <div className="flex items-center gap-1">
-            <input
-              type="date"
+            <DateInput
               value={startDate}
               max={endDate || undefined}
-              onChange={(e) => handleCustomDate("start", e.target.value)}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              onChange={(nextValue) => handleCustomDate("start", nextValue)}
+              className="w-40"
+              ariaLabel="Start date"
             />
-            <span className="text-slate-400 text-sm">to</span>
-            <input
-              type="date"
+            <span className="text-slate-400 dark:text-slate-500 text-sm">to</span>
+            <DateInput
               value={endDate}
               min={startDate || undefined}
-              onChange={(e) => handleCustomDate("end", e.target.value)}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              onChange={(nextValue) => handleCustomDate("end", nextValue)}
+              className="w-40"
+              ariaLabel="End date"
             />
           </div>
         )}
@@ -135,17 +137,20 @@ const DateRangePicker = ({ startDate = "", endDate = "", onChange }) => {
 
       {/* Dropdown presets */}
       {showPresets && (
-        <div className="absolute top-10 left-0 z-50 w-44 rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute left-0 top-11 z-50 w-48 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-1 shadow-xl dark:shadow-slate-950/60">
           {PRESETS.map((p) => (
             <button
               key={p.value}
               type="button"
               onClick={() => applyPreset(p.value)}
-              className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 transition first:rounded-t-2xl last:rounded-b-2xl ${
-                activePreset === p.value ? "bg-blue-50 text-blue-700 font-semibold" : "text-slate-700"
+              className={`flex h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm transition ${
+                activePreset === p.value
+                  ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold"
+                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              {p.label}
+              <Check size={14} className={activePreset === p.value ? "opacity-100" : "opacity-0"} />
+              <span className="truncate">{p.label}</span>
             </button>
           ))}
         </div>

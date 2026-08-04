@@ -5,6 +5,7 @@ import { COMPANY_CONFIG } from "../../config/company";
 
 import { calculatePurchaseOrderTax, createPurchaseOrder, getPurchaseOrderById, updatePurchaseOrder } from "../../services/purchaseOrderServices";
 import { RequiredLabel, ValidationSummary } from "../../components/common/FormValidation";
+import DateInput from "../../components/common/DateInput";
 import { getVendorsLookup } from "../../services/lookupService";
 import { getVendorById } from "../../services/vendorService";
 import { getErrorMessage, notify } from "../../utils/feedback";
@@ -32,19 +33,21 @@ const emptyPreview = {
   },
 };
 
-const Field = ({ label, value, isRequired = false }) => (
-  <div>
-    <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</p>
-    <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900 dark:text-slate-100">
-      {value || (isRequired ? <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 dark:text-slate-500 font-normal">Not Provided</span>)}
-    </p>
-  </div>
-);
-
+const Field = ({ label, value, isRequired = false, isHighlight = false }) => {
+  const isDocId = isHighlight || (typeof value === "string" && /^(DC-|PO-|GRN-|ITM-|INV-)/i.test(value));
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</p>
+      <p className={`mt-1 min-h-5 text-sm font-semibold ${isDocId ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-900 dark:text-slate-100"}`}>
+        {value || (isRequired ? <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 dark:text-slate-500 font-normal">Not Provided</span>)}
+      </p>
+    </div>
+  );
+};
 
 const ItemSection = ({ title, children }) => (
   <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-4">
-    <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+    <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{title}</h3>
     <div className="grid gap-4 sm:grid-cols-2">{children}</div>
   </div>
 );
@@ -405,11 +408,11 @@ const PurchaseOrderCreate = () => {
               </div>
               <div>
                 <RequiredLabel helper="Used in invoice and matching documents.">PO Date</RequiredLabel>
-                <input type="date" name="orderDate" value={formData.orderDate} onChange={handleChange} className={`${input} ${fieldErrorClass(errorsByField.orderDate)}`} />
+                <DateInput name="orderDate" value={formData.orderDate} onChange={(nextValue) => handleChange({ target: { name: "orderDate", value: nextValue } })} invalid={!!errorsByField.orderDate} ariaLabel="PO date" />
               </div>
               <div>
                 <RequiredLabel>Expected Delivery Date</RequiredLabel>
-                <input type="date" name="expectedDelivery" value={formData.expectedDelivery} onChange={handleChange} className={`${input} ${fieldErrorClass(errorsByField.expectedDelivery)}`} required />
+                <DateInput name="expectedDelivery" value={formData.expectedDelivery} onChange={(nextValue) => handleChange({ target: { name: "expectedDelivery", value: nextValue } })} invalid={!!errorsByField.expectedDelivery} required ariaLabel="Expected delivery date" />
               </div>
 
               <div className="relative lg:col-span-2" ref={dropdownRef}>
@@ -533,7 +536,7 @@ const PurchaseOrderCreate = () => {
                   <input type="text" name="buyer" value={formData.buyer} onChange={handleChange} className={input} placeholder="e.g. Bob Johnson" />
                 </FormField>
                 <FormField label="Quotation Date">
-                  <input type="date" name="quotationDate" value={formData.quotationDate} onChange={handleChange} className={input} />
+                  <DateInput name="quotationDate" value={formData.quotationDate} onChange={(nextValue) => handleChange({ target: { name: "quotationDate", value: nextValue } })} ariaLabel="Quotation date" />
                 </FormField>
               </div>
             </div>

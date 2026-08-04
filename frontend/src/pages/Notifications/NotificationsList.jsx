@@ -23,6 +23,8 @@ import {
 } from "../../services/notificationService";
 import { useNotifications } from "../../context/NotificationContext";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import FilterSelect from "../../components/common/FilterSelect";
+import DateInput from "../../components/common/DateInput";
 
 const PAGE_SIZE = 10;
 
@@ -192,62 +194,64 @@ const NotificationsList = () => {
         <div className="grid gap-3 md:grid-cols-5">
           <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Status
-            <select
-              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
-              onChange={(event) => {
-                setReadFilter(event.target.value);
+            <FilterSelect
+              value={readFilter}
+              onChange={(nextValue) => {
+                setReadFilter(nextValue);
                 setPage(1);
               }}
-              value={readFilter}
-            >
-              <option value="all">All</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-            </select>
+              options={[
+                { value: "all", label: "All" },
+                { value: "unread", label: "Unread" },
+                { value: "read", label: "Read" },
+              ]}
+              ariaLabel="Notification status filter"
+            />
           </label>
 
           <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Module
-            <select
-              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
-              onChange={(event) => {
-                setEntityTypeFilter(event.target.value);
+            <FilterSelect
+              value={entityTypeFilter}
+              onChange={(nextValue) => {
+                setEntityTypeFilter(nextValue);
                 setPage(1);
               }}
-              value={entityTypeFilter}
-            >
-              <option value="all">All modules</option>
-              <option value="vendor">Vendors</option>
-              <option value="purchase_order">Purchase Orders</option>
-              <option value="invoice">Invoices</option>
-              <option value="payment">Payments</option>
-              <option value="user">Users</option>
-            </select>
+              options={[
+                { value: "all", label: "All modules" },
+                { value: "vendor", label: "Vendors" },
+                { value: "purchase_order", label: "Purchase Orders" },
+                { value: "invoice", label: "Invoices" },
+                { value: "payment", label: "Payments" },
+                { value: "user", label: "Users" },
+              ]}
+              ariaLabel="Notification module filter"
+            />
           </label>
 
           <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             From
-            <input
-              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
-              onChange={(event) => {
-                setCreatedFrom(event.target.value);
+            <DateInput
+              value={createdFrom}
+              max={createdTo || undefined}
+              onChange={(nextValue) => {
+                setCreatedFrom(nextValue);
                 setPage(1);
               }}
-              type="date"
-              value={createdFrom}
+              ariaLabel="Notification from date"
             />
           </label>
 
           <label className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             To
-            <input
-              className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 dark:focus:border-blue-400"
-              onChange={(event) => {
-                setCreatedTo(event.target.value);
+            <DateInput
+              value={createdTo}
+              min={createdFrom || undefined}
+              onChange={(nextValue) => {
+                setCreatedTo(nextValue);
                 setPage(1);
               }}
-              type="date"
-              value={createdTo}
+              ariaLabel="Notification to date"
             />
           </label>
 

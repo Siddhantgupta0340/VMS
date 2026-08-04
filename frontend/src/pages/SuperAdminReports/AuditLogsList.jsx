@@ -4,8 +4,10 @@ import { getAuditLogs, getAuditLogById } from "../../services/auditService";
 import { getManagersLookup } from "../../services/lookupService";
 import { toast } from "sonner";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import { formatEnumLabel, formatRoleLabel, formatRoleValuesDeep } from "../../utils/displayFormatters";
+import FilterSelect from "../../components/common/FilterSelect";
+import DateInput from "../../components/common/DateInput";
 
-const inputClass = "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-600 focus:outline-none";
 
 const AuditLogsList = () => {
   // ── States ────────────────────────────────────────────────────────────────
@@ -115,6 +117,8 @@ const AuditLogsList = () => {
     return name || log.performed_by.email;
   };
 
+  const displayJson = (value) => JSON.stringify(formatRoleValuesDeep(value), null, 2);
+
   return (
     <div className="space-y-6 relative select-none">
       {/* Navigation Header */}
@@ -122,88 +126,90 @@ const AuditLogsList = () => {
         <div className="flex items-center gap-3">
           <History size={28} className="text-slate-600" />
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Operational Audit Logs</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Operational Audit Logs</h1>
             <p className="mt-1 text-slate-500">Read-only historical trail of system modifications and administrative events</p>
           </div>
         </div>
       </div>
 
       {/* Filters Toolbar */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 space-y-4">
         <div className="flex flex-wrap gap-4 items-center">
           {/* Entity Type Filter */}
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 mb-1">Entity Scope</label>
-            <select
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Entity Scope</label>
+            <FilterSelect
               value={filters.entityType}
-              onChange={(e) => handleFilterChange("entityType", e.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Entities</option>
-              <option value="user">User Accounts</option>
-              <option value="vendor">Vendors</option>
-              <option value="purchase_order">Purchase Orders</option>
-              <option value="invoice">Invoices</option>
-              <option value="payment">Payments</option>
-              <option value="three_way_match">3-Way Match</option>
-            </select>
+              onChange={(nextValue) => handleFilterChange("entityType", nextValue)}
+              options={[
+                { value: "", label: "All Entities" },
+                { value: "user", label: "User Accounts" },
+                { value: "vendor", label: "Vendors" },
+                { value: "purchase_order", label: "Purchase Orders" },
+                { value: "invoice", label: "Invoices" },
+                { value: "payment", label: "Payments" },
+                { value: "three_way_match", label: "3-Way Match" },
+              ]}
+              placeholder="All Entities"
+              className="w-48"
+            />
           </div>
 
           {/* Action Filter */}
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 mb-1">Operation Type</label>
-            <select
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Operation Type</label>
+            <FilterSelect
               value={filters.action}
-              onChange={(e) => handleFilterChange("action", e.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Actions</option>
-              <option value="user_created">User Created</option>
-              <option value="user_updated">User Updated</option>
-              <option value="user_deleted">User Deleted</option>
-              <option value="password_reset">Password Reset</option>
-              <option value="vendor_created">Vendor Created</option>
-              <option value="vendor_approved">Vendor Approved</option>
-              <option value="invoice_approved">Invoice Approved</option>
-              <option value="payment_processed">Payment Processed</option>
-            </select>
+              onChange={(nextValue) => handleFilterChange("action", nextValue)}
+              options={[
+                { value: "", label: "All Actions" },
+                { value: "user_created", label: "User Created" },
+                { value: "user_updated", label: "User Updated" },
+                { value: "user_deleted", label: "User Deleted" },
+                { value: "password_reset", label: "Password Reset" },
+                { value: "vendor_created", label: "Vendor Created" },
+                { value: "vendor_approved", label: "Vendor Approved" },
+                { value: "invoice_approved", label: "Invoice Approved" },
+                { value: "payment_processed", label: "Payment Processed" },
+              ]}
+              placeholder="All Actions"
+              className="w-48"
+            />
           </div>
 
           {/* Actor Select Filter */}
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 mb-1">Performed By</label>
-            <select
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Performed By</label>
+            <FilterSelect
               value={filters.performedById}
-              onChange={(e) => handleFilterChange("performedById", e.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Administrators</option>
-              {actorsList.map((actor) => (
-                <option key={actor.value} value={actor.value}>
-                  {actor.name}
-                </option>
-              ))}
-            </select>
+              onChange={(nextValue) => handleFilterChange("performedById", nextValue)}
+              options={[
+                { value: "", label: "All Administrators" },
+                ...actorsList.map((actor) => ({ value: actor.value, label: actor.name })),
+              ]}
+              placeholder="All Administrators"
+              className="w-56"
+            />
           </div>
 
           {/* Date Range Filters */}
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 mb-1">Date From</label>
-            <input
-              type="date"
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Date From</label>
+            <DateInput
               value={filters.dateFrom}
-              onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-              className={inputClass}
+              max={filters.dateTo || undefined}
+              onChange={(nextValue) => handleFilterChange("dateFrom", nextValue)}
+              ariaLabel="Audit log date from"
             />
           </div>
 
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 mb-1">Date To</label>
-            <input
-              type="date"
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Date To</label>
+            <DateInput
               value={filters.dateTo}
-              onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-              className={inputClass}
+              min={filters.dateFrom || undefined}
+              onChange={(nextValue) => handleFilterChange("dateTo", nextValue)}
+              ariaLabel="Audit log date to"
             />
           </div>
 
@@ -261,15 +267,15 @@ const AuditLogsList = () => {
                     </td>
                     <td className="px-5 py-4">
                       <span className="inline-block rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
-                        {log.entity_type}
+                        {formatEnumLabel(log.entity_type)}
                       </span>
                     </td>
                     <td className="px-5 py-4 font-mono text-xs font-bold text-slate-900">
-                      {log.action}
+                      {formatEnumLabel(log.action)}
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-slate-900">{getActorName(log)}</p>
-                      <p className="text-xs text-slate-500 font-mono">{log.performed_by?.role || "SYSTEM"}</p>
+                      <p className="text-xs text-slate-500 font-medium">{formatRoleLabel(log.performed_by?.role) || "System"}</p>
                     </td>
                     <td className="px-5 py-4 text-slate-500 text-xs max-w-xs truncate">
                       {log.remarks}
@@ -400,7 +406,7 @@ const AuditLogsList = () => {
                         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Old Safe Values (Pre-State)</h4>
                         {selectedLog.old_value ? (
                           <pre className="bg-slate-900 text-slate-100 rounded-xl p-4 text-xs overflow-x-auto max-h-75 font-mono leading-relaxed">
-                            {JSON.stringify(selectedLog.old_value, null, 2)}
+                            {displayJson(selectedLog.old_value)}
                           </pre>
                         ) : (
                           <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-xs text-slate-400">
@@ -414,7 +420,7 @@ const AuditLogsList = () => {
                         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">New Safe Values (Post-State)</h4>
                         {selectedLog.new_value ? (
                           <pre className="bg-slate-900 text-slate-100 rounded-xl p-4 text-xs overflow-x-auto max-h-75 font-mono leading-relaxed">
-                            {JSON.stringify(selectedLog.new_value, null, 2)}
+                            {displayJson(selectedLog.new_value)}
                           </pre>
                         ) : (
                           <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-xs text-slate-400">

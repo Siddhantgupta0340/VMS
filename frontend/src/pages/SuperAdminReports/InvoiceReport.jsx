@@ -9,6 +9,9 @@ import ReportTable from "../../components/reports/ReportTable";
 import ReportDetailDrawer, { DetailField, DetailSection } from "../../components/reports/ReportDetailDrawer";
 import ExportButton from "../../components/reports/ExportButton";
 import StatusBadge from "../../components/common/StatusBadge";
+import FilterSelect from "../../components/common/FilterSelect";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import { inputClass as sharedInputClass } from "../../utils/formStyles";
 
 import {
   getInvoiceReport,
@@ -45,7 +48,7 @@ const COLUMNS = [
   { key: "invoice_date",   label: "Invoice Date",    sortable: true, render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
   { key: "invoice_total",  label: "Amount",           sortable: true,
     render: (v, row) => v != null ? `${row.currency} ${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—" },
-  { key: "status",         label: "Status",          sortable: true, render: (v) => formatStatus(v) },
+  { key: "status",         label: "Status",          sortable: true, render: (v) => <StatusBadge status={v} /> },
   { key: "created_by",     label: "Created By",      render: (v) => v ? `${v.first_name} ${v.last_name}` : "—" },
   { key: "approval_status", label: "Approval Status", sortable: true, render: (_, row) => <StatusBadge status={row.status} /> },
   { key: "payment_status", label: "Payment Status",  sortable: true, render: (v) => <StatusBadge status={v} /> },
@@ -215,9 +218,9 @@ const InvoiceReport = () => {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">Filters</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</p>
           {hasActiveFilters && (
             <button onClick={handleClearFilters} className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition">
               <X size={13} /> Clear all
@@ -232,7 +235,7 @@ const InvoiceReport = () => {
               placeholder="Search invoice #, vendor…"
               defaultValue={filters.search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-60 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+              className={`${sharedInputClass} w-full sm:w-60 pl-9`}
             />
           </div>
           <DateRangePicker
@@ -240,14 +243,20 @@ const InvoiceReport = () => {
             endDate={filters.endDate}
             onChange={(s, e) => setFilters((prev) => ({ ...prev, startDate: s, endDate: e, page: 1 }))}
           />
-          <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-            {INVOICE_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
-          <select value={filters.paymentStatus} onChange={(e) => updateFilter("paymentStatus", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-            {PAYMENT_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All Payment Statuses"}</option>)}
-          </select>
+          <FilterSelect
+            value={filters.status}
+            onChange={(nextValue) => updateFilter("status", nextValue)}
+            options={INVOICE_STATUS_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) }))}
+            placeholder="All Statuses"
+            className="w-full sm:w-56"
+          />
+          <FilterSelect
+            value={filters.paymentStatus}
+            onChange={(nextValue) => updateFilter("paymentStatus", nextValue)}
+            options={PAYMENT_STATUS_OPTIONS.map((s) => ({ value: s, label: s || "All Payment Statuses" }))}
+            placeholder="All Payment Statuses"
+            className="w-full sm:w-56"
+          />
           {/* Overdue toggle */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <div
@@ -316,7 +325,7 @@ const InvoiceReport = () => {
             <DetailField label="Match Status"   value={drawerRecord.three_way_match_status} />
             <DetailField label="Match %"        value={drawerRecord.three_way_match_percentage != null ? `${drawerRecord.three_way_match_percentage}%` : "—"} />
             <DetailSection title="Audit" />
-            <DetailField label="Created By"     value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${drawerRecord.created_by.role})` : "—"} />
+            <DetailField label="Created By"     value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${formatRoleLabel(drawerRecord.created_by.role)})` : "—"} />
             <DetailField label="Created Date"   value={drawerRecord.created_at ? new Date(drawerRecord.created_at).toLocaleString("en-IN") : "—"} />
           </>
         ) : null}

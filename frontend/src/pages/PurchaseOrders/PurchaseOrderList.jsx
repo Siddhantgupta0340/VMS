@@ -13,6 +13,7 @@ import { getErrorMessage, notify } from "../../utils/feedback";
 import { useAuth } from "../../context/AuthContext";
 import { canDownloadDocument } from "../../config/permissions";
 import { downloadHtmlAsPdf } from "../../utils/pdfGenerator";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 
 // Company constants loaded dynamically from COMPANY_CONFIG
 
@@ -134,7 +135,7 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
         <div class="box"><div class="lbl">Currency</div><div class="val">${esc(po.currency || "INR")}</div></div>
         <div class="box"><div class="lbl">Status</div><div class="val">${esc(po.status || "N/A")}</div></div>
         <div class="box"><div class="lbl">Created By</div><div class="val">${esc(po.createdBy || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Role</div><div class="val">${esc(po.createdByRole || "N/A")}</div></div>
+        <div class="box"><div class="lbl">Role</div><div class="val">${esc(formatRoleLabel(po.createdByRole) || "N/A")}</div></div>
       </div>
 
       <!-- Vendor -->
@@ -541,7 +542,7 @@ const PurchaseOrderList = () => {
                 <Detail label="Order Date" value={selectedPO.orderDate ? new Date(selectedPO.orderDate).toLocaleDateString("en-IN") : "-"} />
                 <Detail label="Expected Delivery" value={selectedPO.expectedDelivery ? new Date(selectedPO.expectedDelivery).toLocaleDateString("en-IN") : "-"} />
                 <Detail label="Payment Terms" value={selectedPO.paymentTerms} />
-                <Detail label="Created By" value={`${selectedPO.createdByRole || ""} ${selectedPO.createdBy || ""}`.trim()} />
+                <Detail label="Created By" value={`${formatRoleLabel(selectedPO.createdByRole) || ""} ${selectedPO.createdBy || ""}`.trim()} />
               </div>
 
               <section>

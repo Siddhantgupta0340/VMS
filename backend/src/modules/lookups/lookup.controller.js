@@ -4,6 +4,20 @@ import { ROLES } from '../../zodSchema/index.js';
 import { USER_ACCOUNT_STATUS } from '../users/user-status.constants.js';
 import { VENDOR_APPROVAL_STATUS, VENDOR_STATUS } from '../vendors/vendor.constants.js';
 import { COMPANY_CONFIG } from '../../config/company.js';
+import { ROLE_HIERARCHY } from '../users/user-role-hierarchy.constants.js';
+
+const formatRoleLabel = (role) =>
+  String(role || '')
+    .toLowerCase()
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const canRequesterAssignRole = (requesterRole, targetRole) => {
+  if (requesterRole === ROLES.SUPER_ADMIN) return true;
+  const requesterRank = ROLE_HIERARCHY[requesterRole] || 0;
+  const targetRank = ROLE_HIERARCHY[targetRole] || 0;
+  return targetRole !== ROLES.SUPER_ADMIN && targetRank > 0 && targetRank < requesterRank;
+};
 
 class LookupController {
   /**
@@ -11,9 +25,12 @@ class LookupController {
    * Returns list of system roles with descriptions.
    */
   getRoles = asyncHandler(async (req, res) => {
-    const roleList = Object.values(ROLES).map((role) => ({
+    const requesterRole = req.user?.role;
+    const roleList = Object.values(ROLES)
+      .filter((role) => canRequesterAssignRole(requesterRole, role))
+      .map((role) => ({
       id: role,
-      name: role.replace('_', ' '),
+      name: formatRoleLabel(role),
       value: role,
     }));
     

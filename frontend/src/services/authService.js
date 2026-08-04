@@ -1,4 +1,4 @@
-import api from "../api/axios";
+import api, { refreshAccessToken } from "../api/axios";
 import {
   PASSWORD_CHANGE_TOKEN_KEY,
   clearAuthSession,
@@ -58,7 +58,7 @@ const getSafeAuthErrorMessage = (err) => {
 export const login = async ({ email, password, rememberMe }) => {
   try {
     const res = await api.post("/v1/auth/login", { email, password });
-    const { user, accessToken, refreshToken, requiresPasswordChange, passwordChangeToken } = res.data?.data || {};
+    const { user, accessToken, requiresPasswordChange, passwordChangeToken } = res.data?.data || {};
 
     if (requiresPasswordChange && passwordChangeToken) {
       sessionStorage.setItem(PASSWORD_CHANGE_TOKEN_KEY, passwordChangeToken);
@@ -69,7 +69,7 @@ export const login = async ({ email, password, rememberMe }) => {
       return { success: false, message: "Login failed" };
     }
 
-    setTokenStorage(rememberMe, accessToken, refreshToken);
+    setTokenStorage(rememberMe, accessToken);
     setStoredUser(user);
 
     return { success: true, user };
@@ -89,11 +89,11 @@ export const completeTemporaryPasswordChange = async ({ newPassword, confirmPass
     newPassword,
     confirmPassword,
   });
-  const { user, accessToken, refreshToken } = res.data?.data || {};
+  const { user, accessToken } = res.data?.data || {};
   if (!accessToken || !user) {
     return { success: false, message: "Password changed, but login session could not be created." };
   }
-  setTokenStorage(false, accessToken, refreshToken);
+  setTokenStorage(false, accessToken);
   setStoredUser(user);
   sessionStorage.removeItem(PASSWORD_CHANGE_TOKEN_KEY);
   return { success: true, user };
@@ -161,15 +161,8 @@ export const resetPassword = async ({ email, otp, newPassword }) => {
 
 
 export const logout = async () => {
-  // Note: backend logout is protected and expects Authorization header.
-  // api interceptor will attach it automatically from stored access token.
-
   try {
-    const accessToken = getAccessToken();
-    if (accessToken) {
-      // backend logout is protected; api interceptor will add Authorization
-      await api.post("/v1/auth/logout");
-    }
+    await api.post("/v1/auth/logout");
   } catch {
     // ignore network/auth errors during logout
   } finally {
@@ -178,17 +171,58 @@ export const logout = async () => {
 };
 
 export const getCurrentUser = async () => {
-  const accessToken = getAccessToken();
-  if (!accessToken) return null;
+  const profileRequestOptions = {
+    __skipAuthClear: true,
+    __skipAuthRedirect: true,
+    __skipAuthRefresh: true,
+  };
 
   try {
-    const res = await api.get("/v1/auth/profile");
+    if (getAccessToken()) {
+      console.log("[AUTH] Existing access token found");
+    } else {
+      console.log("[AUTH] No stored access token; attempting cookie-backed session restoration");
+    }
+
+    const res = await api.get("/v1/auth/profile", profileRequestOptions);
     const profile = res.data?.data;
 
-    setStoredUser(profile);
+    if (profile) {
+      setStoredUser(profile);
+      console.log("[AUTH] Session restoration successful");
+    }
     return profile;
-  } catch {
-    clearAuthSession();
+  } catch (err) {
+    const status = err?.response?.status;
+    const code = err?.response?.data?.code;
+
+    if (status === 503 || code === "DATABASE_UNAVAILABLE" || !err?.response) {
+      console.log("[AUTH] Authentication restoration deferred because service is unavailable");
+      throw err;
+    }
+
+    if (status === 401) {
+      try {
+        console.log("[AUTH] Session restoration started");
+        await refreshAccessToken();
+        const retryRes = await api.get("/v1/auth/profile", profileRequestOptions);
+        const profile = retryRes.data?.data;
+        if (profile) {
+          setStoredUser(profile);
+          console.log("[AUTH] Session restoration successful");
+        }
+        return profile || null;
+      } catch (refreshErr) {
+        const refreshStatus = refreshErr?.response?.status;
+        const refreshCode = refreshErr?.response?.data?.code;
+        if (refreshStatus === 503 || refreshCode === "DATABASE_UNAVAILABLE" || !refreshErr?.response) {
+          console.log("[AUTH] Authentication restoration deferred because refresh is unavailable");
+          throw refreshErr;
+        }
+      }
+    }
+
+    console.log("[AUTH] Authentication restoration failed");
     return null;
   }
 };

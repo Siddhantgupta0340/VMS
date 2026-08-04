@@ -21,6 +21,7 @@ import ActionMenu from "../../components/common/ActionMenu";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
 import { Link, useNavigate } from "react-router-dom";
+import FilterSelect from "../../components/common/FilterSelect";
 
 const formatCurrency = (value, code = "INR") =>
   new Intl.NumberFormat("en-IN", {
@@ -212,32 +213,36 @@ const InvoiceList = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <select
+            <FilterSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 sm:text-sm"
-            >
-              <option value="">All Approval Statuses</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PENDING_THREE_WAY_MATCH">3-Way Match Pending</option>
-              <option value="PENDING_ADMIN_REVIEW">Admin Review Pending</option>
-              <option value="PENDING_TEAM_LEAD">Team Lead Pending</option>
-              <option value="PENDING_MANAGER">Manager Pending</option>
-              <option value="PENDING_FINANCE_HEAD">Finance Head Pending</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
+              onChange={setStatusFilter}
+              options={[
+                { value: "", label: "All Approval Statuses" },
+                { value: "APPROVED", label: "Approved" },
+                { value: "PENDING_THREE_WAY_MATCH", label: "3-Way Match Pending" },
+                { value: "PENDING_ADMIN_REVIEW", label: "Admin Review Pending" },
+                { value: "PENDING_TEAM_LEAD", label: "Team Lead Pending" },
+                { value: "PENDING_MANAGER", label: "Manager Pending" },
+                { value: "PENDING_FINANCE_HEAD", label: "Finance Head Pending" },
+                { value: "REJECTED", label: "Rejected" },
+              ]}
+              placeholder="All Approval Statuses"
+              className="w-full sm:w-56"
+            />
 
-            <select
+            <FilterSelect
               value={paymentStatusFilter}
-              onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 sm:text-sm"
-            >
-              <option value="">All Payment Statuses</option>
-              <option value="UNPAID">Unpaid</option>
-              <option value="PARTIALLY_PAID">Partially Paid</option>
-              <option value="PAID">Paid</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
+              onChange={setPaymentStatusFilter}
+              options={[
+                { value: "", label: "All Payment Statuses" },
+                { value: "UNPAID", label: "Unpaid" },
+                { value: "PARTIALLY_PAID", label: "Partially Paid" },
+                { value: "PAID", label: "Paid" },
+                { value: "OVERDUE", label: "Overdue" },
+              ]}
+              placeholder="All Payment Statuses"
+              className="w-full sm:w-52"
+            />
           </div>
         </div>
       </section>

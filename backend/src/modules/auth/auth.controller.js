@@ -2,6 +2,17 @@ import authService from "./auth.service.js";
 import { AUTH_MESSAGES } from "./auth.constants.js";
 import asyncHandler from "../../middleware/asyncHandler.middleware.js";
 
+const getCookieOptions = (maxAgeMs = 7 * 24 * 60 * 60 * 1000) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+    maxAge: maxAgeMs,
+  };
+};
+
 /**
  * @class AuthController
  * @description Handles HTTP requests for authentication, such as login, logout, and token refreshing.
@@ -13,10 +24,15 @@ class AuthController {
    * @access  Public
    */
   login = asyncHandler(async (req, res) => {
+    console.log("[AUTH] Login request received");
     const { email, password } = req.body;
     const result = await authService.login(
       email,
       password,
+      {
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip,
+      },
     );
     if (result.requiresPasswordChange) {
       return res.status(200).json({
@@ -26,27 +42,22 @@ class AuthController {
       });
     }
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    };
-
-    res.cookie('vms_access_token', result.accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
+    res.cookie('vms_access_token', result.accessToken, getCookieOptions(15 * 60 * 1000));
 
     if (result.refreshToken) {
-      res.cookie('vms_refresh_token', result.refreshToken, cookieOptions);
+      res.cookie('vms_refresh_token', result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
     }
 
+    const safeData = {
+      user: result.user,
+      accessToken: result.accessToken,
+    };
+
+    console.log("[AUTH] Login successful");
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
-      data: result,
+      data: safeData,
     });
   });
 
@@ -56,9 +67,13 @@ class AuthController {
    * @access  Private
    */
   logout = asyncHandler(async (req, res) => {
-    const message = await authService.logout(req.user.id);
-    res.clearCookie('vms_access_token', { path: '/' });
-    res.clearCookie('vms_refresh_token', { path: '/' });
+    console.log("[AUTH] Explicit logout requested");
+    const refreshToken = req.cookies?.vms_refresh_token || req.body?.refreshToken;
+    const message = await authService.logout(req.user.id, refreshToken);
+    const clearOpts = getCookieOptions(0);
+    res.clearCookie('vms_access_token', clearOpts);
+    res.clearCookie('vms_refresh_token', clearOpts);
+    console.log("[AUTH] Logout completed");
     res.status(200).json({ success: true, message });
   });
 
@@ -68,31 +83,26 @@ class AuthController {
    * @access  Public
    */
   refreshToken = asyncHandler(async (req, res) => {
-    const oldRefreshToken = req.cookies?.vms_refresh_token || req.body.refreshToken;
-    const { accessToken, refreshToken } =
-      await authService.refreshToken(oldRefreshToken);
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+    console.log("[AUTH] Refresh request received");
+    const oldRefreshToken = req.cookies?.vms_refresh_token || req.body?.refreshToken;
+    const meta = {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip,
     };
 
-    res.cookie('vms_access_token', accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
+    const { accessToken, refreshToken, user } =
+      await authService.refreshToken(oldRefreshToken, meta);
+
+    res.cookie('vms_access_token', accessToken, getCookieOptions(15 * 60 * 1000));
 
     if (refreshToken) {
-      res.cookie('vms_refresh_token', refreshToken, cookieOptions);
+      res.cookie('vms_refresh_token', refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
     }
 
     res.status(200).json({
       success: true,
       message: AUTH_MESSAGES.REFRESH_SUCCESS,
-      data: { accessToken, refreshToken },
+      data: { accessToken, user },
     });
   });
 
@@ -183,10 +193,19 @@ class AuthController {
   completeTemporaryPasswordChange = asyncHandler(async (req, res) => {
     const { passwordChangeToken, newPassword } = req.body;
     const result = await authService.completeTemporaryPasswordChange(passwordChangeToken, newPassword);
+    res.cookie('vms_access_token', result.accessToken, getCookieOptions(15 * 60 * 1000));
+
+    if (result.refreshToken) {
+      res.cookie('vms_refresh_token', result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    }
+
     res.status(200).json({
       success: true,
       message: 'Password changed successfully.',
-      data: result,
+      data: {
+        user: result.user,
+        accessToken: result.accessToken,
+      },
     });
   });
 

@@ -23,6 +23,8 @@ import StatusBadge from "../../components/common/StatusBadge";
 import Button from "../../components/common/Button";
 import VendorDocumentsPanel from "../../components/vendors/VendorDocumentsPanel";
 import { useAuth } from "../../context/AuthContext";
+import FilterSelect from "../../components/common/FilterSelect";
+import DateInput from "../../components/common/DateInput";
 import { hasPermission, PERMISSIONS, ROLES } from "../../config/permissions";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import {
@@ -394,15 +396,14 @@ const VendorList = () => {
             />
           </div>
 
-          <select
-            className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
+          <FilterSelect
             value={filters.status}
-            onChange={(event) => updateFilter("status", event.target.value)}
-          >
-            {statusOptions.map((option) => (
-              <option key={option.value || "all"} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            onChange={(nextValue) => updateFilter("status", nextValue)}
+            options={statusOptions}
+            placeholder="All Statuses"
+            ariaLabel="Vendor status filter"
+            className="w-full sm:w-52"
+          />
 
           <Button variant="outline" leftIcon={RefreshCw} onClick={loadVendors}>
             Refresh
@@ -597,11 +598,11 @@ const VendorList = () => {
               </label>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
                 Follow-up date
-                <input
-                  type="date"
-                  className="mt-2 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
+                <DateInput
                   value={reviewForm.followUpDate}
-                  onChange={(event) => setReviewForm((current) => ({ ...current, followUpDate: event.target.value }))}
+                  onChange={(nextValue) => setReviewForm((current) => ({ ...current, followUpDate: nextValue }))}
+                  className="mt-2"
+                  ariaLabel="Vendor follow-up date"
                 />
               </label>
             </>

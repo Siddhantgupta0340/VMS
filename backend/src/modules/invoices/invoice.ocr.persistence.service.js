@@ -82,12 +82,12 @@ class InvoiceOcrPersistenceService {
     await prisma.$executeRawUnsafe(
       `INSERT INTO ocr_documents (
         id, original_file_name, stored_file_name, file_reference, file_type, mime_type, file_size,
-        document_type, processing_status, ocr_status, processing_started_at, uploaded_by_id,
+        document_type, processing_status, ocr_status, uploaded_by_id,
         uploaded_at, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7,
-        'INVOICE'::"OCRDocumentType", 'PROCESSING'::"OCRProcessingStatus", 'PROCESSING'::"OCRStatus",
-        NOW(), $8, NOW(), NOW(), NOW()
+        'INVOICE'::"OCRDocumentType", 'UPLOADED'::"OCRProcessingStatus", 'NOT_STARTED'::"OCRStatus",
+        $8, NOW(), NOW(), NOW()
       )`,
       id,
       meta.originalFileName,
@@ -99,7 +99,7 @@ class InvoiceOcrPersistenceService {
       user?.id || null,
     );
 
-    ocrLog('createProcessingDocument done', { ocrDocumentId: id, status: 'PROCESSING' });
+    ocrLog('createProcessingDocument done', { ocrDocumentId: id, status: 'UPLOADED' });
     return {
       id,
       fileName: meta.originalFileName,
@@ -108,9 +108,24 @@ class InvoiceOcrPersistenceService {
       fileType: meta.fileType,
       mimeType: meta.mimeType,
       fileSize: meta.fileSize,
-      status: 'PROCESSING',
+      status: 'UPLOADED',
       confidence: null,
     };
+  }
+
+  async markDocumentProcessing({ ocrDocumentId }) {
+    if (!ocrDocumentId) return;
+    ocrLog('markDocumentProcessing', { ocrDocumentId });
+    await prisma.$executeRawUnsafe(
+      `UPDATE ocr_documents
+          SET processing_status = 'PROCESSING'::"OCRProcessingStatus",
+              ocr_status = 'PROCESSING'::"OCRStatus",
+              processing_started_at = COALESCE(processing_started_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1
+          AND processing_status = 'UPLOADED'::"OCRProcessingStatus"`,
+      ocrDocumentId,
+    );
   }
 
   async markDocumentFailed({ ocrDocumentId, errorMessage }) {
@@ -123,7 +138,8 @@ class InvoiceOcrPersistenceService {
               processing_completed_at = NOW(),
               error_message = $1,
               updated_at = NOW()
-        WHERE id = $2`,
+        WHERE id = $2
+          AND processing_status NOT IN ('COMPLETED'::"OCRProcessingStatus", 'PARTIAL'::"OCRProcessingStatus")`,
       String(errorMessage || 'OCR processing failed.').slice(0, 2000),
       ocrDocumentId,
     );
@@ -391,6 +407,21 @@ class InvoiceOcrPersistenceService {
          AND ($2::text IS NULL OR created_by_id = $2 OR $3::text IN ('SUPER_ADMIN','FINANCE_HEAD'))
        ORDER BY created_at DESC
        LIMIT 1`,
+      ocrDocumentId,
+      user?.id || null,
+      user?.role || null,
+    );
+    return rows?.[0] || null;
+  }
+
+  async getDocumentRecord(ocrDocumentId, user) {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT *
+         FROM ocr_documents
+        WHERE id = $1
+          AND deleted_at IS NULL
+          AND ($2::text IS NULL OR uploaded_by_id = $2 OR $3::text IN ('SUPER_ADMIN','FINANCE_HEAD'))
+        LIMIT 1`,
       ocrDocumentId,
       user?.id || null,
       user?.role || null,

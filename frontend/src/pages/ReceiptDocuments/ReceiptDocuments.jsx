@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { getPurchaseOrders } from "../../services/purchaseOrderServices";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import FilterSelect from "../../components/common/FilterSelect";
+import DateInput from "../../components/common/DateInput";
 import {
   createDeliveryChallan,
   createGRN,
@@ -193,12 +195,19 @@ const ReceiptDocuments = () => {
       <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Purchase Order</span>
-          <select value={selectedPOId} onChange={(event) => setSelectedPOId(event.target.value)} className={input}>
-            <option value="">Select Purchase Order</option>
-            {purchaseOrders.map((po) => (
-              <option key={po.id} value={po.id}>{po.poNumber} | {po.vendor || "Vendor missing"} | {money(po.amount)}</option>
-            ))}
-          </select>
+          <FilterSelect
+            value={selectedPOId}
+            onChange={setSelectedPOId}
+            options={[
+              { value: "", label: "Select Purchase Order" },
+              ...purchaseOrders.map((po) => ({
+                value: po.id,
+                label: `${po.poNumber} | ${po.vendor || "Vendor missing"} | ${money(po.amount)}`,
+              })),
+            ]}
+            placeholder="Select Purchase Order"
+            ariaLabel="Purchase order selector"
+          />
         </label>
         {selectedPO && (
           <div className="mt-4 grid gap-4 rounded-lg bg-slate-50 dark:bg-slate-900/40 p-4 md:grid-cols-4 border border-slate-100 dark:border-slate-800/60 text-slate-900 dark:text-slate-100">
@@ -215,7 +224,10 @@ const ReceiptDocuments = () => {
           <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-slate-950 dark:text-slate-100">Document Details</h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery / Receipt Date</span><input type="date" name="deliveryDate" value={form.deliveryDate} onChange={handleChange} className={input} /></label>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery / Receipt Date</span>
+                <DateInput name="deliveryDate" value={form.deliveryDate} onChange={(nextValue) => handleChange({ target: { name: "deliveryDate", value: nextValue } })} ariaLabel="Delivery or receipt date" />
+              </label>
               <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Received By</span><input name="receiverName" value={form.receiverName} onChange={handleChange} className={input} /></label>
               <label className="md:col-span-2"><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery Address</span><input name="deliveryAddress" value={form.deliveryAddress} onChange={handleChange} className={input} /></label>
               <label><span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Transporter</span><input name="transporter" value={form.transporter} onChange={handleChange} className={input} /></label>

@@ -133,6 +133,7 @@ model User {
   approval_logs        AuditLog[]     @relation("AuditLogPerformedBy")
   legacy_approval_logs ApprovalLog[]  @relation("ApprovalLogPerformedBy")
   notifications        Notification[] @relation("NotificationRecipient")
+  sessions             UserSession[]
 
   @@index([employee_id])
   @@index([deleted_by_id])
@@ -1112,3 +1113,27 @@ model PaymentApprovalHistory {
   @@index([created_at])
   @@map("payment_approval_history")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER SESSION / REFRESH TOKEN MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+model UserSession {
+  id           String    @id @default(uuid())
+  user_id      String
+  token_hash   String    @unique
+  expires_at   DateTime
+  revoked_at   DateTime?
+  replaced_by  String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  user_agent   String?
+  ip_address   String?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token_hash])
+  @@index([expires_at])
+  @@map("user_sessions")
+}
+

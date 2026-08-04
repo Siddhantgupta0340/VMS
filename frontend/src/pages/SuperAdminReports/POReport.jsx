@@ -9,6 +9,9 @@ import ReportTable from "../../components/reports/ReportTable";
 import ReportDetailDrawer, { DetailField, DetailSection } from "../../components/reports/ReportDetailDrawer";
 import ExportButton from "../../components/reports/ExportButton";
 import StatusBadge from "../../components/common/StatusBadge";
+import FilterSelect from "../../components/common/FilterSelect";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import { inputClass as sharedInputClass } from "../../utils/formStyles";
 
 import {
   getPOReport,
@@ -190,9 +193,9 @@ const POReport = () => {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">Filters</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</p>
           {hasActiveFilters && (
             <button onClick={handleClearFilters} className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition">
               <X size={13} /> Clear all
@@ -207,7 +210,7 @@ const POReport = () => {
               placeholder="Search PO number, vendor…"
               defaultValue={filters.search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-60 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+              className={`${sharedInputClass} w-full sm:w-60 pl-9`}
             />
           </div>
           <DateRangePicker
@@ -215,14 +218,20 @@ const POReport = () => {
             endDate={filters.endDate}
             onChange={(s, e) => setFilters((prev) => ({ ...prev, startDate: s, endDate: e, page: 1 }))}
           />
-          <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-            {PO_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All Statuses"}</option>)}
-          </select>
-          <select value={filters.currency} onChange={(e) => updateFilter("currency", e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-            {CURRENCY_OPTIONS.map((c) => <option key={c} value={c}>{c || "All Currencies"}</option>)}
-          </select>
+          <FilterSelect
+            value={filters.status}
+            onChange={(nextValue) => updateFilter("status", nextValue)}
+            options={PO_STATUS_OPTIONS.map((s) => ({ value: s, label: s || "All Statuses" }))}
+            placeholder="All Statuses"
+            className="w-full sm:w-44"
+          />
+          <FilterSelect
+            value={filters.currency}
+            onChange={(nextValue) => updateFilter("currency", nextValue)}
+            options={CURRENCY_OPTIONS.map((c) => ({ value: c, label: c || "All Currencies" }))}
+            placeholder="All Currencies"
+            className="w-full sm:w-44"
+          />
           <button onClick={() => fetchData(filters)} className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition">
             <RefreshCw size={13} /> Refresh
           </button>
@@ -271,7 +280,7 @@ const POReport = () => {
             <DetailField label="Invoices Count"    value={drawerRecord._count?.invoices ?? 0} />
             <DetailField label="Payments Count"    value={drawerRecord._count?.payments ?? 0} />
             <DetailSection title="Audit" />
-            <DetailField label="Created By"   value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${drawerRecord.created_by.role})` : "—"} />
+            <DetailField label="Created By"   value={drawerRecord.created_by ? `${drawerRecord.created_by.first_name} ${drawerRecord.created_by.last_name} (${formatRoleLabel(drawerRecord.created_by.role)})` : "—"} />
             <DetailField label="Created Date" value={drawerRecord.created_at ? new Date(drawerRecord.created_at).toLocaleString("en-IN") : "—"} />
           </>
         ) : null}

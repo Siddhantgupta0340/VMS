@@ -52,7 +52,7 @@ import PaymentReport from "../pages/SuperAdminReports/PaymentReport";
 import AuditLogsList from "../pages/SuperAdminReports/AuditLogsList";
 
 import ProtectedRoute from "../components/auth/ProtectedRoute";
-import { useAuth } from "../context/AuthContext";
+import { AUTH_STATUS, useAuth } from "../context/AuthContext";
 import { getDashboardPathForRole } from "../config/roleDashboard";
 
 import Forbidden from "../pages/Forbidden/Forbidden";
@@ -66,12 +66,12 @@ import ChangeTemporaryPassword from "../pages/Auth/ChangeTemporaryPassword";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 
 const RootRedirect = () => {
-  const { user, isAuthenticated, bootstrapping } = useAuth();
+  const { user, status, isAuthenticated, bootstrapping } = useAuth();
 
-  if (bootstrapping) {
+  if (status === AUTH_STATUS.INITIALIZING || bootstrapping) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading..." />
+        <LoadingSpinner size="lg" text="Checking session..." />
       </div>
     );
   }

@@ -42,6 +42,17 @@ import {
 } from "../../constants/userAccountStatus";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { getErrorMessage, notify } from "../../utils/feedback";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import { inputClass as sharedInputClass } from "../../utils/formStyles";
+import FilterSelect from "../../components/common/FilterSelect";
+
+const ROLE_RANK = {
+  SUPER_ADMIN: 5,
+  FINANCE_HEAD: 4,
+  MANAGER: 3,
+  TEAM_LEAD: 2,
+  CASE_MANAGER: 1,
+};
 
 // ── SortHeader Component ─────────────────────────────────────────────────────
 const SortHeader = ({ label, field, sortField, sortOrder, onSort }) => {
@@ -130,6 +141,12 @@ const UsersList = () => {
   const [lookupBranches, setLookupBranches] = useState([]);
   const [lookupDesignations, setLookupDesignations] = useState([]);
   const [lookupRegions, setLookupRegions] = useState([]);
+  const manageableRoles = lookupRoles.filter((role) => {
+    if (currentUser?.role === "SUPER_ADMIN") return true;
+    const requesterRank = ROLE_RANK[currentUser?.role] || 0;
+    const targetRank = ROLE_RANK[role.value] || 0;
+    return role.value !== "SUPER_ADMIN" && targetRank > 0 && targetRank < requesterRank;
+  });
 
   // ── Load User Directory ────────────────────────────────────────────────────
   const loadUsers = useCallback(async (params) => {
@@ -554,37 +571,34 @@ const UsersList = () => {
             placeholder="Search name or email address..."
             value={searchDraft}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm focus:border-blue-600 focus:outline-none transition"
+            className={`${sharedInputClass} w-full pl-10 pr-4`}
           />
         </div>
 
         {/* Role Select Filter */}
-        <select
+        <FilterSelect
           value={filters.role}
-          onChange={(e) => handleFilterChange("role", e.target.value)}
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-600 focus:outline-none"
-        >
-          <option value="">All Roles</option>
-          <option value="SUPER_ADMIN">Super Admin</option>
-          <option value="FINANCE_HEAD">Finance Head</option>
-          <option value="MANAGER">Manager</option>
-          <option value="TEAM_LEAD">Team Lead</option>
-          <option value="CASE_MANAGER">Case Manager</option>
-        </select>
+          onChange={(nextValue) => handleFilterChange("role", nextValue)}
+          options={[
+            { value: "", label: "All Roles" },
+            { value: "SUPER_ADMIN", label: "Super Admin" },
+            { value: "FINANCE_HEAD", label: "Finance Head" },
+            { value: "MANAGER", label: "Manager" },
+            { value: "TEAM_LEAD", label: "Team Lead" },
+            { value: "CASE_MANAGER", label: "Case Manager" },
+          ]}
+          placeholder="All Roles"
+          className="w-full sm:w-44"
+        />
 
         {/* Status Select Filter */}
-        <select
+        <FilterSelect
           value={filters.status}
-          onChange={(e) => handleFilterChange("status", e.target.value)}
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-600 focus:outline-none"
-        >
-          <option value="">All Statuses</option>
-          {USER_ACCOUNT_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={(nextValue) => handleFilterChange("status", nextValue)}
+          options={[{ value: "", label: "All Statuses" }, ...USER_ACCOUNT_STATUS_OPTIONS]}
+          placeholder="All Statuses"
+          className="w-full sm:w-44"
+        />
 
         {(filters.search || filters.role || filters.status) && (
           <button
@@ -679,7 +693,7 @@ const UsersList = () => {
                     </td>
                     <td className="px-5 py-4">
                       <span className="inline-block rounded-full bg-blue-50 px-3 py-0.5 text-xs font-semibold text-blue-700">
-                        {row.role}
+                        {formatRoleLabel(row.role)}
                       </span>
                     </td>
                     <td className="px-5 py-4">
@@ -833,7 +847,7 @@ const UsersList = () => {
                           <p className="text-sm text-slate-500">{selectedUser.email}</p>
                           <div className="mt-2.5 flex flex-wrap gap-2">
                             <span className="inline-block rounded-full bg-blue-50 px-3 py-0.5 text-xs font-semibold text-blue-700">
-                              {selectedUser.role}
+                              {formatRoleLabel(selectedUser.role)}
                             </span>
                             <StatusBadge status={selectedUser.status} />
                           </div>
@@ -1096,19 +1110,17 @@ const UsersList = () => {
                         </div>
 
                         <div>
-                          <label htmlFor="edit-role" className="block text-sm font-medium text-slate-700 mb-1.5">Role Permission Guard *</label>
-                          <select
-                            id="edit-role"
-                            name="role"
+                          <label htmlFor="edit-role" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Role Permission Guard *</label>
+                          <FilterSelect
+                            ariaLabel="Role Permission Guard"
                             value={editForm.role}
-                            onChange={(e) => handleEditRoleChange(e.target.value)}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none focus:border-blue-600"
-                            required
-                          >
-                            {lookupRoles.map((r) => (
-                              <option key={r.value} value={r.value}>{r.name}</option>
-                            ))}
-                          </select>
+                            onChange={handleEditRoleChange}
+                            options={manageableRoles.map((r) => ({
+                              value: r.value,
+                              label: formatRoleLabel(r.value || r.name),
+                            }))}
+                            placeholder="Select system role"
+                          />
                           {editErrors.role && (
                             <p className="mt-1 text-xs font-medium text-red-600">{editErrors.role}</p>
                           )}
@@ -1248,7 +1260,7 @@ const UsersList = () => {
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Role</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{confirmationUser?.role || "-"}</dd>
+                <dd className="mt-1 font-semibold text-slate-900">{formatRoleLabel(confirmationUser?.role) || "-"}</dd>
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Current Status</dt>

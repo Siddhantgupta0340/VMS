@@ -1,5 +1,6 @@
 import { Filter } from "lucide-react";
 import { useState } from "react";
+import FilterSelect from "./FilterSelect";
 
 const FilterBar = ({ onFilterChange, filters = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,19 +51,13 @@ const FilterBar = ({ onFilterChange, filters = [] }) => {
           <div className="space-y-3">
             {filters.map((filter) => (
               <div key={filter.key}>
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{filter.label}</label>
-                <select
+                <FilterSelect
+                  label={filter.label}
                   value={activeFilters[filter.key] || ""}
-                  onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="" className="dark:bg-slate-950">All</option>
-                  {filter.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="dark:bg-slate-950">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => handleFilterChange(filter.key, nextValue)}
+                  options={[{ value: "", label: "All" }, ...(filter.options || [])]}
+                  placeholder="All"
+                />
               </div>
             ))}
           </div>

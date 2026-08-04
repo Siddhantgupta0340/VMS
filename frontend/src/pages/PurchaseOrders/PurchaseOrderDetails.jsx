@@ -479,7 +479,7 @@ const PurchaseOrderDetails = () => {
                     po.items.map((item, index) => (
                       <tr key={index} className="border-b border-slate-200 dark:border-slate-800 print:border-slate-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                         <td className="py-3 px-2 text-center text-slate-400 font-medium">{index + 1}</td>
-                        <td className="py-3 px-2 text-center font-semibold text-slate-700 dark:text-slate-300">{item.itemCode || "—"}</td>
+                        <td className="py-3 px-2 text-center font-bold text-blue-600 dark:text-blue-400">{item.itemCode || "—"}</td>
                         <td className="py-3 px-3">
                           <div className="font-bold text-slate-800 dark:text-slate-100">{item.itemName || "Item"}</div>
                           {item.description && (

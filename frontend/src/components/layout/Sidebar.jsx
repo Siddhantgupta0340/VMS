@@ -1,10 +1,8 @@
-import React from "react";
 import {
   ChevronLeft,
   ChevronRight,
   LogOut,
   X,
-  Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -14,6 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSidebar } from "../../context/SidebarContext";
 import SidebarItem from "./SidebarItem";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 
 const Sidebar = () => {
   const {
@@ -159,7 +158,7 @@ const Sidebar = () => {
                   {profileName}
                 </h3>
                 <p className="truncate text-[10px] font-bold text-[#0090B8] dark:text-[#00E5FF] uppercase tracking-wider">
-                  {user.role?.replace("_", " ")}
+                  {formatRoleLabel(user.role)}
                 </p>
               </div>
             </div>

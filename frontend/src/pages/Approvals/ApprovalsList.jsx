@@ -6,6 +6,8 @@ import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../config/permissions";
 import { toast } from "sonner";
 import StatusBadge from "../../components/common/StatusBadge";
+import { formatRoleLabel } from "../../utils/displayFormatters";
+import FilterSelect from "../../components/common/FilterSelect";
 
 const money = (val, cur = "INR") =>
   `${cur} ${Number(val || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -172,16 +174,18 @@ const ApprovalsList = () => {
           />
         </div>
 
-        <select
+        <FilterSelect
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-slate-100"
-        >
-          <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-        </select>
+          onChange={setStatus}
+          options={[
+            { value: "All", label: "All Statuses" },
+            { value: "Pending", label: "Pending" },
+            { value: "Approved", label: "Approved" },
+            { value: "Rejected", label: "Rejected" },
+          ]}
+          placeholder="All Statuses"
+          className="w-full sm:w-44"
+        />
       </div>
 
       {/* Table */}
@@ -242,7 +246,7 @@ const ApprovalsList = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900">
-                          {approval.requiredRole || approval.assignedRole}
+                          {formatRoleLabel(approval.requiredRole || approval.assignedRole)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
@@ -320,7 +324,7 @@ const ApprovalsList = () => {
                 <div className="text-right">
                   <StatusBadge status={selectedApproval.status} />
                   <span className="text-xs text-slate-300 block mt-2 font-medium">
-                    Required Role: {selectedApproval.requiredRole}
+                    Required Role: {formatRoleLabel(selectedApproval.requiredRole)}
                   </span>
                 </div>
               </div>
@@ -420,7 +424,7 @@ const ApprovalsList = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block">Assigned Role</span>
-                    <span className="font-semibold text-indigo-700">{selectedApproval.requiredRole}</span>
+                    <span className="font-semibold text-indigo-700">{formatRoleLabel(selectedApproval.requiredRole)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block">Requested By</span>
@@ -472,7 +476,7 @@ const ApprovalsList = () => {
                         </div>
                         <div className="font-semibold text-sm text-slate-800 mt-0.5">{item.action}</div>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          By: {item.performedBy} ({item.performedByRole || "System"})
+                          By: {item.performedBy} ({formatRoleLabel(item.performedByRole) || "System"})
                         </div>
                         {item.remarks && <p className="text-xs text-slate-600 mt-1 italic">"{item.remarks}"</p>}
                       </div>

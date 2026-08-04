@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { AUTH_STATUS, useAuth } from "../../context/AuthContext";
 import { canAccessPath } from "../../config/permissions";
 
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -7,22 +7,22 @@ import LoadingSpinner from "../common/LoadingSpinner";
 const ProtectedRoute = ({ children }) => {
   const {
     user,
+    status,
     isAuthenticated,
     bootstrapping,
   } = useAuth();
 
   const location = useLocation();
 
-  // VERY IMPORTANT
-  if (bootstrapping) {
+  if (status === AUTH_STATUS.INITIALIZING || bootstrapping) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading..." />
+        <LoadingSpinner size="lg" text="Checking session..." />
       </div>
     );
   }
 
-  if (!isAuthenticated || !user) {
+  if (status === AUTH_STATUS.UNAUTHENTICATED || !isAuthenticated || !user) {
     const redirectPath = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate

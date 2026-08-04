@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
@@ -92,7 +92,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full font-sans bg-gradient-to-br from-slate-100 via-sky-50 to-blue-100 text-slate-800 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden">
+    <div className="min-h-screen w-full font-sans bg-gradient-to-br from-slate-100 via-sky-50 to-blue-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden">
 
       {/* Dynamic Animated Background Floating Objects & Stars */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -104,7 +104,7 @@ const Login = () => {
             scale: [1, 1.25, 1],
           }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-sky-300/40 to-blue-400/30 blur-[120px]"
+          className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-sky-300/40 to-blue-400/30 dark:from-blue-900/20 dark:to-cyan-900/20 blur-[120px]"
         />
         <motion.div
           animate={{
@@ -113,7 +113,7 @@ const Login = () => {
             scale: [1, 1.2, 1],
           }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute -bottom-20 -right-20 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-blue-300/35 to-indigo-300/30 blur-[130px]"
+          className="absolute -bottom-20 -right-20 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-blue-300/35 to-indigo-300/30 dark:from-slate-700/20 dark:to-blue-900/20 blur-[130px]"
         />
 
         {/* Floating Twinkling Stars / Particles */}
@@ -140,7 +140,7 @@ const Login = () => {
               width: `${star.size}px`,
               height: `${star.size}px`,
             }}
-            className="rounded-full bg-sky-400/80 shadow-[0_0_10px_#38bdf8]"
+            className="rounded-full bg-sky-400/80 dark:bg-cyan-300/50 shadow-[0_0_10px_#38bdf8]"
           />
         ))}
 
@@ -157,7 +157,7 @@ const Login = () => {
             ease: "easeInOut",
             repeatDelay: 4,
           }}
-          className="absolute top-0 left-0 w-72 h-0.5 bg-gradient-to-r from-transparent via-sky-400 to-transparent transform -rotate-45"
+          className="absolute top-0 left-0 w-72 h-0.5 bg-gradient-to-r from-transparent via-sky-400 dark:via-cyan-300/60 to-transparent transform -rotate-45"
         />
       </div>
 
@@ -166,11 +166,11 @@ const Login = () => {
         initial={{ opacity: 0, y: 35, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/90 shadow-2xl shadow-blue-900/10 backdrop-blur-xl grid grid-cols-1 lg:grid-cols-12 min-h-[520px]"
+        className="relative z-10 w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/95 shadow-2xl shadow-blue-900/10 dark:shadow-slate-950/60 backdrop-blur-xl grid grid-cols-1 lg:grid-cols-12 min-h-[520px]"
       >
         {/* Left Side Presentation with Light Architectural Background Image */}
         <div
-          className="lg:col-span-6 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden bg-cover bg-center border-b lg:border-b-0 lg:border-r border-slate-200/80"
+          className="lg:col-span-6 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden bg-cover bg-center border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800"
           style={{ backgroundImage: `url(${authBgLight})` }}
         >
           {/* High-quality Animated Video Background on the left side */}
@@ -198,7 +198,7 @@ const Login = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative z-10 flex items-center gap-3"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-white shadow-md overflow-hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-slate-950 text-white shadow-md overflow-hidden">
               <img src="/logo.png" className="h-7 w-7 object-contain" alt="Logo" />
             </div>
             <div>
@@ -247,15 +247,15 @@ const Login = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.25 }}
-          className="lg:col-span-6 p-7 sm:p-10 flex flex-col justify-center bg-white text-slate-900 relative"
+          className="lg:col-span-6 p-7 sm:p-10 flex flex-col justify-center bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 relative"
         >
           <div className="relative z-10">
             {/* Header */}
             <div className="mb-6">
-              <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 font-heading">
+              <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
                 Sign in to workspace
               </h3>
-              <p className="mt-1 text-xs text-slate-500 font-medium">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Enter your organizational credentials to continue
               </p>
             </div>
@@ -267,7 +267,7 @@ const Login = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-600 flex items-center gap-2 shadow-sm"
+                  className="mb-5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3.5 text-xs font-semibold text-red-600 dark:text-red-300 flex items-center gap-2 shadow-sm"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                   {error}
@@ -279,11 +279,11 @@ const Login = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Field */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     type="email"
                     name="email"
@@ -291,7 +291,7 @@ const Login = () => {
                     onChange={handleChange}
                     required
                     placeholder="name@company.com"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all shadow-sm"
+                    className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-600/15 dark:focus:ring-blue-500/20 transition-all shadow-sm"
                   />
                 </div>
               </div>
@@ -299,19 +299,19 @@ const Login = () => {
               {/* Password Field */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Password
                   </label>
                   <button
                     type="button"
                     onClick={() => navigate("/forgot-password")}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer transition-colors"
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline cursor-pointer transition-colors"
                   >
                     Forgot password?
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     type={showPassword ? "text" : "password"}
                     name="password"
@@ -319,12 +319,12 @@ const Login = () => {
                     onChange={handleChange}
                     required
                     placeholder="••••••••••••"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-12 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all shadow-sm"
+                    className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950 pl-10 pr-12 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-600/15 dark:focus:ring-blue-500/20 transition-all shadow-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 p-1 cursor-pointer transition-colors"
                     aria-label="Toggle password visibility"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -334,13 +334,13 @@ const Login = () => {
 
               {/* Keep me signed in Checkbox */}
               <div className="flex items-center justify-between py-1">
-                <label className="flex items-center gap-2.5 text-xs text-slate-600 font-medium cursor-pointer select-none">
+                <label className="flex items-center gap-2.5 text-xs text-slate-600 dark:text-slate-300 font-medium cursor-pointer select-none">
                   <input
                     type="checkbox"
                     name="rememberMe"
                     checked={formData.rememberMe}
                     onChange={handleChange}
-                    className="h-4 w-4 rounded border-slate-300 bg-white text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
                   />
                   Keep me signed in
                 </label>
@@ -359,7 +359,7 @@ const Login = () => {
               </motion.button>
             </form>
 
-            <p className="mt-8 text-center text-xs text-slate-400 font-medium">
+            <p className="mt-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
               Powered by VMS Enterprise Engine v2.0
             </p>
           </div>

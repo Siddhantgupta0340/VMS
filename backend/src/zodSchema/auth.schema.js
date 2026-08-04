@@ -15,7 +15,9 @@ export const loginSchema = z.object({
   }),
 });
 
-export const refreshTokenSchema = z.object({ body: z.object({ refreshToken: z.string().min(1) }) });
+export const refreshTokenSchema = z.object({
+  body: z.object({ refreshToken: z.string().min(1).optional() }).optional().default({}),
+});
 export const forgotPasswordSchema = z.object({ body: z.object({ email: z.string().email() }) });
 export const verifyOtpSchema = z.object({
   body: z.object({

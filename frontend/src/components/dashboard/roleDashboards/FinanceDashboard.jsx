@@ -6,8 +6,6 @@ import {
   RefreshCw,
   Users,
   Wallet,
-  Download,
-  Filter,
 } from "lucide-react";
 import {
   Bar,
@@ -25,10 +23,10 @@ import {
 import { useAuth } from "../../../context/AuthContext";
 import {
   DATE_PRESETS,
-  GROUP_OPTIONS,
   getFinanceHeadDashboard,
 } from "../../../services/dashboardService";
 import StatCard from "../StatCard";
+import FilterSelect from "../../common/FilterSelect";
 
 const STATUS_COLORS = ["#0090B8", "#1E3A5F", "#0EA5E9", "#2DD4BF", "#F59E0B"];
 
@@ -233,15 +231,13 @@ const FinanceDashboard = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <select
-            className="h-10 rounded-full border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm outline-none cursor-pointer"
+          <FilterSelect
+            className="w-44"
             value={filters.preset}
-            onChange={(e) => updateFilter("preset", e.target.value)}
-          >
-            {DATE_PRESETS.map((preset) => (
-              <option key={preset.value} value={preset.value}>{preset.label}</option>
-            ))}
-          </select>
+            onChange={(nextValue) => updateFilter("preset", nextValue)}
+            options={DATE_PRESETS}
+            ariaLabel="Dashboard date preset"
+          />
 
           <button
             type="button"

@@ -1,12 +1,20 @@
-import { ArrowLeft, ChevronDown, FileText, Trash2, Upload } from "lucide-react";
-import React, { Component, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ChevronDown, Download, Eye, FileText, Trash2, Upload } from "lucide-react";
+import { Component, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { createInvoice, getApprovedPurchaseOrdersForInvoice, getOcrInvoiceDraft, getPurchaseOrderForInvoice, processInvoiceOcr } from "../../services/invoiceService";
+import {
+  createInvoice,
+  getApprovedPurchaseOrdersForInvoice,
+  getOcrInvoiceDraft,
+  getPurchaseOrderForInvoice,
+  startInvoiceOcrJob,
+  waitForOcrInvoiceDraft,
+} from "../../services/invoiceService";
 
 import { RequiredLabel } from "../../components/common/FormValidation";
+import DateInput from "../../components/common/DateInput";
 import { getErrorMessage, notify } from "../../utils/feedback";
-import { fieldErrorClass, validateRequiredFields } from "../../utils/validationMatrix";
+import { fieldErrorClass } from "../../utils/validationMatrix";
 
 class InvoiceCreateErrorBoundary extends Component {
   constructor(props) {
@@ -55,7 +63,7 @@ class InvoiceCreateErrorBoundary extends Component {
   }
 }
 
-const OcrProgressStepper = ({ ocrStep, ocrResultData, onRetry, onUploadAnother, onContinueManual }) => {
+const OcrProgressStepper = ({ ocrStep, onRetry, onUploadAnother, onContinueManual }) => {
   if (!ocrStep) return null;
 
   const stateMessages = {
@@ -158,7 +166,7 @@ const formatDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
-const isSupportedInvoiceFile = (file) => ["application/pdf", "image/png", "image/jpeg"].includes(file?.type);
+const isSupportedInvoiceFile = (file) => ["application/pdf", "image/png", "image/jpeg", "image/tiff"].includes(file?.type);
 const formatFileSize = (size) => `${(Number(size || 0) / 1024 / 1024).toFixed(2)} MB`;
 const firstValue = (...values) => values.find((value) => value !== undefined && value !== null && value !== "");
 const toNumber = (value) => {
@@ -381,14 +389,6 @@ const Field = ({ label, value, isRequired = false, fallback = "Not Available" })
   );
 };
 
-const hasUsableValue = (value) => value !== undefined && value !== null && value !== "" && value !== "[object Object]";
-
-const MissingField = ({ field, source = "Vendor Master" }) => (
-  <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-    {field} missing. Complete it in {source}.
-  </span>
-);
-
 const ErrorText = ({ message }) => (
   message ? <p className="mt-2 text-xs font-semibold text-red-600">{message}</p> : null
 );
@@ -440,6 +440,7 @@ const InvoiceCreate = () => {
   const vendorRef = useRef(null);
   const itemsRef = useRef(null);
   const gstRef = useRef(null);
+  const ocrPollingAbortRef = useRef(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -452,6 +453,7 @@ const InvoiceCreate = () => {
   const [ocrNotice, setOcrNotice] = useState("");
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrStep, setOcrStep] = useState("IDLE");
+  const [ocrJobProgress, setOcrJobProgress] = useState(0);
   const [ocrResultData, setOcrResultData] = useState(null);
   const [createdInvoiceSuccessData, setCreatedInvoiceSuccessData] = useState(null);
   const [invoiceDraftItems, setInvoiceDraftItems] = useState([]);
@@ -518,6 +520,10 @@ const InvoiceCreate = () => {
   useEffect(() => {
     if (!isOcrRoute) return;
     ocrUI("Page mounted", { path: pathname, draftId: draftId || null });
+    return () => {
+      ocrPollingAbortRef.current?.abort();
+      ocrPollingAbortRef.current = null;
+    };
   }, [draftId, isOcrRoute, pathname]);
 
   const errorsByField = validationErrors.reduce((acc, error) => ({ ...acc, [error.field]: error.message }), {});
@@ -525,12 +531,8 @@ const InvoiceCreate = () => {
   const ocrInvoice = extractedData.invoice || extractedData.header || {};
   const ocrVendor = extractedData.vendor || {};
   const ocrPayment = extractedData.payment || extractedData.bank || {};
-  const ocrReferences = extractedData.references || {};
-  const invoiceItems = invoiceDraftItems;
   const taxSummary = invoiceDraftTotals;
   const authoritativeVendor = ocrResultData?.vendorMaster || ocrResultData?.vendor || selectedPurchaseOrder || {};
-  const authoritativeGrn = ocrResultData?.goodsReceiptNote || ocrResultData?.grn || ocrResultData?.matchedGrn || selectedPurchaseOrder?.grns?.[0] || {};
-  const authoritativeDeliveryChallan = ocrResultData?.deliveryChallan || ocrResultData?.matchedDeliveryChallan || selectedPurchaseOrder?.deliveryChallans?.[0] || {};
   const displayVendor = {
     vendorName: firstValue(authoritativeVendor.vendorName, authoritativeVendor.companyName, selectedPurchaseOrder?.vendorName, ocrVendor.vendorName),
     vendorCode: firstValue(authoritativeVendor.vendorCode, selectedPurchaseOrder?.vendorCode, ocrVendor.vendorCode),
@@ -554,33 +556,6 @@ const InvoiceCreate = () => {
     currency: firstValue(formData.currency, selectedPurchaseOrder?.currency),
     status: firstValue(authoritativeVendor.status),
   };
-  const vendorReferenceFields = [
-    ["Company Name", displayVendor.vendorName],
-    ["Vendor Code", displayVendor.vendorCode],
-    ["Vendor Category", displayVendor.vendorCategory],
-    ["Vendor Type", displayVendor.vendorType],
-    ["GST", displayVendor.gst],
-    ["PAN", displayVendor.pan],
-    ["CIN", displayVendor.cin],
-    ["MSME", displayVendor.msme],
-    ["Tax Type", displayVendor.taxType],
-    ["Contact", displayVendor.contactPerson],
-    ["Email", displayVendor.email],
-    ["Phone", displayVendor.phone],
-    ["Address", displayVendor.address],
-    ["Bank", displayVendor.bankName],
-    ["Account Holder", displayVendor.accountHolder],
-    ["Account", displayVendor.accountNumber ? (String(displayVendor.accountNumber).startsWith("****") ? displayVendor.accountNumber : `**** ${String(displayVendor.accountNumber).slice(-4)}`) : null],
-    ["IFSC", displayVendor.ifsc],
-    ["Branch", displayVendor.branch],
-    ["Payment Terms", displayVendor.paymentTerms],
-    ["Currency", displayVendor.currency],
-    ["Status", displayVendor.status],
-    ["Delivery Challan", firstValue(authoritativeDeliveryChallan.deliveryChallanNumber, authoritativeDeliveryChallan.delivery_challan_number, ocrReferences.deliveryChallanNumber)],
-    ["GRN", firstValue(authoritativeGrn.grnNumber, authoritativeGrn.grn_number, ocrReferences.grnNumber)],
-    ["Grand Total", taxSummary.grandTotal ? currency(taxSummary.grandTotal) : null],
-  ].filter(([, value]) => hasUsableValue(value));
-
   const focusValidationTarget = (field) => {
     const fieldRefs = {
       purchaseOrder: purchaseOrderRef,
@@ -806,6 +781,7 @@ const InvoiceCreate = () => {
       setInvoiceDraftItems([]);
       setInvoiceDraftTotals(recalculateInvoiceSummary([]));
       setOcrStep("IDLE");
+      setOcrJobProgress(0);
       return;
     }
     ocrUI("File selected", { fileName: file.name, fileSize: file.size, fileType: file.type || "unknown" });
@@ -824,6 +800,25 @@ const InvoiceCreate = () => {
     setOcrNotice("Invoice document selected.");
   };
 
+  const previewInvoiceFile = () => {
+    if (!formData.invoiceFile) return;
+    const url = window.URL.createObjectURL(formData.invoiceFile);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+  };
+
+  const downloadInvoiceFile = () => {
+    if (!formData.invoiceFile) return;
+    const url = window.URL.createObjectURL(formData.invoiceFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = formData.invoiceFile.name || "invoice-document";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const fillFormFromOcrData = (data = {}) => {
     const extracted = data.extractedData || {};
     const invoice = extracted.invoice || extracted.header || {};
@@ -836,7 +831,7 @@ const InvoiceCreate = () => {
       invoiceSource: "UPLOADED_PDF",
       invoiceNumber: firstValue(invoice.invoiceNumber, prev.invoiceNumber),
       invoiceCategory: firstValue(invoice.invoiceCategory, invoice.invoiceType, prev.invoiceCategory),
-      receiptDate: firstValue(data.goodsReceiptNote?.grnDate, data.grn?.grnDate, data.matchedGrn?.grnDate, invoice.receiptDate, prev.receiptDate),
+      receiptDate: firstValue(invoice.receiptDate, data.goodsReceiptNote?.grnDate, data.grn?.grnDate, data.matchedGrn?.grnDate, prev.receiptDate),
       priority: firstValue(invoice.priority, prev.priority),
       invoiceDate: firstValue(invoice.invoiceDate, prev.invoiceDate),
       dueDate: firstValue(invoice.dueDate, prev.dueDate),
@@ -867,14 +862,57 @@ const InvoiceCreate = () => {
     }
 
     ocrUI("Upload started", { fileName: file.name, fileSize: file.size, fileType: file.type });
+    ocrPollingAbortRef.current?.abort();
+    ocrPollingAbortRef.current = new AbortController();
     setOcrProcessing(true);
+    setOcrJobProgress(0);
     setOcrStep("UPLOADING");
     setOcrNotice("Uploading document...");
     try {
+      const handleJobStatus = (statusData = {}) => {
+        const status = String(statusData.status || statusData.processingStatus || statusData.ocrStatus || "PROCESSING").toUpperCase();
+        const progress = Number(statusData.progress);
+        if (Number.isFinite(progress)) setOcrJobProgress(Math.max(0, Math.min(100, progress)));
+        if (status === "UPLOADED" || status === "NOT_STARTED") {
+          setOcrStep("UPLOADING");
+          setOcrNotice("Invoice processing started. Waiting for OCR worker...");
+        } else if (status === "PROCESSING") {
+          setOcrStep("PARSING");
+          setOcrNotice("Processing invoice document in the background...");
+        } else if (status === "PARTIAL") {
+          setOcrStep("PARTIAL_SUCCESS");
+          setOcrNotice("OCR extracted partial data. Review and complete the missing fields.");
+        } else if (status === "READY" || status === "COMPLETED") {
+          setOcrStep("COMPLETED");
+          setOcrNotice("Preparing invoice form...");
+        } else if (status === "FAILED") {
+          setOcrStep("FAILED");
+          setOcrNotice(statusData.errorMessage || "OCR processing failed. Please try again.");
+        }
+      };
+      const startedJob = await startInvoiceOcrJob(file, {
+        onStatus: (statusData = {}) => {
+          handleJobStatus(statusData);
+        },
+      });
+      const jobId = startedJob.jobId || startedJob.ocrId || startedJob.ocrDocumentId;
+      ocrUI("OCR job created", {
+        jobId,
+        queuePosition: startedJob.queuePosition || null,
+        status: startedJob.status || null,
+      });
+      notify.success("Invoice processing started.");
       setOcrStep("PARSING");
-      setOcrNotice("Processing OCR document text...");
-      const res = await processInvoiceOcr(file);
+      setOcrJobProgress((current) => Math.max(current, 10));
+      setOcrNotice(`Invoice processing started. Job ID: ${jobId}`);
+
+      const res = await waitForOcrInvoiceDraft({
+        ocrId: jobId,
+        onStatus: handleJobStatus,
+        signal: ocrPollingAbortRef.current.signal,
+      });
       setOcrResultData(res);
+      setOcrJobProgress(100);
       const { ocrConfidence, extractedData, matchedPurchaseOrder } = res;
       fillFormFromOcrData(res);
       initializeInvoiceDraft({ ocrData: res, purchaseOrder: selectedPurchaseOrder, preferOcr: true });
@@ -921,9 +959,18 @@ const InvoiceCreate = () => {
         setOcrNotice("Invoice details were populated from the document. Select the matching Purchase Order to continue.");
       }
     } catch (err) {
-      const message = getErrorMessage(err, "Unable to extract invoice information from this document.");
+      if (err?.name === "AbortError" || err?.code === "ERR_CANCELED") return;
+      const message = err?.code === "OCR_POLL_TIMEOUT"
+        ? err.message
+        : getErrorMessage(err, "Unable to extract invoice information from this document.");
       ocrUI("OCR extraction error", { errorMessage: message, status: err?.response?.status || err?.status || null });
       console.error("[InvoiceCreate] OCR Extraction error:", err);
+      if (err?.code === "OCR_POLL_TIMEOUT") {
+        setOcrStep("PARSING");
+        setOcrNotice(message);
+        notify.info?.(message);
+        return;
+      }
       setOcrStep("FAILED");
       setCreationError({
         title: "Unable to extract invoice data.",
@@ -1024,6 +1071,8 @@ const InvoiceCreate = () => {
     return () => {
       active = false;
     };
+    // Load a saved OCR draft once for the current route/draft id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId, isOcrRoute]);
 
   const handleSubmit = async (event) => {
@@ -1308,12 +1357,12 @@ const InvoiceCreate = () => {
                 <span className="text-sm font-medium text-slate-700">{formData.invoiceFile?.name || "Choose File"}</span>
                 <input
                   type="file"
-                  accept="application/pdf,image/png,image/jpeg"
+                  accept="application/pdf,image/png,image/jpeg,image/tiff"
                   className="sr-only"
                   onChange={(event) => setInvoiceFile(event.target.files?.[0] || null)}
                 />
               </label>
-              <p className="text-xs font-medium text-slate-500">Supported: PDF / PNG / JPG / JPEG.</p>
+              <p className="text-xs font-medium text-slate-500">Supported: PDF / PNG / JPG / JPEG / TIFF.</p>
               <ErrorText message={errorsByField.invoiceAttachment} />
 
               {formData.invoiceFile ? (
@@ -1327,16 +1376,12 @@ const InvoiceCreate = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setCreationMethod(option.value)}
-                  className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${formData.invoiceCreationMethod === option.value ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200"}`}
+                  onClick={processSelectedInvoiceFile}
+                  disabled={!formData.invoiceFile || ocrProcessing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <span className="flex items-center gap-3 text-sm font-bold text-slate-950">
-                    <span className={`grid h-4 w-4 place-items-center rounded-full border ${formData.invoiceCreationMethod === option.value ? "border-blue-600" : "border-slate-400"}`}>
-                      {formData.invoiceCreationMethod === option.value ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
-                    </span>
-                    {option.label}
-                  </span>
-                  <span className="mt-2 block text-xs font-medium text-slate-500">{option.description}</span>
+                  <Upload size={14} />
+                  {ocrProcessing ? "Extracting..." : "Extract invoice details"}
                 </button>
                 {formData.invoiceFile ? (
                   <button type="button" onClick={() => setInvoiceFile(null)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">
@@ -1348,7 +1393,8 @@ const InvoiceCreate = () => {
               {ocrProcessing ? (
                 <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                  Analyzing document via OCR engine... Please wait.
+                  <span className="flex-1">Analyzing document via OCR engine...</span>
+                  <span>{ocrJobProgress}%</span>
                 </div>
               ) : null}
 
@@ -1517,14 +1563,13 @@ const InvoiceCreate = () => {
                   placeholder="e.g. INV-2026-008502"
                   value={formData.invoiceNumber}
                   onChange={(event) => setFormData((prev) => ({ ...prev, invoiceNumber: event.target.value }))}
-                  readOnly={isOcrRoute && Boolean(ocrInvoice.invoiceNumber)}
-                  className={`${isOcrRoute && ocrInvoice.invoiceNumber ? readOnly : input} ${fieldErrorClass(errorsByField.invoiceNumber)}`}
+                  className={`${input} ${fieldErrorClass(errorsByField.invoiceNumber)}`}
                 />
                 <ErrorText message={errorsByField.invoiceNumber} />
               </div>
               <div>
                 <RequiredLabel>Invoice Category</RequiredLabel>
-                <select value={formData.invoiceCategory} onChange={(event) => setFormData((prev) => ({ ...prev, invoiceCategory: event.target.value }))} disabled={isOcrRoute && Boolean(ocrInvoice.invoiceCategory)} className={`${isOcrRoute && ocrInvoice.invoiceCategory ? readOnly : input} ${fieldErrorClass(errorsByField.invoiceCategory)}`}>
+                <select value={formData.invoiceCategory} onChange={(event) => setFormData((prev) => ({ ...prev, invoiceCategory: event.target.value }))} className={`${input} ${fieldErrorClass(errorsByField.invoiceCategory)}`}>
                   {INVOICE_CATEGORIES.map((category) => (
                     <option key={category.value} value={category.value}>{category.label}</option>
                   ))}
@@ -1532,7 +1577,7 @@ const InvoiceCreate = () => {
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Receipt Date</label>
-                <input name="receiptDate" type="date" value={formData.receiptDate} onChange={(event) => setFormData((prev) => ({ ...prev, receiptDate: event.target.value }))} className={input} />
+                <DateInput name="receiptDate" value={formData.receiptDate} onChange={(nextValue) => setFormData((prev) => ({ ...prev, receiptDate: nextValue }))} className="w-full" ariaLabel="Receipt date" />
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Priority</label>
@@ -1544,12 +1589,12 @@ const InvoiceCreate = () => {
               </div>
               <div>
                 <RequiredLabel>Invoice Date</RequiredLabel>
-                <input ref={invoiceDateRef} name="invoiceDate" type="date" value={formData.invoiceDate} onChange={(event) => setFormData((prev) => ({ ...prev, invoiceDate: event.target.value }))} readOnly={isOcrRoute && Boolean(ocrInvoice.invoiceDate)} className={`${isOcrRoute && ocrInvoice.invoiceDate ? readOnly : input} ${fieldErrorClass(errorsByField.invoiceDate)}`} />
+                <DateInput ref={invoiceDateRef} name="invoiceDate" value={formData.invoiceDate} onChange={(nextValue) => setFormData((prev) => ({ ...prev, invoiceDate: nextValue }))} invalid={!!errorsByField.invoiceDate} ariaLabel="Invoice date" />
                 <ErrorText message={errorsByField.invoiceDate} />
               </div>
               <div>
                 <RequiredLabel>Invoice Due Date</RequiredLabel>
-                <input ref={dueDateRef} name="dueDate" type="date" value={formData.dueDate} onChange={(event) => setFormData((prev) => ({ ...prev, dueDate: event.target.value }))} readOnly={isOcrRoute && Boolean(ocrInvoice.dueDate)} className={`${isOcrRoute && ocrInvoice.dueDate ? readOnly : input} ${fieldErrorClass(errorsByField.dueDate)}`} />
+                <DateInput ref={dueDateRef} name="dueDate" value={formData.dueDate} onChange={(nextValue) => setFormData((prev) => ({ ...prev, dueDate: nextValue }))} invalid={!!errorsByField.dueDate} ariaLabel="Invoice due date" />
                 <ErrorText message={errorsByField.dueDate} />
               </div>
               <div className="md:col-span-2">
@@ -1582,7 +1627,8 @@ const InvoiceCreate = () => {
                 {ocrProcessing ? (
                   <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                    Analyzing document via OCR engine... Please wait.
+                    <span className="flex-1">Analyzing document via OCR engine...</span>
+                    <span>{ocrJobProgress}%</span>
                   </div>
                 ) : null}
 
@@ -1711,7 +1757,7 @@ const InvoiceCreate = () => {
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Items</h2>
             </div>
             <div className="space-y-4">
-              {(selectedPurchaseOrder?.items || []).map((item, index) => (
+              {invoiceDraftItems.map((item, index) => (
                 <article key={`${item.lineNumber || index}-${item.itemName || item.description}`} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -1747,9 +1793,9 @@ const InvoiceCreate = () => {
                   </div>
                 </article>
               ))}
-              {!selectedPurchaseOrder?.items?.length ? (
+              {!invoiceDraftItems.length ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                  Select an available purchase order to load invoice items.
+                  Select a purchase order or run OCR extraction to load editable invoice items.
                 </div>
               ) : null}
               <ErrorText message={errorsByField.items} />

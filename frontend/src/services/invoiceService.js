@@ -638,13 +638,58 @@ export const getCompanyInfo = async () => {
   }
 };
 
-export const processInvoiceOcr = async (file) => {
+const OCR_TERMINAL_STATUSES = new Set(["READY", "PARTIAL", "FAILED", "COMPLETED"]);
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) {
+    reject(new DOMException("OCR polling was cancelled.", "AbortError"));
+    return;
+  }
+  const timer = window.setTimeout(resolve, ms);
+  signal?.addEventListener("abort", () => {
+    window.clearTimeout(timer);
+    reject(new DOMException("OCR polling was cancelled.", "AbortError"));
+  }, { once: true });
+});
+
+export const getOcrInvoiceStatus = async (ocrId, { signal } = {}) => {
+  const res = await api.get(`/v1/invoices/ocr/${ocrId}/status`, { signal });
+  return res.data.data || {};
+};
+
+export const waitForOcrInvoiceDraft = async ({ ocrId, onStatus, signal, maxAttempts = 120, intervalMs = 1500 }) => {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const statusData = await getOcrInvoiceStatus(ocrId, { signal });
+    const status = String(statusData.status || statusData.processingStatus || statusData.ocrStatus || "PROCESSING").toUpperCase();
+    onStatus?.(statusData);
+
+    if ((status === "READY" || status === "PARTIAL" || status === "COMPLETED") && statusData.draftId) {
+      return getOcrInvoiceDraft(statusData.draftId);
+    }
+    if (status === "FAILED") {
+      const error = new Error(statusData.errorMessage || "OCR processing failed. Please try again.");
+      error.ocrStatus = statusData;
+      throw error;
+    }
+    if (OCR_TERMINAL_STATUSES.has(status) && statusData.extractedData) {
+      return statusData;
+    }
+
+    await sleep(intervalMs, signal);
+  }
+
+  const error = new Error("OCR processing is still running. You can stay on this page and try checking the status again shortly.");
+  error.code = "OCR_POLL_TIMEOUT";
+  error.ocrId = ocrId;
+  throw error;
+};
+
+export const startInvoiceOcrJob = async (file, { onStatus } = {}) => {
   const formData = new FormData();
   formData.append("invoiceFile", file);
 
   const res = await api.post("/v1/invoices/process-ocr", formData, {
     headers: { "Content-Type": "multipart/form-data" },
-    timeout: 180000,
+    timeout: 30000,
   });
   if (import.meta.env.DEV) {
     const rawData = res.data?.data || {};
@@ -663,6 +708,27 @@ export const processInvoiceOcr = async (file) => {
   }
 
   const data = res.data.data || {};
+  const ocrId = data.ocrId || data.ocrDocumentId;
+  if (res.status === 202) {
+    onStatus?.(data);
+    return {
+      ...data,
+      jobId: data.jobId || ocrId,
+      ocrId,
+      started: true,
+    };
+  }
+  return data;
+};
+
+export const processInvoiceOcr = async (file, { onStatus } = {}) => {
+  const data = await startInvoiceOcrJob(file, { onStatus });
+  const ocrId = data.ocrId || data.ocrDocumentId || data.jobId;
+  const status = String(data.status || data.processingStatus || data.ocrStatus || "").toUpperCase();
+  if (data.started || (ocrId && ["UPLOADED", "PROCESSING", "EXTRACTING", "ENRICHING"].includes(status))) {
+    onStatus?.(data);
+    return waitForOcrInvoiceDraft({ ocrId, onStatus });
+  }
   const extracted = data.extractedData || {};
 
   const draft = safeObject(data.invoiceDraft);

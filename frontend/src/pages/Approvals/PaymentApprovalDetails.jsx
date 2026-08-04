@@ -23,6 +23,7 @@ import {
   rejectPaymentApproval,
   getPaymentApprovalHistory,
 } from "../../services/approvalService";
+import { formatRoleLabel } from "../../utils/displayFormatters";
 
 const money = (val, cur = "INR") =>
   `${cur} ${Number(val || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -213,7 +214,7 @@ const PaymentApprovalDetails = () => {
           {/* Card 1: Approval Meta */}
           <DetailCard icon={Shield} title="Approval Context Information">
             <DetailItem label="Approval Request ID" value={approval.id} />
-            <DetailItem label="Assigned Role Pool" value={approval.requiredRole || approval.assignedRole} />
+            <DetailItem label="Assigned Role Pool" value={formatRoleLabel(approval.requiredRole || approval.assignedRole)} />
             <DetailItem label="Assigned User" value={approval.approverName || approval.assignedUser || "Role Pool"} />
             <DetailItem label="Requested By" value={approval.requestedBy || "Workflow System"} />
             <DetailItem label="Requested Amount" value={money(approval.amount || approval.requestedAmount, approval.currency)} />

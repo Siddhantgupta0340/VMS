@@ -114,6 +114,16 @@ router.get(
   invoiceController.getOcrInvoiceDraft,
 );
 
+router.get(
+  '/ocr/:ocrId/status',
+  authorize([
+    ROLES.CASE_MANAGER,
+    ROLES.FINANCE_HEAD,
+    ROLES.SUPER_ADMIN,
+  ]),
+  invoiceController.getOcrInvoiceStatus,
+);
+
 // ─── Base Collection Routes ───────────────────────────────────────────────────
 
 router

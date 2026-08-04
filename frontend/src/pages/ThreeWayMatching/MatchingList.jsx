@@ -18,6 +18,7 @@ import { ROLES } from "../../config/permissions";
 import { ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import FilterSelect from "../../components/common/FilterSelect";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "-");
@@ -204,7 +205,7 @@ const MatchingList = () => {
     },
     {
       key: "amount",
-      label: "Amount",
+      label: "Invoice Amount",
       sortable: true,
       render: (value) => <span className="font-semibold text-slate-800">{formatCurrency(value)}</span>,
     },
@@ -240,7 +241,7 @@ const MatchingList = () => {
     { key: "vendor", label: "Vendor", sortable: true },
     {
       key: "amount",
-      label: "Amount",
+      label: "Invoice Amount",
       sortable: true,
       render: (value) => <span>{formatCurrency(value)}</span>,
     },
@@ -323,16 +324,18 @@ const MatchingList = () => {
             extraHeaderContent={
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-slate-400" />
-                <select
+                <FilterSelect
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="MATCHED">Matched</option>
-                  <option value="MISMATCH">Mismatched</option>
-                  <option value="PENDING">Pending</option>
-                </select>
+                  onChange={setStatusFilter}
+                  options={[
+                    { value: "", label: "All Statuses" },
+                    { value: "MATCHED", label: "Matched" },
+                    { value: "MISMATCH", label: "Mismatched" },
+                    { value: "PENDING", label: "Pending" },
+                  ]}
+                  placeholder="All Statuses"
+                  className="w-48"
+                />
               </div>
             }
           />
@@ -343,18 +346,18 @@ const MatchingList = () => {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                   Select Invoice to Reconcile
                 </label>
-                <select
+                <FilterSelect
                   value={selectedInvoiceId}
-                  onChange={(event) => setSelectedInvoiceId(event.target.value)}
-                  className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-medium text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
-                >
-                  <option value="">Choose an invoice pending three-way matching</option>
-                  {pendingInvoices.map((invoice) => (
-                    <option key={invoice.id} value={invoice.id}>
-                      {invoice.invoiceNumber} | {invoice.poNumber || "PO N/A"} | {invoice.vendor || "Vendor N/A"} | {formatCurrency(invoice.amount)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedInvoiceId}
+                  options={[
+                    { value: "", label: "Choose an invoice pending three-way matching" },
+                    ...pendingInvoices.map((invoice) => ({
+                      value: invoice.id,
+                      label: `${invoice.invoiceNumber} | ${invoice.poNumber || "PO N/A"} | ${invoice.vendor || "Vendor N/A"} | ${formatCurrency(invoice.amount)}`,
+                    })),
+                  ]}
+                  placeholder="Choose an invoice pending three-way matching"
+                />
               </div>
               <button
                 type="button"
