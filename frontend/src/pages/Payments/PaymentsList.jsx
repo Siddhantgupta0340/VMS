@@ -487,8 +487,8 @@ const PaymentsList = () => {
               </div>
 
               {/* Complete Approval Timeline */}
-              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950">
+              <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40">
+                <h3 className="border-b border-slate-100 dark:border-slate-800 pb-3 text-base font-bold text-slate-950 dark:text-slate-100">
                   <Clock size={16} className="mr-2 inline" /> Complete Approval Timeline
                 </h3>
                 {loadingHistory ? (

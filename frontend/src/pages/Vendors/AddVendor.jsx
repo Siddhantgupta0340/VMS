@@ -241,7 +241,7 @@ const AddVendor = () => {
 
       {/* COMPANY INFORMATION */}
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -359,7 +359,7 @@ const AddVendor = () => {
 
       {/* PRIMARY CONTACT */}
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -474,7 +474,7 @@ const AddVendor = () => {
 
       {/* BUSINESS ADDRESS */}
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
 
         <div className="flex items-center gap-3 border-b p-6">
 
@@ -563,7 +563,7 @@ const AddVendor = () => {
 
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
 
         <div className="border-b p-6">
 
@@ -620,7 +620,7 @@ const AddVendor = () => {
 
       <VendorDocumentsPanel vendorId={activeVendorId} initialDocuments={vendorDocuments} />
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
 
         <div className="border-b p-6">
 

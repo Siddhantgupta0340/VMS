@@ -7,7 +7,6 @@ import {
   rejectInvoice,
 } from "../../services/invoiceService";
 import {
-  Download,
   Eye,
   FileText,
   Plus,
@@ -58,8 +57,6 @@ const InvoiceList = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const loadInvoices = useCallback(
     async (pageToLoad = pagination.page) => {
@@ -144,20 +141,7 @@ const InvoiceList = () => {
       actions={[
         {
           icon: Eye,
-          label: "Quick Preview",
-          onClick: () => {
-            setSelectedInvoice(row);
-            setShowInvoiceModal(true);
-          },
-        },
-        {
-          icon: Eye,
-          label: "View Full Details",
-          onClick: () => navigate(`/invoices/${row.id}`),
-        },
-        {
-          icon: Download,
-          label: "Download / Print PDF",
+          label: "View",
           onClick: () => navigate(`/invoices/${row.id}`),
         },
       ]}
@@ -205,7 +189,7 @@ const InvoiceList = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
             <input
               type="text"
-              placeholder="Search by Invoice #, PO #, or Vendor Name/Code..."
+              placeholder="Search by Invoice , PO , or Vendor Name/Code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-9 pr-4 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-blue-500 transition sm:text-sm"
@@ -283,8 +267,8 @@ const InvoiceList = () => {
             <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/80 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <tr>
-                  <th className="px-4 py-3.5">Invoice #</th>
-                  <th className="px-4 py-3.5">PO #</th>
+                  <th className="px-4 py-3.5">Invoice </th>
+                  <th className="px-4 py-3.5">PO </th>
                   <th className="px-4 py-3.5">Vendor</th>
                   <th className="px-4 py-3.5">Invoice Date</th>
                   <th className="px-4 py-3.5 text-right">Amount</th>

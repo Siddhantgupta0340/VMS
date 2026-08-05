@@ -203,7 +203,7 @@ const VendorDocumentsPanel = ({ vendorId, initialDocuments = [], readOnly = fals
 
   if (!vendorId) {
     return (
-      <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
         <h2 className="text-xl font-semibold text-slate-900">Documents</h2>
         <p className="mt-2 text-sm text-slate-500">Documents can be uploaded after the vendor is created.</p>
       </section>
@@ -211,7 +211,7 @@ const VendorDocumentsPanel = ({ vendorId, initialDocuments = [], readOnly = fals
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
       <div className="flex items-center gap-3">
         <FileText className="text-blue-600" />
         <div>

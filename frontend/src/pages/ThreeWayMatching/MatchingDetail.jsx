@@ -336,10 +336,10 @@ const MatchingDetail = () => {
         ))}
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">Matching Check Filter</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Matching Check Filter</h3>
             <p className="mt-1 text-sm text-slate-500">Identify which checks are MATCHED, MISMATCH, or PENDING.</p>
           </div>
           <div className="flex flex-wrap gap-2">

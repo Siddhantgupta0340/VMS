@@ -803,7 +803,7 @@ const InvoiceDetails = () => {
         </section>
 
         {/* 3. Procurement References Bar (PO, GRN, Delivery Challan) */}
-        <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs shadow-sm dark:shadow-slate-950/40">
           <div>
             <div className="font-bold uppercase text-slate-500 dark:text-slate-400 text-[10px]">PO Number</div>
             <div className="font-black text-blue-700 dark:text-blue-400 text-sm mt-0.5">{safeVal(invoice.poNumber)}</div>
@@ -823,13 +823,13 @@ const InvoiceDetails = () => {
         </section>
 
         {/* 3.1 Complete Invoice Information */}
-        <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-5 space-y-4">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4 shadow-sm dark:shadow-slate-950/40">
           <div className="flex flex-col gap-1 border-b border-blue-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xs font-black uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
               <FileText size={15} /> Invoice Information
             </h2>
             <span className="text-[11px] font-semibold text-blue-700">
-              Values are resolved from invoice, PO/GRN/DC relations, and saved OCR data before falling back.
+              {/*Values are resolved from invoice, PO/GRN/DC relations, and saved OCR data before falling back.*/}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -856,7 +856,7 @@ const InvoiceDetails = () => {
                   </span>
                 </div>
                 <p className="mt-3 text-slate-700 leading-relaxed font-medium">
-                  PO ({safeVal(invoice.poNumber)}), GRN ({safeVal(grnNumber)}), and Invoice ({safeVal(invoice.invoiceNumber)}) vendor, quantities, unit prices, taxes, and totals match PostgreSQL live database records.
+                  PO ({safeVal(invoice.poNumber)}), GRN ({safeVal(grnNumber)}), and Invoice ({safeVal(invoice.invoiceNumber)}) vendor, quantities, unit prices, taxes, and totals matched.
                 </p>
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {matchingChecks.map((check) => (
@@ -1101,7 +1101,7 @@ const InvoiceDetails = () => {
       <div className="no-print space-y-6 pt-4">
         {/* Invoice Attachments */}
         {invoice.attachments?.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950 flex items-center">
               <Paperclip size={18} className="mr-2 text-blue-600" />
               Attached Documents ({invoice.attachments.length})
@@ -1149,7 +1149,7 @@ const InvoiceDetails = () => {
         )}
 
         {/* Document History Timeline */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
           <h2 className="border-b border-slate-100 pb-3 text-base font-bold text-slate-950 flex items-center">
             <Clock size={18} className="mr-2 text-blue-600" />
             Audit & Workflow History

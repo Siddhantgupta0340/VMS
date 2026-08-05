@@ -1321,7 +1321,7 @@ const InvoiceCreate = () => {
 
       <form onSubmit={handleSubmit} noValidate className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Creation Method</h2>
             </div>
@@ -1341,7 +1341,7 @@ const InvoiceCreate = () => {
           </section>
 
           {isOcrRoute ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="mb-5 border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-950">Upload Invoice Document</h2>
             </div>
@@ -1402,7 +1402,7 @@ const InvoiceCreate = () => {
           </section>
           ) : null}
 
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="mb-5 border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-950">Purchase Order Selection</h2>
               <p className="mt-1 text-sm text-slate-500">Select an existing purchase order. Vendor, item, tax, and total values are read-only.</p>
@@ -1543,7 +1543,7 @@ const InvoiceCreate = () => {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Information</h2>
             </div>
@@ -1746,7 +1746,7 @@ const InvoiceCreate = () => {
             </div>
           </section>
 
-          <section ref={itemsRef} tabIndex={-1} className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 outline-none">
+          <section ref={itemsRef} tabIndex={-1} className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 outline-none">
             <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Items</h2>
             </div>
@@ -1798,7 +1798,7 @@ const InvoiceCreate = () => {
         </div>
 
         <aside className="xl:sticky xl:top-6 xl:self-start">
-          <section ref={gstRef} tabIndex={-1} className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-6 shadow-sm outline-none">
+          <section ref={gstRef} tabIndex={-1} className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 outline-none">
             <div className="flex items-center gap-2">
               <FileText size={18} className="text-blue-600" />
               <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Summary</h2>

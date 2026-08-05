@@ -66,12 +66,12 @@ const getReadinessReasons = (readiness = {}) => {
 };
 
 const Section = ({ children, icon: Icon, title }) => (
-  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
     <div className="mb-5 flex items-center gap-3">
-      <div className="rounded-xl bg-blue-50 p-2 text-blue-700">
+      <div className="rounded-xl bg-blue-50 dark:bg-blue-950/50 p-2 text-blue-700 dark:text-blue-400">
         <Icon size={20} />
       </div>
-      <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+      <h2 className="text-lg font-bold text-slate-950 dark:text-slate-100">{title}</h2>
     </div>
     {children}
   </section>

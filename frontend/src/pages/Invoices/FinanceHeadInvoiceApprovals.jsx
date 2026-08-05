@@ -126,7 +126,7 @@ const FinanceHeadInvoiceApprovals = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Finance Head</p>
@@ -168,7 +168,7 @@ const FinanceHeadInvoiceApprovals = () => {
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-950/40">
         {loading ? (
           <div className="flex h-80 items-center justify-center gap-3 text-sm font-medium text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin" />

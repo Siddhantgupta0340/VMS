@@ -806,12 +806,12 @@ const UsersList = () => {
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onClick={() => setDrawerMode(null)} />
 
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-lg bg-white shadow-xl flex flex-col">
+            <div className="w-screen max-w-lg bg-white dark:bg-slate-900 shadow-xl flex flex-col border-l border-slate-200 dark:border-slate-800">
 
               {/* Drawer Header */}
-              <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {drawerMode === "details" ? "User Profile Details" : "Modify User Profile"}
                   </h2>
                   {selectedUser && (
@@ -1283,9 +1283,9 @@ const UsersList = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setResetModalOpen(false)} />
 
-          <div className="relative max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden z-10 border border-slate-200 select-none">
-            <div className="px-6 py-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Change Credentials Password</h3>
+          <div className="relative max-w-md w-full bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden z-10 border border-slate-200/80 dark:border-slate-800 select-none">
+            <div className="px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-950 dark:text-slate-100">Change Credentials Password</h3>
               <button
                 type="button"
                 onClick={() => setResetModalOpen(false)}
