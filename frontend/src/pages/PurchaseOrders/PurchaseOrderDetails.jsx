@@ -220,15 +220,44 @@ const PurchaseOrderDetails = () => {
     );
   }
 
-  if (!po) return null;
+  if (!po) {
+    return (
+      <div className="mx-auto max-w-xl my-12 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-8 text-center space-y-4">
+        <h2 className="text-lg font-bold text-red-700 dark:text-red-400">Unable to load purchase order details.</h2>
+        <p className="text-xs text-slate-600 dark:text-slate-400">The requested purchase order could not be retrieved or may have been deleted.</p>
+        <div className="flex justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              getPurchaseOrderById(id)
+                .then(setPo)
+                .catch((err) => notify.error(getErrorMessage(err, "Purchase Order could not be loaded.")))
+                .finally(() => setLoading(false));
+            }}
+            className="px-4 py-2 bg-[#0090B8] hover:bg-[#007799] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+          >
+            Try Again
+          </button>
+          <Link
+            to="/purchase-orders"
+            className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            Back to Purchase Orders
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 print:pb-0">
       {/* SECTION 10: ACTION HEADER BAR (Hidden in print mode) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-5 no-print">
         <div className="flex items-center gap-3">
-          <Link to="/purchase-orders" className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800">
-            <ArrowLeft size={18} />
+          <Link to="/purchase-orders" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold">
+            <ArrowLeft size={16} />
+            <span>Back to Purchase Orders</span>
           </Link>
           <div>
             <div className="flex items-center gap-3">
@@ -450,6 +479,56 @@ const PurchaseOrderDetails = () => {
               </div>
             </section>
           )}
+
+          {/* SECTION 4B: LINKED PROCUREMENT DOCUMENTS (GRN & Delivery Challan) */}
+          <section className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-6 print:pb-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              Procurement Documents (GRN &amp; Delivery Challan)
+            </h3>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 text-xs">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Delivery Challans</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                    {po.deliveryChallans?.length || 0} Linked
+                  </span>
+                </div>
+                {po.deliveryChallans?.length ? (
+                  <div className="space-y-1.5 pt-1">
+                    {po.deliveryChallans.map((dc) => (
+                      <div key={dc.id} className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-800 pb-1">
+                        <span className="font-bold text-[#0090B8] dark:text-[#00E5FF]">{dc.deliveryChallanNumber}</span>
+                        <span className="text-[11px] text-slate-500">{fmtDate(dc.deliveryDate)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">No delivery challans created yet.</p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Goods Receipt Notes (GRN)</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    {po.grns?.length || 0} Linked
+                  </span>
+                </div>
+                {po.grns?.length ? (
+                  <div className="space-y-1.5 pt-1">
+                    {po.grns.map((grn) => (
+                      <div key={grn.id} className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-800 pb-1">
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{grn.grnNumber}</span>
+                        <span className="text-[11px] text-slate-500">{fmtDate(grn.receivedDate)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">No GRNs created yet.</p>
+                )}
+              </div>
+            </div>
+          </section>
 
           {/* SECTION 5: ITEM DETAILS TABLE */}
           <section className="space-y-3 print:pt-4">

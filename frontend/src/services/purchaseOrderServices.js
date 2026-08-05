@@ -1,33 +1,34 @@
 import api from "../api/axios";
 
 const mapPO = (po) => {
+  if (!po) return null;
   const v = po.vendor;
   const gstVal = v ? (v.gst_number || v.tax_id || null) : null;
   const fullAddr = v ? ([v.address_line1 || v.address, v.address_line2, v.city, v.district, v.state, v.zip_code, v.country].filter(Boolean).join(", ") || v.address || null) : null;
 
   return {
     id: po.id,
-    poNumber: po.po_number,
-    vendor: v?.name || null,
-    vendorName: v?.name || null,
-    vendorCode: v?.vendor_code || null,
-    vendorId: v?.id || po.vendor_id || null,
-    vendorGst: gstVal,
-    gstNumber: gstVal,
-    vendorCategory: v?.category || null,
-    vendorContactPerson: v?.contact_person || null,
-    vendorContact: v?.contact_person || v?.phone || null,
-    vendorEmail: v?.email || null,
-    vendorPhone: v?.phone || null,
-    vendorState: v?.state || null,
-    vendorPan: v?.pan_number || null,
-    vendorTaxType: v?.tax_type || null,
-    vendorBankName: v?.bank_name || null,
-    vendorAccountHolder: v?.account_holder || null,
-    vendorBankAccountNo: v?.bank_account_no || null,
-    vendorIfscCode: v?.ifsc_code || null,
-    vendorBankBranch: v?.bank_branch || null,
-    vendorAddress: fullAddr,
+    poNumber: po.po_number || po.poNumber,
+    vendor: v?.name || po.vendor || null,
+    vendorName: v?.name || po.vendorName || po.vendor || null,
+    vendorCode: v?.vendor_code || po.vendorCode || null,
+    vendorId: v?.id || po.vendor_id || po.vendorId || null,
+    vendorGst: gstVal || po.vendorGst || po.gstNumber || null,
+    gstNumber: gstVal || po.gstNumber || po.vendorGst || null,
+    vendorCategory: v?.category || po.vendorCategory || null,
+    vendorContactPerson: v?.contact_person || po.vendorContactPerson || null,
+    vendorContact: v?.contact_person || v?.phone || po.vendorContact || null,
+    vendorEmail: v?.email || po.vendorEmail || null,
+    vendorPhone: v?.phone || po.vendorPhone || null,
+    vendorState: v?.state || po.vendorState || null,
+    vendorPan: v?.pan_number || po.vendorPan || null,
+    vendorTaxType: v?.tax_type || po.vendorTaxType || null,
+    vendorBankName: v?.bank_name || po.vendorBankName || null,
+    vendorAccountHolder: v?.account_holder || po.vendorAccountHolder || null,
+    vendorBankAccountNo: v?.bank_account_no || po.vendorBankAccountNo || null,
+    vendorIfscCode: v?.ifsc_code || po.vendorIfscCode || null,
+    vendorBankBranch: v?.bank_branch || po.vendorBankBranch || null,
+    vendorAddress: fullAddr || po.vendorAddress || null,
     amount: Number(po.amount || 0),
     currency: po.currency || "INR",
     status:
@@ -39,35 +40,77 @@ const mapPO = (po) => {
             ? "Closed"
             : po.status,
     description: po.description,
-    billingAddress: po.billing_address,
-    deliveryAddress: po.delivery_address,
-    orderDate: po.order_date,
-    expectedDelivery: po.expected_delivery_date,
-    createdAt: po.created_at,
-    paymentTerms: po.payment_terms,
-    items: po.line_items || [],
-    taxSummary: po.tax_summary || null,
-    itemCount: po.line_items?.length || 0,
-    poType: po.po_type || "STANDARD",
-    purchaseRequisitionNumber: po.purchase_requisition_number || null,
+    billingAddress: po.billing_address || po.billingAddress || null,
+    deliveryAddress: po.delivery_address || po.deliveryAddress || null,
+    orderDate: po.order_date || po.orderDate,
+    expectedDelivery: po.expected_delivery_date || po.expectedDeliveryDate || po.expectedDelivery,
+    createdAt: po.created_at || po.createdAt,
+    updatedAt: po.updated_at || po.updatedAt,
+    paymentTerms: po.payment_terms || po.paymentTerms || null,
+    items: (po.line_items || po.items || []).map((item) => ({
+      lineNumber: item.lineNumber || item.line_number,
+      itemCode: item.itemCode || item.item_code || null,
+      itemName: item.itemName || item.item_name || "Item",
+      description: item.description || null,
+      unit: item.unit || null,
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.rate ?? 0),
+      taxableAmount: Number(item.taxableAmount ?? item.taxable_amount ?? 0),
+      gstRate: Number(item.gstRate ?? item.gst_rate ?? 0),
+      cgstAmount: Number(item.cgstAmount ?? item.cgst_amount ?? 0),
+      sgstAmount: Number(item.sgstAmount ?? item.sgst_amount ?? 0),
+      igstAmount: Number(item.igstAmount ?? item.igst_amount ?? 0),
+      gstAmount: Number(item.gstAmount ?? item.gst_amount ?? 0),
+      lineTotal: Number(item.lineTotal ?? item.line_total ?? 0),
+    })),
+    taxSummary: po.tax_summary || po.taxSummary || null,
+    itemCount: (po.line_items || po.items)?.length || 0,
+    poType: po.po_type || po.poType || "STANDARD",
+    purchaseRequisitionNumber: po.purchase_requisition_number || po.purchaseRequisitionNumber || null,
     department: po.department || null,
-    costCenter: po.cost_center || null,
+    costCenter: po.cost_center || po.costCenter || null,
     requester: po.requester || null,
     buyer: po.buyer || null,
-    quotationDate: po.quotation_date || null,
+    quotationDate: po.quotation_date || po.quotationDate || null,
     createdBy:
-      po.created_by
-        ? `${po.created_by.first_name ?? ""} ${po.created_by.last_name ?? ""}`.trim()
-        : "-",
-    createdByRole: po.created_by?.role,
+      typeof po.createdBy === "string"
+        ? po.createdBy
+        : po.created_by
+          ? `${po.created_by.first_name ?? ""} ${po.created_by.last_name ?? ""}`.trim()
+          : "-",
+    createdById: po.created_by_id || po.created_by?.id || po.createdById,
+    createdByRole: po.created_by?.role || po.createdByRole,
+    grns: (po.grns || []).map((grn) => ({
+      id: grn.id,
+      grnNumber: grn.grn_number || grn.grnNumber,
+      receivedDate: grn.received_date || grn.receivedDate,
+      status: grn.status,
+      itemsCount: grn.items?.length || 0,
+    })),
+    deliveryChallans: (po.delivery_challans || po.deliveryChallans || []).map((dc) => ({
+      id: dc.id,
+      deliveryChallanNumber: dc.delivery_challan_number || dc.deliveryChallanNumber,
+      deliveryDate: dc.delivery_date || dc.deliveryDate,
+      status: dc.status,
+      itemsCount: dc.items?.length || 0,
+    })),
   };
 };
 
 
-export const getPurchaseOrders = async () => {
-  const res = await api.get("/v1/purchase-orders");
+export const getPurchaseOrders = async (params = {}) => {
+  const res = await api.get("/v1/purchase-orders", { params });
+  const rawList = res.data.purchaseOrders || [];
+  const items = rawList.map(mapPO);
 
-  return (res.data.purchaseOrders || []).map(mapPO);
+  items.total = Number(res.data.total ?? items.length);
+  items.totalValue = Number(res.data.totalValue ?? items.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  items.availableCount = Number(res.data.availableCount ?? items.filter((item) => item.status !== "Cancelled").length);
+  items.page = Number(res.data.page || 1);
+  items.limit = Number(res.data.limit || 10);
+  items.totalPages = Number(res.data.totalPages || 1);
+
+  return items;
 };
 
 export const getPurchaseOrderById = async (id) => {

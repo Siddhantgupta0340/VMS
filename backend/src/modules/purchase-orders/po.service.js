@@ -215,6 +215,8 @@ class PurchaseOrderService {
     return {
       purchaseOrders: result.purchaseOrders,
       total: result.total,
+      totalValue: result.totalValue,
+      availableCount: result.availableCount,
       page,
       limit,
       totalPages: Math.ceil(result.total / limit),

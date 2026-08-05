@@ -18,6 +18,7 @@ import {
   Loader2
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import ViewDetailsButton from "../../components/common/ViewDetailsButton";
 import { useAuth } from "../../context/AuthContext";
 import { hasPermission, PERMISSIONS } from "../../config/permissions";
 import {

@@ -240,7 +240,7 @@ const MatchingDetail = () => {
               Match Reconciliation Audit
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Invoice #{report.invoiceNumber} | PO #{report.poNumber} | DC #{report.deliveryChallanNumber} | GRN #{report.grnNumber}
+              Invoice {report.invoiceNumber} | PO {report.poNumber} | DC #{report.deliveryChallanNumber} | GRN #{report.grnNumber}
             </p>
             <div className="flex items-center gap-4 mt-3 text-xs text-slate-600 dark:text-slate-300">
               <span>

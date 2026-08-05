@@ -1,6 +1,6 @@
-import { Download, Eye, Plus, Trash2, X, ShoppingCart, CheckCircle2, IndianRupee } from "lucide-react";
+import { Download, Plus, Trash2, X, ShoppingCart, CheckCircle2, IndianRupee, ArrowRight, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { COMPANY_CONFIG } from "../../config/company";
 
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -8,6 +8,8 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import StatusBadge from "../../components/common/StatusBadge";
+import ViewDetailsButton from "../../components/common/ViewDetailsButton";
+import Pagination from "../../components/common/Pagination";
 import { deletePurchaseOrder, getPurchaseOrders, downloadPurchaseOrderPdf } from "../../services/purchaseOrderServices";
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { useAuth } from "../../context/AuthContext";
@@ -298,24 +300,47 @@ const PurchaseOrderList = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [summaryMetrics, setSummaryMetrics] = useState({
+    total: null,
+    available: null,
+    totalValue: null,
+  });
 
-  const loadPOs = async () => {
+  // ─── Server-side pagination state ──────────────────────────────────────────
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const loadPOs = useCallback(async (page = 1) => {
     try {
       setLoading(true);
-      setPurchaseOrders(await getPurchaseOrders());
+      const data = await getPurchaseOrders({ page, limit: PAGE_SIZE });
+      setPurchaseOrders(data);
+      setSummaryMetrics({
+        total: Number(data.total ?? data.length ?? 0),
+        available: Number(data.availableCount ?? data.filter((p) => p.status !== "Cancelled").length ?? 0),
+        totalValue: Number(data.totalValue ?? data.reduce((sum, p) => sum + Number(p.amount || 0), 0)),
+      });
+      setTotalPages(Number(data.totalPages ?? 1));
+      setTotalItems(Number(data.total ?? data.length ?? 0));
     } catch (error) {
       notify.error(getErrorMessage(error, "Purchase orders could not be loaded."));
+      setSummaryMetrics({ total: 0, available: 0, totalValue: 0 });
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadPOs();
   }, []);
 
-  const totalValue = purchaseOrders.reduce((sum, po) => sum + Number(po.amount || 0), 0);
-  const createdCount = purchaseOrders.filter((po) => po.status === "Created").length;
+  useEffect(() => {
+    loadPOs(currentPage);
+  }, [loadPOs, currentPage]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages || loading) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const columns = [
     {
@@ -363,7 +388,8 @@ const PurchaseOrderList = () => {
       notify.success("Purchase Order deleted successfully.");
       setDeleteTarget(null);
       setDeleteReason("");
-      await loadPOs();
+      // After delete, reload current page (or go to page 1 if this was the last item)
+      await loadPOs(currentPage);
     } catch (error) {
       notify.error(getErrorMessage(error, "Purchase Order could not be deleted."));
     } finally {
@@ -409,29 +435,36 @@ const PurchaseOrderList = () => {
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading sm:text-3xl">Purchase Orders</h1>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Purchase orders are created by Case Managers and available immediately.</p>
           </div>
-          <Link to="/purchase-orders/new" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3.5 text-xs sm:text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm">
-            <Plus size={15} />
-            New Purchase Order
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link to="/purchase-orders/new" className="inline-flex cursor-pointer h-9 items-center justify-center gap-1.5 rounded-xl bg-[#0090B8] hover:bg-[#007799] px-3.5 text-xs sm:text-sm font-semibold text-white transition shadow-sm">
+              <Plus size={15} />
+              New Purchase Order
+            </Link>
+            <Link to="/receipt-documents" className="inline-flex cursor-pointer h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-2xs transition hover:border-[#0090B8] hover:bg-sky-50 dark:hover:bg-slate-800 hover:text-[#0090B8] dark:hover:text-[#00E5FF]">
+              <FileText size={15} className="text-[#0090B8] dark:text-[#00E5FF]" />
+              <span>Next: Receipt Documents</span>
+              <ArrowRight size={15} />
+            </Link>
+          </div>
         </div>
 
-        {/* KPI Cards - Always 1 single line without scroll */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-4 w-full">
+        {/* KPI Cards - Aggregated from backend database */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
           <StatCard
             title="Total POs"
-            value={purchaseOrders.length}
+            value={loading || summaryMetrics.total === null ? "Loading..." : String(summaryMetrics.total)}
             tone="blue"
             icon={ShoppingCart}
           />
           <StatCard
             title="Available"
-            value={createdCount}
+            value={loading || summaryMetrics.available === null ? "Loading..." : String(summaryMetrics.available)}
             tone="green"
             icon={CheckCircle2}
           />
           <StatCard
             title="Total Value"
-            value={money(totalValue)}
+            value={loading || summaryMetrics.totalValue === null ? "Loading..." : money(summaryMetrics.totalValue)}
             tone="purple"
             icon={IndianRupee}
           />
@@ -446,11 +479,8 @@ const PurchaseOrderList = () => {
                 searchableFields={["poNumber", "vendor", "description", "status"]}
                 rowActions={(po) => (
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    <Link
-                      to={`/purchase-orders/${po.id}`}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
-                    >
-                      <Eye size={14} /> View
+                    <Link to={`/purchase-orders/${po.id}`}>
+                      <ViewDetailsButton label="View PO" size="sm" />
                     </Link>
                     {canDownload ? (
                       <button
@@ -477,8 +507,28 @@ const PurchaseOrderList = () => {
                     </button>
                   </div>
                 )}
-                itemsPerPage={10}
+                itemsPerPage={PAGE_SIZE * 10}
+                isLoading={loading}
               />
+              {/* ─── Server-side Pagination ──────────────────────────────── */}
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  itemsPerPage={PAGE_SIZE}
+                  onPageChange={handlePageChange}
+                  isLoading={loading}
+                  label="Purchase Orders"
+                />
+              )}
+              {totalPages <= 1 && totalItems > 0 && (
+                <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                  Showing all{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">{totalItems}</span>{" "}
+                  Purchase Order{totalItems !== 1 ? "s" : ""}
+                </p>
+              )}
               <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"

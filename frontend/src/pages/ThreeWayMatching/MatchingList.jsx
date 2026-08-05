@@ -19,6 +19,7 @@ import { ValidationSummary } from "../../components/common/FormValidation";
 import { fieldErrorClass, focusValidationField, validateRequiredFields } from "../../utils/validationMatrix";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import FilterSelect from "../../components/common/FilterSelect";
+import ViewDetailsButton from "../../components/common/ViewDetailsButton";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "-");
@@ -219,14 +220,11 @@ const MatchingList = () => {
       key: "actions",
       label: "Actions",
       render: (_, row) => (
-        <button
-          type="button"
+        <ViewDetailsButton
+          size="sm"
           onClick={() => navigate(`/three-way-matching/${row.id}`)}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
-          aria-label={`View details for matching ${row.id}`}
-        >
-          <Eye size={14} /> View Details
-        </button>
+          title={`View details for matching ${row.id}`}
+        />
       ),
     },
   ];

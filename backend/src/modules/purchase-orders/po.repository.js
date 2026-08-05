@@ -35,7 +35,7 @@ class PurchaseOrderRepository {
   }
 
   async findAll({ where, skip, take }) {
-    const [purchaseOrders, total] = await Promise.all([
+    const [purchaseOrders, total, aggregate, availableCount] = await Promise.all([
       prisma.purchaseOrder.findMany({
         where,
         skip,
@@ -44,9 +44,24 @@ class PurchaseOrderRepository {
         include: poInclude,
       }),
       prisma.purchaseOrder.count({ where }),
+      prisma.purchaseOrder.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+      prisma.purchaseOrder.count({
+        where: {
+          ...where,
+          status: { not: 'cancelled' },
+        },
+      }),
     ]);
 
-    return { purchaseOrders, total };
+    return {
+      purchaseOrders,
+      total,
+      totalValue: Number(aggregate._sum.amount || 0),
+      availableCount,
+    };
   }
 
   async findById(id) {

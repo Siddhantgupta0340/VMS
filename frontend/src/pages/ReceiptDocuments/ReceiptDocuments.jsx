@@ -252,11 +252,11 @@ const ReceiptDocuments = () => {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-slate-955 dark:text-slate-100">PO Items</h2>
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white font-heading">PO Items</h2>
             <div className="space-y-3">
               {selectedPO.items.map((item, index) => (
-                <article key={`${item.itemName}-${index}`} className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-3">
+                <article key={`${item.itemName}-${index}`} className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 p-3.5">
                   <p className="font-semibold text-slate-900 dark:text-slate-100">{item.itemName}</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
@@ -300,14 +300,14 @@ const findPOItem = (poItems = [], receiptItem = {}) => {
 };
 
 const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete, isGRN = false, purchaseOrder = null }) => (
-  <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
-    <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-slate-100"><Icon size={18} /> {title}</h2>
+  <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+    <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white font-heading"><Icon size={18} className="text-[#0090B8] dark:text-[#00E5FF]" /> {title}</h2>
     <div className="space-y-3">
       {records.map((record) => (
-        <article key={record.id} className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-4">
+        <article key={record.id} className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-semibold text-blue-750 dark:text-blue-400">{record[numberKey]}</p>
+              <p className="font-bold text-[#0090B8] dark:text-[#00E5FF]">{record[numberKey]}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">{record.vendor_name || record.vendor?.name || "Vendor"} | {record[dateKey] ? new Date(record[dateKey]).toLocaleDateString("en-IN") : "Date pending"}</p>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{record.items?.length || record.line_items?.length || 0} items</p>
             </div>

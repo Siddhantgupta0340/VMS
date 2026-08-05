@@ -420,3 +420,35 @@ html.dark .animate-navbar-bg,
   background-size: 400% 400% !important;
   animation: navbarGlow 14s ease infinite !important;
 }
+
+/* ------------------------------------------------------------
+   SEMANTIC CURSOR SYSTEM
+------------------------------------------------------------ */
+button,
+a,
+select,
+summary,
+[role="button"],
+[role="option"],
+[role="tab"],
+[role="checkbox"],
+[role="radio"],
+[type="button"],
+[type="submit"],
+[type="reset"],
+[type="checkbox"],
+[type="radio"] {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+h1, h2, h3, h4, h5, h6, label:not([for]), p, th, td {
+  cursor: default;
+}
