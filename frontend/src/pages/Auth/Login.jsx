@@ -365,7 +365,7 @@ const Login = () => {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isSubmitting}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 font-bold text-sm text-white shadow-lg shadow-blue-600/25 transition-all disabled:opacity-60 cursor-pointer mt-2"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0090B8] hover:bg-[#007799] active:bg-[#006080] font-bold text-sm text-white shadow-lg shadow-[#0090B8]/25 transition-all disabled:opacity-60 cursor-pointer mt-2"
               >
                 <span>{isSubmitting ? "Authenticating..." : "Sign in to Dashboard"}</span>
                 <ArrowRight size={16} />

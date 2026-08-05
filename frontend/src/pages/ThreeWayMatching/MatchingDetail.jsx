@@ -230,42 +230,42 @@ const MatchingDetail = () => {
       </div>
 
       {/* Audit report summary */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="rounded-2xl border border-sky-200/70 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl text-blue-600">
+          <div className="p-3 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-900/60 rounded-2xl text-[#0090B8] dark:text-[#00E5FF]">
             <GitCompare size={32} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading">
               Match Reconciliation Audit
             </h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Invoice #{report.invoiceNumber} | PO #{report.poNumber} | DC #{report.deliveryChallanNumber} | GRN #{report.grnNumber}
             </p>
-            <div className="flex items-center gap-4 mt-3 text-xs text-slate-600">
+            <div className="flex items-center gap-4 mt-3 text-xs text-slate-600 dark:text-slate-300">
               <span>
                 Reconciliation Score:{" "}
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-[#0090B8] dark:text-[#00E5FF]">
                   {report.matchPercentage}%
                 </span>
               </span>
               <span>•</span>
               <span>
                 Passed Checks:{" "}
-                <span className="font-semibold text-slate-800">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
                   {report.matchedFieldsCount} of {report.totalFieldsCount} fields
                 </span>
               </span>
             </div>
-            <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+            <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-400 sm:grid-cols-3">
               <span>
-                Variance Amount: <strong className="text-slate-900">{formatCurrency(summary.varianceAmount)}</strong>
+                Variance Amount: <strong className="text-slate-900 dark:text-slate-100">{formatCurrency(summary.varianceAmount)}</strong>
               </span>
               <span>
-                Variance %: <strong className="text-slate-900">{Number(summary.variancePercentage || 0)}%</strong>
+                Variance %: <strong className="text-slate-900 dark:text-slate-100">{Number(summary.variancePercentage || 0)}%</strong>
               </span>
               <span>
-                Result: <strong className="text-slate-900">{report.status}</strong>
+                Result: <strong className="text-slate-900 dark:text-slate-100">{report.status}</strong>
               </span>
             </div>
           </div>
@@ -275,54 +275,59 @@ const MatchingDetail = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
         {[
           ["Purchase Order", report.poSnapshot, report.poSnapshot?.poNumber, report.poSnapshot?.grandTotal],
           ["Delivery Challan", report.deliveryChallanSnapshot, report.deliveryChallanSnapshot?.deliveryChallanNumber, report.deliveryChallanSnapshot?.grandTotal],
           ["Goods Receipt Note", report.grnSnapshot, report.grnSnapshot?.grnNumber, report.grnSnapshot?.grandTotal],
           ["Invoice", report.invoiceSnapshot, report.invoiceSnapshot?.invoiceNumber, report.invoiceSnapshot?.grandTotal],
         ].map(([title, snapshot, number, total]) => (
-          <section key={title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-start justify-between gap-3">
+          <section
+            key={title}
+            className="group relative overflow-hidden rounded-2xl border border-sky-200/70 dark:border-slate-800/90 bg-white/90 dark:bg-slate-900/90 p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0090B8]/50 dark:hover:border-[#0090B8]/60 hover:shadow-md"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3 border-b border-sky-100 dark:border-slate-800/80 pb-3">
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">{title}</h3>
-                <p className="mt-1 font-mono text-xs text-slate-500">{number || "Not available"}</p>
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#0090B8] dark:text-[#00E5FF] font-heading">{title}</h3>
+                <p className="mt-1 inline-block rounded-md bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-900/40">
+                  {number || "Not available"}
+                </p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span className="rounded-full bg-slate-900 dark:bg-slate-100 px-3 py-1 text-xs font-extrabold text-white dark:text-slate-950 shadow-xs">
                 {formatCurrency(total)}
               </span>
             </div>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs">
               <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Vendor</span>
-                <span className="text-right font-medium text-slate-800">{snapshot?.vendorName || snapshot?.vendorCode || "-"}</span>
+                <span className="font-medium text-slate-500 dark:text-slate-400">Vendor</span>
+                <span className="text-right font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[150px]" title={snapshot?.vendorName || snapshot?.vendorCode || "-"}>{snapshot?.vendorName || snapshot?.vendorCode || "-"}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Date</span>
-                <span className="font-medium text-slate-800">
+                <span className="font-medium text-slate-500 dark:text-slate-400">Date</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
                   {snapshot?.poDate || snapshot?.deliveryDate || snapshot?.receivedDate || snapshot?.invoiceDate
                     ? new Date(snapshot.poDate || snapshot.deliveryDate || snapshot.receivedDate || snapshot.invoiceDate).toLocaleDateString()
                     : "-"}
                 </span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-slate-500">GST</span>
-                <span className="font-medium text-slate-800">{formatCurrency(snapshot?.gstAmount)}</span>
+                <span className="font-medium text-slate-500 dark:text-slate-400">GST</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(snapshot?.gstAmount)}</span>
               </div>
             </div>
             <div className="mt-4 space-y-2">
               {(snapshot?.items || []).slice(0, 4).map((item, index) => (
-                <div key={`${title}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
-                  <div className="font-semibold text-slate-800">{item.itemName || item.item_name || item.name || item.description || "Item"}</div>
-                  <div className="mt-1 grid grid-cols-2 gap-2 text-slate-600 sm:grid-cols-3">
-                    <span>Qty: {valueOrDash(snapshotQuantity(title, item))}</span>
-                    <span>Rate: {valueOrDash(item.unitPrice ?? item.unit_price ?? item.rate)}</span>
-                    <span>GST: {valueOrDash(item.gstAmount ?? item.gst_amount ?? item.taxAmount ?? item.tax_amount)}</span>
+                <div key={`${title}-${index}`} className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-950/60 p-3 text-xs shadow-2xs transition">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">{item.itemName || item.item_name || item.name || item.description || "Item"}</div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 font-medium sm:grid-cols-3">
+                    <span>Qty: <strong className="text-slate-900 dark:text-slate-200 font-semibold">{valueOrDash(snapshotQuantity(title, item))}</strong></span>
+                    <span>Rate: <strong className="text-slate-900 dark:text-slate-200 font-semibold">{valueOrDash(item.unitPrice ?? item.unit_price ?? item.rate)}</strong></span>
+                    <span>GST: <strong className="text-slate-900 dark:text-slate-200 font-semibold">{valueOrDash(item.gstAmount ?? item.gst_amount ?? item.taxAmount ?? item.tax_amount)}</strong></span>
                   </div>
                 </div>
               ))}
               {(!snapshot?.items || snapshot.items.length === 0) && (
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+                <div className="rounded-xl border border-slate-200/60 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40 p-3 text-xs font-medium text-slate-400 dark:text-slate-500 italic">
                   No item details available.
                 </div>
               )}
