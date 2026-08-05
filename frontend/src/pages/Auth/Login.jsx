@@ -6,9 +6,12 @@ import {
   ArrowRight,
   Mail,
   Lock,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { toast } from "sonner";
 import { getDashboardPathForRole } from "../../config/roleDashboard";
 import authBgLight from "../../assets/auth-bg-light.png";
@@ -34,6 +37,7 @@ const generateStars = (count = 28) => {
 const Login = () => {
   const navigate = useNavigate();
   const { login, user, isAuthenticated, bootstrapping } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const queryRedirect = new URLSearchParams(location.search).get("redirect");
   const queryFrom = new URLSearchParams(location.search).get("from");
@@ -93,6 +97,15 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full font-sans bg-gradient-to-br from-slate-100 via-sky-50 to-blue-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden">
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="absolute top-4 right-4 z-50 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-2.5 text-slate-600 dark:text-slate-300 shadow-md backdrop-blur-md transition hover:scale-105"
+        title="Toggle Theme"
+        aria-label="Toggle Theme"
+      >
+        {theme === "dark" ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-700" />}
+      </button>
 
       {/* Dynamic Animated Background Floating Objects & Stars */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">

@@ -15,6 +15,10 @@ import { getErrorMessage, notify } from "../../utils/feedback";
 const input =
   "w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500";
 
+const FieldError = ({ message }) => (
+  message ? <p className="mt-1.5 text-xs font-semibold text-red-600 dark:text-red-400 flex items-center gap-1"><span>⚠</span> {message}</p> : null
+);
+
 const initialVendorForm = {
   companyName: "",
   vendorCategory: "Manufacturer",
@@ -147,7 +151,49 @@ const AddVendor = () => {
       setVendorDocuments(vendor?.documents || []);
       notify.success(isPersistedVendor ? "Vendor updated successfully." : code ? `Vendor created successfully. Code: ${code}` : "Vendor created successfully.");
     } catch (error) {
-      notify.error(getErrorMessage(error, isPersistedVendor ? "Vendor could not be updated." : "Vendor could not be created."));
+      const data = error?.response?.data;
+      const status = error?.response?.status;
+      if (status === 409 && data?.errors && typeof data.errors === "object") {
+        const fieldErrors = [];
+        const labelMap = {
+          companyName: "Company Name",
+          name: "Company Name",
+          email: "Email",
+          gst: "GST Number",
+          gstNumber: "GST Number",
+          taxId: "GST Number",
+          pan: "PAN Number",
+          panNumber: "PAN Number",
+          vendorCode: "Vendor Code",
+        };
+        const fieldMap = {
+          email: "email",
+          gstNumber: "gst",
+          gst: "gst",
+          taxId: "gst",
+          panNumber: "pan",
+          pan: "pan",
+          companyName: "companyName",
+          name: "companyName",
+          vendorCode: "companyName",
+        };
+        Object.entries(data.errors).forEach(([field, msg]) => {
+          const formField = fieldMap[field] || field;
+          const labelText = labelMap[field] || formField;
+          const messageText = Array.isArray(msg) ? msg[0] : String(msg);
+          if (!fieldErrors.some((e) => e.field === formField)) {
+            fieldErrors.push({ field: formField, label: labelText, message: messageText });
+          }
+        });
+        setValidationErrors(fieldErrors);
+        const mainMsg = data.message || "Vendor already exists with duplicate details.";
+        notify.error(mainMsg);
+        if (fieldErrors.length) {
+          window.setTimeout(() => focusValidationField(fieldErrors[0].field, {}, validationPanelRef), 0);
+        }
+      } else {
+        notify.error(getErrorMessage(error, isPersistedVendor ? "Vendor could not be updated." : "Vendor could not be created."));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -219,6 +265,7 @@ const AddVendor = () => {
               className={`${input} ${fieldErrorClass(errorsByField.companyName)}`}
               placeholder="ABC Industries Pvt Ltd"
             />
+            <FieldError message={errorsByField.companyName} />
           </div>
 
           <div>
@@ -271,6 +318,7 @@ const AddVendor = () => {
               placeholder="Enter GST Number"
               className={`${input} ${fieldErrorClass(errorsByField.gst)}`}
             />
+            <FieldError message={errorsByField.gst} />
           </div>
 
           <div>
@@ -283,6 +331,7 @@ const AddVendor = () => {
               onChange={handleChange}
               placeholder="ABCDE1234F"
             />
+            <FieldError message={errorsByField.pan} />
           </div>
 
           <div>
@@ -359,6 +408,7 @@ const AddVendor = () => {
               value={formData.email}
               onChange={handleChange}
             />
+            <FieldError message={errorsByField.email} />
           </div>
 
           <div>

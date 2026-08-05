@@ -315,27 +315,82 @@ const buildCreatedAtRange = (query) => {
 };
 
 const ensureVendorIsUnique = async (payload, excludeId = null) => {
+  const cleanName = payload.name ? String(payload.name).trim() : '';
+  const cleanEmail = payload.email ? String(payload.email).trim() : '';
+  const cleanTaxId = payload.taxId ? String(payload.taxId).trim() : (payload.gstNumber ? String(payload.gstNumber).trim() : '');
+  const cleanGst = payload.gstNumber ? String(payload.gstNumber).trim() : (payload.taxId ? String(payload.taxId).trim() : '');
+  const cleanPan = payload.panNumber ? String(payload.panNumber).trim() : '';
+
   const checks = [
-    payload.name && { name: { equals: payload.name, mode: 'insensitive' } },
-    payload.email && { email: { equals: payload.email, mode: 'insensitive' } },
-    payload.taxId && { tax_id: payload.taxId },
-    payload.panNumber && { pan_number: payload.panNumber },
+    cleanName && { name: { equals: cleanName, mode: 'insensitive' } },
+    cleanEmail && { email: { equals: cleanEmail, mode: 'insensitive' } },
+    cleanTaxId && { tax_id: { equals: cleanTaxId, mode: 'insensitive' } },
+    cleanGst && { gst_number: { equals: cleanGst, mode: 'insensitive' } },
+    cleanPan && { pan_number: { equals: cleanPan, mode: 'insensitive' } },
   ].filter(Boolean);
 
   if (!checks.length) return;
 
-  const existing = await prisma.vendor.findFirst({
+  const existingVendors = await prisma.vendor.findMany({
     where: {
       deleted_at: null,
       OR: checks,
       ...(excludeId && { id: { not: excludeId } }),
     },
-    select: { id: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      tax_id: true,
+      gst_number: true,
+      pan_number: true,
+    },
   });
 
-  if (existing) {
-    throw new ApiError(409, VENDOR_MESSAGES.DUPLICATE);
+  if (!existingVendors.length) return;
+
+  const errors = {};
+  const duplicateMessages = [];
+
+  for (const vendor of existingVendors) {
+    if (cleanEmail && vendor.email && vendor.email.toLowerCase() === cleanEmail.toLowerCase()) {
+      errors.email = 'A vendor with this email already exists.';
+      if (!duplicateMessages.includes('email')) duplicateMessages.push('email');
+    }
+
+    const vGst = (vendor.gst_number || vendor.tax_id || '').toUpperCase();
+    const pGst = (cleanGst || cleanTaxId).toUpperCase();
+    if (pGst && vGst && pGst === vGst) {
+      const msg = 'A vendor with this GST number already exists.';
+      errors.gstNumber = msg;
+      errors.gst = msg;
+      errors.taxId = msg;
+      if (!duplicateMessages.includes('GST / Tax ID')) duplicateMessages.push('GST / Tax ID');
+    }
+
+    if (cleanPan && vendor.pan_number && vendor.pan_number.toUpperCase() === cleanPan.toUpperCase()) {
+      const msg = 'A vendor with this PAN number already exists.';
+      errors.panNumber = msg;
+      errors.pan = msg;
+      if (!duplicateMessages.includes('PAN')) duplicateMessages.push('PAN');
+    }
+
+    if (cleanName && vendor.name && vendor.name.toLowerCase() === cleanName.toLowerCase()) {
+      const msg = 'A vendor with this company name already exists.';
+      errors.companyName = msg;
+      errors.name = msg;
+      if (!duplicateMessages.includes('company name')) duplicateMessages.push('company name');
+    }
   }
+
+  const conflictDesc = duplicateMessages.length
+    ? `Vendor with the same ${duplicateMessages.join(' and ')} already exists.`
+    : VENDOR_MESSAGES.DUPLICATE;
+
+  const apiError = new ApiError(409, conflictDesc);
+  apiError.code = 'VENDOR_DUPLICATE';
+  apiError.errors = Object.keys(errors).length ? errors : { vendor: VENDOR_MESSAGES.DUPLICATE };
+  throw apiError;
 };
 
 class VendorService {
@@ -348,7 +403,26 @@ class VendorService {
       return vendor;
     } catch (error) {
       if (error.code === 'P2002') {
-        throw new ApiError(409, VENDOR_MESSAGES.DUPLICATE);
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.join('.') : String(error.meta?.target || '');
+        const errors = {};
+        if (target.includes('email')) errors.email = 'A vendor with this email already exists.';
+        if (target.includes('gst_number') || target.includes('tax_id')) {
+          const msg = 'A vendor with this GST number already exists.';
+          errors.gstNumber = msg;
+          errors.gst = msg;
+          errors.taxId = msg;
+        }
+        if (target.includes('vendor_code')) errors.vendorCode = 'Vendor code already exists.';
+        if (target.includes('pan_number')) {
+          const msg = 'A vendor with this PAN number already exists.';
+          errors.panNumber = msg;
+          errors.pan = msg;
+        }
+
+        const apiError = new ApiError(409, 'Vendor already exists with duplicate details.');
+        apiError.code = 'VENDOR_DUPLICATE';
+        apiError.errors = Object.keys(errors).length ? errors : { vendor: VENDOR_MESSAGES.DUPLICATE };
+        throw apiError;
       }
       throw error;
     }

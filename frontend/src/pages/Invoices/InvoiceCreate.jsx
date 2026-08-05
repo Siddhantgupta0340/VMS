@@ -371,19 +371,13 @@ const normalizeSummaryForForm = (summary = {}, items = [], fallbackAmount = 0) =
   };
 };
 
-const Field = ({ label, value, isRequired = false, fallback = "Not Available" }) => {
-  const hasVal = value !== undefined && value !== null && value !== "" && value !== "[object Object]";
+const Field = ({ label, value, fallback = "Not Available" }) => {
+  const hasVal = value !== undefined && value !== null && value !== "" && value !== "[object Object]" && value !== "N/A" && value !== "Not Provided";
   return (
-    <div className="min-w-0">
-      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-      <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900 break-all sm:break-words">
-        {hasVal ? (
-          value
-        ) : isRequired ? (
-          <span className="inline-block max-w-full rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 break-words whitespace-normal">{label} missing. Complete in Vendor Master.</span>
-        ) : (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 font-semibold">{fallback}</span>
-        )}
+    <div className="min-w-0 rounded-xl border border-slate-200/60 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 p-3 shadow-2xs transition">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+      <p className={`mt-1.5 min-h-5 text-sm ${hasVal ? "font-semibold text-slate-900 dark:text-slate-100 break-all sm:break-words" : "font-medium text-slate-400 dark:text-slate-500 italic font-sans"}`}>
+        {hasVal ? value : fallback}
       </p>
     </div>
   );
