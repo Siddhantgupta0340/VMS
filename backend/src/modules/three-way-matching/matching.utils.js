@@ -1,9 +1,24 @@
 import { THREE_WAY_MATCH_STATUS } from '../../utils/approval-helper.js';
 
-const toNumber = (value) => Number(value || 0);
+const isMissing = (value) => value === undefined || value === null || value === '';
+const toNumber = (value) => {
+  if (isMissing(value)) return 0;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+const toNullableNumber = (value) => {
+  if (isMissing(value)) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+const addNullable = (current, value) => {
+  const numeric = toNullableNumber(value);
+  if (numeric === null) return current;
+  return (current ?? 0) + numeric;
+};
 const norm = (value) => String(value || '').trim().toLowerCase();
 const money = (value) => Math.round(toNumber(value) * 100) / 100;
-const sameMoney = (a, b) => Math.abs(money(a) - money(b)) <= 0.01;
+const sameMoney = (a, b) => !isMissing(a) && !isMissing(b) && Math.abs(money(a) - money(b)) <= 0.01;
 const matchingDebugEnabled = () => process.env.NODE_ENV !== 'production' || process.env.DEBUG_INVOICE_FLOW === 'true';
 const matchingLogLabel = {
   purchase_order: '[3WAY MATCH] PO comparison',
@@ -48,11 +63,15 @@ const asArray = (value) => {
 };
 
 const stableItemKey = (item = {}) => norm(
-  item.itemCode
-  || item.item_code
-  || item.sku
+  item.poItemId
+  || item.po_item_id
+  || item.itemId
+  || item.item_id
   || item.productId
   || item.product_id
+  || item.itemCode
+  || item.item_code
+  || item.sku
   || item.productCode
   || item.product_code,
 );
@@ -86,9 +105,9 @@ const mapItems = (items) => {
       description: item.description || '',
       hsnCode: item.hsnCode || item.hsn_code || '',
       unit: item.unit || item.uom || '',
-      quantity: 0,
-      receivedQuantity: 0,
-      deliveredQuantity: 0,
+      quantity: null,
+      receivedQuantity: null,
+      deliveredQuantity: null,
       unitPrice: toNumber(item.unitPrice || item.unit_price || item.rate),
       cgst: 0,
       sgst: 0,
@@ -98,9 +117,9 @@ const mapItems = (items) => {
       lineTotal: 0,
     };
 
-    existing.quantity += toNumber(item.quantity || item.qty);
-    existing.receivedQuantity += toNumber(item.receivedQuantity || item.received_quantity || item.quantity || item.qty);
-    existing.deliveredQuantity += toNumber(item.deliveredQuantity || item.delivered_quantity || item.quantity || item.qty);
+    existing.quantity = addNullable(existing.quantity, item.quantity ?? item.qty);
+    existing.receivedQuantity = addNullable(existing.receivedQuantity, item.receivedQuantity ?? item.received_quantity ?? item.quantity ?? item.qty);
+    existing.deliveredQuantity = addNullable(existing.deliveredQuantity, item.deliveredQuantity ?? item.delivered_quantity ?? item.quantity ?? item.qty);
     existing.cgst += toNumber(item.cgst || item.cgstAmount || item.cgst_amount);
     existing.sgst += toNumber(item.sgst || item.sgstAmount || item.sgst_amount);
     existing.igst += toNumber(item.igst || item.igstAmount || item.igst_amount);
@@ -159,8 +178,8 @@ const documentSnapshot = ({ invoice, po, grn, deliveryChallan }) => ({
   },
 });
 
-const valueMissing = (value) => value === undefined || value === null || value === '';
 const diff = (invoiceValue, comparisonValue) => {
+  if (isMissing(invoiceValue) || isMissing(comparisonValue)) return null;
   const invoiceNumber = Number(invoiceValue);
   const comparisonNumber = Number(comparisonValue);
   return Number.isFinite(invoiceNumber) && Number.isFinite(comparisonNumber)

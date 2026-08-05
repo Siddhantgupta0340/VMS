@@ -297,6 +297,58 @@ const mapDatabaseLineItem = (item = {}) => ({
   lineTotal: toPlainNumber(item.lineTotal ?? item.line_total ?? item.total, null),
   remarks: item.remarks || null,
 });
+const mapReceiptLineItem = (item = {}, movementKey) => {
+  const movementQuantity = movementKey === 'receivedQuantity'
+    ? toPlainNumber(item.received_quantity ?? item.receivedQuantity ?? item.quantity, null)
+    : toPlainNumber(item.delivered_quantity ?? item.deliveredQuantity ?? item.quantity, null);
+  const mapped = mapDatabaseLineItem(item);
+  return {
+    ...mapped,
+    quantity: movementQuantity,
+    orderedQuantity: toPlainNumber(item.ordered_quantity ?? item.orderedQuantity ?? item.quantity, null),
+    receivedQuantity: toPlainNumber(item.received_quantity ?? item.receivedQuantity, null),
+    acceptedQuantity: toPlainNumber(item.accepted_quantity ?? item.acceptedQuantity, null),
+    rejectedQuantity: toPlainNumber(item.rejected_quantity ?? item.rejectedQuantity, null),
+    deliveredQuantity: toPlainNumber(item.delivered_quantity ?? item.deliveredQuantity, null),
+  };
+};
+const normalizeItemIdentity = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const receiptItemKeys = (item = {}) => [
+  item.id,
+  item.itemId,
+  item.item_id,
+  item.productId,
+  item.product_id,
+  item.poItemId,
+  item.po_item_id,
+  item.itemCode,
+  item.item_code,
+  item.sku,
+  item.productCode,
+  item.product_code,
+  item.itemName,
+  item.item_name,
+  item.name,
+  item.description,
+].map(normalizeItemIdentity).filter(Boolean);
+const findReceiptSourceItem = (sourceItems, dbItem, usedIndexes) => {
+  const dbKeys = new Set(receiptItemKeys(dbItem));
+  const matchedIndex = sourceItems.findIndex((sourceItem, index) => (
+    !usedIndexes.has(index) && receiptItemKeys(sourceItem).some((key) => dbKeys.has(key))
+  ));
+  if (matchedIndex < 0) return {};
+  usedIndexes.add(matchedIndex);
+  return sourceItems[matchedIndex];
+};
+const mapReceiptDocumentItems = (lineItems, dbItems, movementKey) => {
+  const sourceItems = Array.isArray(lineItems) ? lineItems : [];
+  const rows = Array.isArray(dbItems) && dbItems.length ? dbItems : sourceItems;
+  const usedIndexes = new Set();
+  return rows.map((dbItem) => {
+    const sourceItem = dbItems?.length ? findReceiptSourceItem(sourceItems, dbItem, usedIndexes) : {};
+    return mapReceiptLineItem({ ...sourceItem, ...dbItem }, movementKey);
+  });
+};
 const normalizeCompareText = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
 const toComparableNumber = (value) => {
   const parsed = Number(value);
@@ -433,6 +485,7 @@ const mapGoodsReceiptNoteForOcr = (grn) => grn ? {
     gstNumber: grn.vendor.gst_number || grn.vendor.tax_id || null,
   } : null,
   receivedBy: grn.received_by || grn.receiver_name || null,
+  deliveryChallanId: grn.delivery_challan_id || grn.delivery_challan?.id || null,
   deliveryChallanNumber: grn.delivery_challan_no || grn.delivery_challan?.delivery_challan_number || null,
   deliveryAddress: grn.delivery_address || null,
   billingAddress: grn.billing_address || null,
@@ -447,7 +500,7 @@ const mapGoodsReceiptNoteForOcr = (grn) => grn ? {
   totalReceivedQuantity: (Array.isArray(grn.items) ? grn.items : []).reduce((total, item) => total + toPlainNumber(item.received_quantity || item.receivedQuantity), 0),
   totalAcceptedQuantity: (Array.isArray(grn.items) ? grn.items : []).reduce((total, item) => total + toPlainNumber(item.accepted_quantity || item.acceptedQuantity), 0),
   totalRejectedQuantity: (Array.isArray(grn.items) ? grn.items : []).reduce((total, item) => total + toPlainNumber(item.rejected_quantity || item.rejectedQuantity), 0),
-  items: (Array.isArray(grn.items) && grn.items.length ? grn.items : Array.isArray(grn.line_items) ? grn.line_items : []).map(mapDatabaseLineItem),
+  items: mapReceiptDocumentItems(grn.line_items, grn.items, 'receivedQuantity'),
   raw: grn,
 } : null;
 const mapDeliveryChallanForOcr = (challan) => challan ? {
@@ -484,7 +537,7 @@ const mapDeliveryChallanForOcr = (challan) => challan ? {
     totalAmount: toPlainNumber(challan.total_amount),
   },
   totalDeliveredQuantity: (Array.isArray(challan.items) ? challan.items : []).reduce((total, item) => total + toPlainNumber(item.delivered_quantity || item.deliveredQuantity), 0),
-  items: (Array.isArray(challan.items) && challan.items.length ? challan.items : Array.isArray(challan.line_items) ? challan.line_items : []).map(mapDatabaseLineItem),
+  items: mapReceiptDocumentItems(challan.line_items, challan.items, 'deliveredQuantity'),
   raw: challan,
 } : null;
 const buildOcrInvoiceForThreeWayPreview = ({ invoiceDraft, matchedVendor, matchedPurchaseOrder }) => {
@@ -1685,7 +1738,7 @@ class InvoiceController {
         matchedRecord: matchedDeliveryChallan,
         matchedValue: matchedDeliveryChallan?.delivery_challan_number || null,
         fallbackSource: matchedGrn?.delivery_challan
-          ? 'GRN_RELATION'
+          ? 'GRN_RELATION'  
           : matchedPurchaseOrder?.delivery_challans?.[0]
             ? 'PURCHASE_ORDER_RELATION'
             : null,

@@ -374,13 +374,13 @@ const normalizeSummaryForForm = (summary = {}, items = [], fallbackAmount = 0) =
 const Field = ({ label, value, isRequired = false, fallback = "Not Available" }) => {
   const hasVal = value !== undefined && value !== null && value !== "" && value !== "[object Object]";
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-      <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900">
+      <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900 break-all sm:break-words">
         {hasVal ? (
           value
         ) : isRequired ? (
-          <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">{label} missing. Complete in Vendor Master.</span>
+          <span className="inline-block max-w-full rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 break-words whitespace-normal">{label} missing. Complete in Vendor Master.</span>
         ) : (
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 font-semibold">{fallback}</span>
         )}

@@ -19,12 +19,22 @@ const input = "h-11 w-full rounded-lg border border-slate-300 dark:border-slate-
 const area = "min-h-24 w-full rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/25";
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
+const valueOrNA = (value) => (value === null || value === undefined || value === "" ? "Not Available" : value);
+const moneyOrNA = (value) => (value === null || value === undefined || value === "" ? "Not Available" : money(value));
+const itemQuantity = (item, isGRN) => (
+  isGRN
+    ? item.receivedQuantity ?? item.received_quantity ?? item.quantity
+    : item.deliveredQuantity ?? item.delivered_quantity ?? item.quantity
+);
 
 const normalizeItems = (po, quantityKey) => (po?.items || []).map((item) => ({
+  poItemId: item.poItemId || item.id || item.itemId || item.item_id || null,
+  itemCode: item.itemCode || item.item_code || item.code || item.sku || null,
   itemName: item.itemName || item.item_name || "Item",
   description: item.description || "",
   quantity: Number(item.quantity || 0),
   [quantityKey]: Number(item.quantity || 0),
+  unit: item.unit || item.uom || null,
   unitPrice: Number(item.unitPrice || item.rate || 0),
   gstAmount: Number(item.gstAmount || 0),
   lineTotal: Number(item.lineTotal || 0),
@@ -262,24 +272,45 @@ const ReceiptDocuments = () => {
       )}
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <DocumentList title="Delivery Challans" icon={FileText} records={deliveryChallans} numberKey="delivery_challan_number" dateKey="delivery_date" onDelete={removeDC} />
-        <DocumentList title="Goods Receipt Notes" icon={ClipboardCheck} records={grns} numberKey="grn_number" dateKey="receipt_date" onDelete={removeGRN} isGRN={true} />
+        <DocumentList title="Delivery Challans" icon={FileText} records={deliveryChallans} numberKey="delivery_challan_number" dateKey="delivery_date" onDelete={removeDC} purchaseOrder={selectedPO} />
+        <DocumentList title="Goods Receipt Notes" icon={ClipboardCheck} records={grns} numberKey="grn_number" dateKey="receipt_date" onDelete={removeGRN} isGRN={true} purchaseOrder={selectedPO} />
       </div>
     </div>
   );
 };
 
-const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete, isGRN = false }) => (
+const normalizeItemKey = (value) => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+const itemKeys = (item = {}) => [
+  item.poItemId,
+  item.id,
+  item.itemId,
+  item.item_id,
+  item.itemCode,
+  item.item_code,
+  item.code,
+  item.sku,
+  item.itemName,
+  item.item_name,
+  item.name,
+  item.description,
+].map(normalizeItemKey).filter(Boolean);
+const findPOItem = (poItems = [], receiptItem = {}) => {
+  const receiptKeys = new Set(itemKeys(receiptItem));
+  return poItems.find((item) => itemKeys(item).some((key) => receiptKeys.has(key))) || null;
+};
+
+const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete, isGRN = false, purchaseOrder = null }) => (
   <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
     <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-950 dark:text-slate-100"><Icon size={18} /> {title}</h2>
     <div className="space-y-3">
       {records.map((record) => (
-        <article key={record.id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-4">
-          <div>
-            <p className="font-semibold text-blue-750 dark:text-blue-400">{record[numberKey]}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{record.vendor_name || record.vendor?.name || "Vendor"} | {record[dateKey] ? new Date(record[dateKey]).toLocaleDateString("en-IN") : "Date pending"}</p>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{record.items?.length || record.line_items?.length || 0} items</p>
-          </div>
+        <article key={record.id} className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-955/40 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-semibold text-blue-750 dark:text-blue-400">{record[numberKey]}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{record.vendor_name || record.vendor?.name || "Vendor"} | {record[dateKey] ? new Date(record[dateKey]).toLocaleDateString("en-IN") : "Date pending"}</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{record.items?.length || record.line_items?.length || 0} items</p>
+            </div>
           <div className="flex items-center gap-2">
             {isGRN && (
               <a
@@ -292,6 +323,43 @@ const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete
             <button type="button" onClick={() => onDelete(record.id)} className="rounded-lg border border-red-200 dark:border-red-800/80 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30" aria-label={`Delete ${record[numberKey]}`}>
               <Trash2 size={16} />
             </button>
+          </div>
+          </div>
+          <div className="mt-4 overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Item Name</th>
+                  <th className="px-3 py-2 font-semibold">Item Code</th>
+                  <th className="px-3 py-2 text-right font-semibold">Quantity</th>
+                  <th className="px-3 py-2 font-semibold">Unit</th>
+                  <th className="px-3 py-2 text-right font-semibold">Unit Price</th>
+                  <th className="px-3 py-2 text-right font-semibold">Tax</th>
+                  <th className="px-3 py-2 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(record.items || record.line_items || []).map((item, index) => {
+                  const poItem = findPOItem(purchaseOrder?.items || [], item);
+                  return (
+                    <tr key={`${record.id}-${item.id || index}`} className="border-t border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200">
+                      <td className="px-3 py-2 font-medium">{item.itemName || item.item_name || item.name || poItem?.itemName || "Item"}</td>
+                      <td className="px-3 py-2">{valueOrNA(item.itemCode || item.item_code || poItem?.itemCode)}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{valueOrNA(itemQuantity(item, isGRN))}</td>
+                      <td className="px-3 py-2">{valueOrNA(item.unit || item.uom || poItem?.unit)}</td>
+                      <td className="px-3 py-2 text-right">{moneyOrNA(item.unitPrice ?? item.unit_price ?? item.rate ?? poItem?.unitPrice)}</td>
+                      <td className="px-3 py-2 text-right">{moneyOrNA(item.gstAmount ?? item.gst_amount ?? item.taxAmount ?? item.tax_amount ?? poItem?.gstAmount)}</td>
+                      <td className="px-3 py-2 text-right">{moneyOrNA(item.lineTotal ?? item.line_total ?? item.total ?? poItem?.lineTotal)}</td>
+                    </tr>
+                  );
+                })}
+                {!(record.items || record.line_items || []).length && (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-5 text-center text-slate-500 dark:text-slate-400">No item details available.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </article>
       ))}

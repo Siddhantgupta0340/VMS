@@ -22,6 +22,57 @@ const mapMismatch = (field) => ({
 
 const normalizeStatus = (status) => (status === "UNMATCHED" ? "MISMATCH" : status);
 
+const toNullableNumber = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const mapReceiptItem = (item = {}, movementKey) => {
+  const movementQuantity = toNullableNumber(
+    movementKey === "receivedQuantity"
+      ? item.receivedQuantity ?? item.received_quantity ?? item.quantity
+      : item.deliveredQuantity ?? item.delivered_quantity ?? item.quantity,
+  );
+  return {
+    ...item,
+    itemCode: item.itemCode ?? item.item_code ?? item.sku ?? null,
+    itemName: item.itemName ?? item.item_name ?? item.name ?? item.description ?? "Item",
+    quantity: movementQuantity,
+    orderedQuantity: toNullableNumber(item.orderedQuantity ?? item.ordered_quantity),
+    receivedQuantity: movementKey === "receivedQuantity"
+      ? movementQuantity
+      : toNullableNumber(item.receivedQuantity ?? item.received_quantity),
+    deliveredQuantity: movementKey === "deliveredQuantity"
+      ? movementQuantity
+      : toNullableNumber(item.deliveredQuantity ?? item.delivered_quantity),
+    acceptedQuantity: toNullableNumber(item.acceptedQuantity ?? item.accepted_quantity),
+    rejectedQuantity: toNullableNumber(item.rejectedQuantity ?? item.rejected_quantity),
+    unit: item.unit ?? item.uom ?? null,
+    unitPrice: toNullableNumber(item.unitPrice ?? item.unit_price ?? item.rate),
+    gstAmount: toNullableNumber(item.gstAmount ?? item.gst_amount ?? item.taxAmount ?? item.tax_amount),
+    lineTotal: toNullableNumber(item.lineTotal ?? item.line_total ?? item.total),
+  };
+};
+
+const mapReceiptDocument = (document, movementKey) => {
+  if (!document) return document;
+  const sourceItems = Array.isArray(document.items) && document.items.length
+    ? document.items
+    : Array.isArray(document.line_items)
+      ? document.line_items
+      : [];
+  const items = sourceItems.map((item) => mapReceiptItem(item, movementKey));
+  return {
+    ...document,
+    items,
+    line_items: items,
+  };
+};
+
+const mapGRN = (grn) => mapReceiptDocument(grn, "receivedQuantity");
+const mapDeliveryChallan = (challan) => mapReceiptDocument(challan, "deliveredQuantity");
+
 const mapMatch = (match) => {
   const status = normalizeStatus(match.status);
   const poSnapshot = match.po_snapshot || null;
@@ -112,22 +163,22 @@ export const returnMatchForCorrection = async (id, remarks = "") => {
 
 export const createGRN = async (payload) => {
   const res = await api.post("/v1/three-way-matching/grn", payload);
-  return res.data.data;
+  return mapGRN(res.data.data);
 };
 
 export const getGRNsByPO = async (poId) => {
   const res = await api.get(`/v1/three-way-matching/grn/by-po/${poId}`);
-  return res.data.data || [];
+  return (res.data.data || []).map(mapGRN);
 };
 
 export const getGRNById = async (id) => {
   const res = await api.get(`/v1/three-way-matching/grn/${id}`);
-  return res.data.data;
+  return mapGRN(res.data.data);
 };
 
 export const updateGRN = async (id, payload) => {
   const res = await api.put(`/v1/three-way-matching/grn/${id}`, payload);
-  return res.data.data;
+  return mapGRN(res.data.data);
 };
 
 export const deleteGRN = async (id) => {
@@ -137,22 +188,22 @@ export const deleteGRN = async (id) => {
 
 export const createDeliveryChallan = async (payload) => {
   const res = await api.post("/v1/three-way-matching/delivery-challan", payload);
-  return res.data.data;
+  return mapDeliveryChallan(res.data.data);
 };
 
 export const getDeliveryChallansByPO = async (poId) => {
   const res = await api.get(`/v1/three-way-matching/delivery-challan/by-po/${poId}`);
-  return res.data.data || [];
+  return (res.data.data || []).map(mapDeliveryChallan);
 };
 
 export const getDeliveryChallanById = async (id) => {
   const res = await api.get(`/v1/three-way-matching/delivery-challan/${id}`);
-  return res.data.data;
+  return mapDeliveryChallan(res.data.data);
 };
 
 export const updateDeliveryChallan = async (id, payload) => {
   const res = await api.put(`/v1/three-way-matching/delivery-challan/${id}`, payload);
-  return res.data.data;
+  return mapDeliveryChallan(res.data.data);
 };
 
 export const deleteDeliveryChallan = async (id) => {

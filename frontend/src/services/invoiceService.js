@@ -240,6 +240,37 @@ const normalizeTaxSummary = (summary = {}, items = [], poAmount = 0) => {
   };
 };
 
+const toNullableNumber = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const mapReceiptItem = (item = {}, movementKey) => {
+  const movementQuantity = movementKey === "receivedQuantity"
+    ? toNullableNumber(item.receivedQuantity ?? item.received_quantity ?? item.quantity)
+    : toNullableNumber(item.deliveredQuantity ?? item.delivered_quantity ?? item.quantity);
+
+  return {
+    ...item,
+    itemCode: first(item.itemCode, item.item_code, item.code, item.sku),
+    itemName: first(item.itemName, item.item_name, item.name, item.description),
+    quantity: movementQuantity,
+    orderedQuantity: toNullableNumber(first(item.orderedQuantity, item.ordered_quantity)),
+    receivedQuantity: toNullableNumber(first(item.receivedQuantity, item.received_quantity)),
+    acceptedQuantity: toNullableNumber(first(item.acceptedQuantity, item.accepted_quantity)),
+    rejectedQuantity: toNullableNumber(first(item.rejectedQuantity, item.rejected_quantity)),
+    deliveredQuantity: toNullableNumber(first(item.deliveredQuantity, item.delivered_quantity)),
+    unit: first(item.unit, item.uom),
+    uom: first(item.uom, item.unit),
+    unitPrice: toNullableNumber(first(item.unitPrice, item.unit_price, item.rate)),
+    gstAmount: toNullableNumber(first(item.gstAmount, item.gst_amount, item.taxAmount, item.tax_amount)),
+    lineTotal: toNullableNumber(first(item.lineTotal, item.line_total, item.total)),
+  };
+};
+
+const mapReceiptItems = (items, movementKey) => safeArray(items).map((item) => mapReceiptItem(item, movementKey));
+
 const mapApprovedPurchaseOrder = (po) => {
   const v = po.vendor || po.vendorReference || {};
   const rawItems = Array.isArray(po.line_items) ? po.line_items : Array.isArray(po.items) ? po.items : [];
@@ -303,8 +334,9 @@ const mapApprovedPurchaseOrder = (po) => {
     items,
     taxSummary: normalizeTaxSummary(po.tax_summary || po.totals || {}, items, amount),
     existingInvoices: po.invoices || [],
-    grns: po.grns || [],
-    deliveryChallans: po.delivery_challans || [],
+    grns: safeArray(po.grns).map(mapGoodsReceiptNoteForOcr),
+    goodsReceiptNotes: safeArray(po.goodsReceiptNotes || po.grns).map(mapGoodsReceiptNoteForOcr),
+    deliveryChallans: safeArray(po.deliveryChallans || po.delivery_challans).map(mapDeliveryChallanForOcr),
   };
 };
 
@@ -374,8 +406,10 @@ const mapGoodsReceiptNoteForOcr = (grn) => grn ? {
   vendorName: first(grn.vendorName, grn.vendor?.name, grn.vendor_name),
   vendorCode: first(grn.vendorCode, grn.vendor?.vendor_code, grn.vendor_code),
   receivedBy: first(grn.receivedBy, grn.received_by, grn.receiver_name),
+  deliveryChallanId: first(grn.deliveryChallanId, grn.delivery_challan_id, grn.delivery_challan?.id),
+  deliveryChallanNumber: first(grn.deliveryChallanNumber, grn.delivery_challan_no, grn.delivery_challan?.delivery_challan_number),
   totalReceivedQuantity: num(first(grn.totalReceivedQuantity, safeArray(grn.items).reduce((total, item) => total + num(first(item.received_quantity, item.receivedQuantity)), 0))),
-  items: safeArray(grn.items),
+  items: mapReceiptItems(grn.items || grn.line_items, "receivedQuantity"),
 } : null;
 
 const mapDeliveryChallanForOcr = (challan) => challan ? {
@@ -388,14 +422,7 @@ const mapDeliveryChallanForOcr = (challan) => challan ? {
   vendorName: first(challan.vendorName, challan.vendor?.name, challan.vendor_name),
   vendorCode: first(challan.vendorCode, challan.vendor?.vendor_code, challan.vendor_code),
   deliveryAddress: first(challan.deliveryAddress, challan.delivery_address, challan.purchase_order?.delivery_address),
-  items: safeArray(challan.items).map((item) => ({
-    ...item,
-    itemName: first(item.itemName, item.item_name, item.name),
-    itemCode: first(item.itemCode, item.item_code, item.code, item.sku),
-    quantity: first(item.quantity, item.deliveredQuantity, item.delivered_quantity),
-    uom: first(item.uom, item.unit),
-    description: first(item.description),
-  })),
+  items: mapReceiptItems(challan.items || challan.line_items, "deliveredQuantity"),
 } : null;
 
 export const getInvoices = async (params = {}) => {

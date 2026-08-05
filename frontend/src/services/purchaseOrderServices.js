@@ -76,18 +76,28 @@ export const getPurchaseOrderById = async (id) => {
   return mapPO(res.data.data);
 };
 
+const toFiniteNumber = (value, fallback = undefined) => {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+
 const buildPurchaseOrderTaxPayload = (data) => ({
     vendorId: data.vendorId,
-    otherCharges: Number(data.otherCharges || 0),
-    items: data.items.map((item) => ({
-      itemName: item.itemName,
-      description: item.description,
-      quantity: Number(item.quantity || 0),
-      unitPrice: Number(item.rate || item.unitPrice || 0),
-      unit: item.unit || null,
-      itemCode: item.itemCode || null,
-      ...(item.gstRate !== "" && item.gstRate !== undefined ? { gstRate: Number(item.gstRate) } : {}),
-    })),
+    otherCharges: toFiniteNumber(data.otherCharges, 0),
+    items: data.items.map((item) => {
+      const price = toFiniteNumber(item.rate !== undefined ? item.rate : item.unitPrice, 0);
+      return {
+        itemName: item.itemName || "",
+        description: item.description || "",
+        quantity: toFiniteNumber(item.quantity, 0),
+        unitPrice: price,
+        rate: price,
+        ...(item.unit ? { unit: item.unit } : {}),
+        ...(item.itemCode ? { itemCode: item.itemCode } : {}),
+        gstRate: toFiniteNumber(item.gstRate, 0),
+      };
+    }),
 });
 
 export const calculatePurchaseOrderTax = async (data) => {

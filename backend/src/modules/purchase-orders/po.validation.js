@@ -4,15 +4,68 @@ const uuidParamSchema = z.object({
   id: z.string().uuid('Invalid purchase order ID - must be a valid UUID'),
 });
 
+const numberInput = (schema) => z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : Number.NaN;
+}, schema);
+
+const quantitySchema = numberInput(
+  z.number({ invalid_type_error: 'Quantity must be a valid number' })
+    .positive('Quantity must be greater than 0'),
+);
+
+const unitPriceSchema = numberInput(
+  z.number({ invalid_type_error: 'Unit price must be a valid number' })
+    .nonnegative('Unit price cannot be negative')
+    .optional(),
+);
+
+const gstRateSchema = numberInput(
+  z.number({ invalid_type_error: 'GST rate must be a valid number' })
+    .min(0, 'GST rate cannot be negative')
+    .max(100, 'GST rate cannot exceed 100')
+    .optional()
+    .default(0),
+);
+
+const otherChargesSchema = numberInput(
+  z.number({ invalid_type_error: 'Other charges must be a valid number' })
+    .nonnegative('Other charges cannot be negative')
+    .optional()
+    .default(0),
+);
+
+const stringOptional = z.preprocess(
+  (val) => (val === null || val === '' ? undefined : val),
+  z.string().trim().optional(),
+);
+
 const poItemSchema = z.object({
-  itemName: z.string().trim().min(1, 'Item name is required'),
-  description: z.string().trim().optional().default(''),
-  unit: z.string().trim().optional(),
-  itemCode: z.string().trim().optional(),
-  quantity: z.coerce.number().positive('Quantity must be greater than 0'),
-  unitPrice: z.coerce.number().nonnegative('Unit price cannot be negative').optional(),
-  rate: z.coerce.number().nonnegative('Rate cannot be negative').optional(),
-  gstRate: z.coerce.number().min(0).max(100).optional(),
+  itemName: z.string({ required_error: 'Item name is required' }).trim().min(1, 'Item name is required'),
+  description: z.preprocess((val) => (val === null ? '' : val), z.string().trim().optional().default('')),
+  unit: stringOptional,
+  itemCode: stringOptional,
+  quantity: quantitySchema,
+  unitPrice: unitPriceSchema,
+  rate: unitPriceSchema,
+  gstRate: gstRateSchema,
+}).refine((item) => item.unitPrice !== undefined || item.rate !== undefined, {
+  message: 'Unit price or rate is required',
+  path: ['unitPrice'],
+});
+
+// Permissive item schema used only for the calculate-tax endpoint.
+// Item name, unit, and item code can be empty while the form is being typed.
+const taxCalcItemSchema = z.object({
+  itemName: z.string().trim().nullish().optional(),
+  description: z.preprocess((val) => (val === null ? '' : val), z.string().trim().nullish().optional()),
+  unit: stringOptional,
+  itemCode: stringOptional,
+  quantity: quantitySchema,
+  unitPrice: unitPriceSchema,
+  rate: unitPriceSchema,
+  gstRate: gstRateSchema,
 }).refine((item) => item.unitPrice !== undefined || item.rate !== undefined, {
   message: 'Unit price or rate is required',
   path: ['unitPrice'],
@@ -23,7 +76,15 @@ const purchaseOrderTaxPayloadSchema = z.object({
     .string({ required_error: 'Vendor ID is required' })
     .uuid('Invalid vendor ID - must be a valid UUID'),
   items: z.array(poItemSchema).min(1, 'At least one line item is required'),
-  otherCharges: z.coerce.number().nonnegative('Other charges cannot be negative').optional().default(0),
+  otherCharges: otherChargesSchema,
+});
+
+const calculateTaxPayloadSchema = z.object({
+  vendorId: z
+    .string({ required_error: 'Vendor ID is required' })
+    .uuid('Invalid vendor ID - must be a valid UUID'),
+  items: z.array(taxCalcItemSchema).min(1, 'At least one line item is required'),
+  otherCharges: otherChargesSchema,
 });
 
 const requiredDate = (label) => z.preprocess(
@@ -46,7 +107,7 @@ export const createPurchaseOrderSchema = z.object({
       z.date({ invalid_type_error: 'Expected delivery date must be a valid ISO date' }).optional(),
     ),
     items: z.array(poItemSchema).min(1, 'At least one line item is required'),
-    otherCharges: z.coerce.number().nonnegative('Other charges cannot be negative').optional().default(0),
+    otherCharges: otherChargesSchema,
     paymentTerms: z.string().trim().optional().default('Net 30'),
     poType: z.enum(['STANDARD', 'URGENT', 'DIRECT', 'BLANKET']).optional().default('STANDARD'),
     purchaseRequisitionNumber: z.string().trim().optional(),
@@ -93,7 +154,7 @@ export const deletePurchaseOrderSchema = z.object({
 });
 
 export const calculatePurchaseOrderTaxSchema = z.object({
-  body: purchaseOrderTaxPayloadSchema,
+  body: calculateTaxPayloadSchema,
 });
 
 export const purchaseOrderIdSchema = z.object({

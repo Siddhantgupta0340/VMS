@@ -133,10 +133,6 @@ class PurchaseOrderService {
       throw new ApiError(400, VENDOR_MESSAGES.ONLY_APPROVED_FOR_PO);
     }
 
-    if (user.role === ROLES.CASE_MANAGER && vendor.created_by_id !== user.id) {
-      throw new ApiError(403, 'You can only create purchase orders for vendors you created.');
-    }
-
     assertVendorMasterReadyForPO(vendor);
 
     return vendor;
@@ -232,10 +228,6 @@ class PurchaseOrderService {
     }
     if (purchaseOrder.deleted_at) {
       throw new ApiError(404, 'Purchase order not found.');
-    }
-
-    if (user.role === ROLES.CASE_MANAGER && purchaseOrder.created_by_id !== user.id) {
-      throw new ApiError(403, 'You can only access purchase orders you created.');
     }
 
     return purchaseOrder;

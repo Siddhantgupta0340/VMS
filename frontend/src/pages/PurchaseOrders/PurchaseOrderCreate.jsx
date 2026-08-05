@@ -36,10 +36,10 @@ const emptyPreview = {
 const Field = ({ label, value, isRequired = false, isHighlight = false }) => {
   const isDocId = isHighlight || (typeof value === "string" && /^(DC-|PO-|GRN-|ITM-|INV-)/i.test(value));
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</p>
-      <p className={`mt-1 min-h-5 text-sm font-semibold ${isDocId ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-900 dark:text-slate-100"}`}>
-        {value || (isRequired ? <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 dark:text-slate-500 font-normal">Not Provided</span>)}
+      <p className={`mt-1 min-h-5 text-sm font-semibold break-all sm:break-words ${isDocId ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-900 dark:text-slate-100"}`}>
+        {value || (isRequired ? <span className="inline-block max-w-full rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 break-words whitespace-normal">{label} missing. Complete in Vendor Master.</span> : <span className="text-slate-400 dark:text-slate-500 font-normal">Not Provided</span>)}
       </p>
     </div>
   );

@@ -10,8 +10,9 @@ import {
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
-  //"http://localhost:5000/api";
- "https://vms-5rht.onrender.com/api";
+  (import.meta.env.DEV
+    ? "http://localhost:5000/api"
+    : "https://vms-5rht.onrender.com/api");
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication required. Redirecting to login.") {
@@ -24,7 +25,7 @@ export class AuthRequiredError extends Error {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

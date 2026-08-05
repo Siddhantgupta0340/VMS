@@ -2,8 +2,27 @@ import prisma from '../../config/prisma.js';
 
 const poInclude = {
   vendor: true,
-  grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 5 },
-  delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 5 },
+  grns: {
+    where: { deleted_at: null },
+    include: {
+      items: { orderBy: { created_at: 'asc' } },
+      delivery_challan: {
+        include: {
+          items: { orderBy: { created_at: 'asc' } },
+        },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 5,
+  },
+  delivery_challans: {
+    where: { deleted_at: null },
+    include: {
+      items: { orderBy: { created_at: 'asc' } },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 5,
+  },
   invoices: { where: { deleted_at: null }, select: { id: true, invoice_number: true, amount: true, status: true } },
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },

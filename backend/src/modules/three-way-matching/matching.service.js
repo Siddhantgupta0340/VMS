@@ -99,6 +99,26 @@ const sumLineItems = (lineItems) => lineItems.reduce((totals, item) => {
   };
 }, { subtotal: 0, gstAmount: 0, totalAmount: 0 });
 
+const asArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const toNullableNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+};
+
 const normalizeReceiptItem = (item, quantityKey) => {
   const orderedQuantity = Number(item.quantity || item.orderedQuantity || 0);
   const movementQuantity = Number(item[quantityKey] ?? item.receivedQuantity ?? item.deliveredQuantity ?? orderedQuantity);
@@ -113,6 +133,112 @@ const normalizeReceiptItem = (item, quantityKey) => {
     unit_price: unitPrice,
     gst_amount: gstAmount,
     line_total: lineTotal,
+  };
+};
+
+const serializeReceiptItems = (lineItems, dbItems, movementKey, referenceItems = []) => {
+  const sourceItems = asArray(lineItems);
+  const poItems = asArray(referenceItems);
+  const rows = asArray(dbItems);
+
+  if (!rows.length) {
+    return sourceItems.map((item) => {
+      const movementQuantity = toNullableNumber(item[movementKey] ?? item.quantity ?? item.qty);
+      return {
+        ...item,
+        quantity: movementQuantity,
+        [movementKey]: movementQuantity,
+      };
+    });
+  }
+
+  const usedIndexes = new Set();
+  const itemKeys = (item = {}) => [
+    item.id,
+    item.itemId,
+    item.item_id,
+    item.productId,
+    item.product_id,
+    item.poItemId,
+    item.po_item_id,
+    item.itemCode,
+    item.item_code,
+    item.sku,
+    item.productCode,
+    item.product_code,
+    item.itemName,
+    item.item_name,
+    item.name,
+    item.description,
+  ].map((value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean);
+
+  const findReferenceItem = (item) => {
+    const keys = new Set(itemKeys(item));
+    return poItems.find((poItem) => itemKeys(poItem).some((key) => keys.has(key))) || {};
+  };
+
+  return rows.map((dbItem) => {
+    const dbKeys = new Set(itemKeys(dbItem));
+    const matchedIndex = sourceItems.findIndex((item, index) => (
+      !usedIndexes.has(index) && itemKeys(item).some((key) => dbKeys.has(key))
+    ));
+    const sourceItem = matchedIndex >= 0 ? sourceItems[matchedIndex] : {};
+    const referenceItem = findReferenceItem({ ...sourceItem, ...dbItem });
+    if (matchedIndex >= 0) usedIndexes.add(matchedIndex);
+    const movementQuantity = toNullableNumber(dbItem[movementKey === 'receivedQuantity' ? 'received_quantity' : 'delivered_quantity']);
+    const orderedQuantity = toNullableNumber(dbItem.ordered_quantity);
+    const unitPrice = toNullableNumber(dbItem.unit_price);
+    const gstAmount = toNullableNumber(dbItem.gst_amount);
+    const lineTotal = toNullableNumber(dbItem.line_total);
+
+    return {
+      ...sourceItem,
+      id: dbItem.id,
+      poItemId: sourceItem.poItemId || sourceItem.po_item_id || referenceItem.poItemId || referenceItem.id || referenceItem.itemId || null,
+      itemCode: sourceItem.itemCode || sourceItem.item_code || sourceItem.sku || referenceItem.itemCode || referenceItem.item_code || referenceItem.code || referenceItem.sku || null,
+      item_code: sourceItem.item_code || sourceItem.itemCode || sourceItem.sku || referenceItem.item_code || referenceItem.itemCode || referenceItem.code || referenceItem.sku || null,
+      itemName: sourceItem.itemName || sourceItem.item_name || sourceItem.name || dbItem.item_name || 'Item',
+      item_name: dbItem.item_name || sourceItem.item_name || sourceItem.itemName || sourceItem.name || 'Item',
+      description: dbItem.description || sourceItem.description || null,
+      unit: sourceItem.unit || sourceItem.uom || referenceItem.unit || referenceItem.uom || null,
+      uom: sourceItem.uom || sourceItem.unit || referenceItem.uom || referenceItem.unit || null,
+      quantity: movementQuantity,
+      orderedQuantity,
+      ordered_quantity: orderedQuantity,
+      [movementKey]: movementQuantity,
+      [movementKey === 'receivedQuantity' ? 'received_quantity' : 'delivered_quantity']: movementQuantity,
+      acceptedQuantity: movementKey === 'receivedQuantity' ? toNullableNumber(dbItem.accepted_quantity) : sourceItem.acceptedQuantity,
+      accepted_quantity: movementKey === 'receivedQuantity' ? toNullableNumber(dbItem.accepted_quantity) : sourceItem.accepted_quantity,
+      rejectedQuantity: movementKey === 'receivedQuantity' ? toNullableNumber(dbItem.rejected_quantity) : sourceItem.rejectedQuantity,
+      rejected_quantity: movementKey === 'receivedQuantity' ? toNullableNumber(dbItem.rejected_quantity) : sourceItem.rejected_quantity,
+      unitPrice,
+      unit_price: unitPrice,
+      gstAmount,
+      gst_amount: gstAmount,
+      lineTotal,
+      line_total: lineTotal,
+      remarks: dbItem.remarks || sourceItem.remarks || null,
+    };
+  });
+};
+
+const serializeGRN = (grn) => {
+  if (!grn) return grn;
+  const items = serializeReceiptItems(grn.line_items, grn.items, 'receivedQuantity', grn.purchase_order?.line_items);
+  return {
+    ...grn,
+    line_items: items,
+    items,
+  };
+};
+
+const serializeDeliveryChallan = (challan) => {
+  if (!challan) return challan;
+  const items = serializeReceiptItems(challan.line_items, challan.items, 'deliveredQuantity', challan.purchase_order?.line_items);
+  return {
+    ...challan,
+    line_items: items,
+    items,
   };
 };
 
@@ -362,7 +488,10 @@ class MatchingService {
 
       let grn = null;
       if (grnId) {
-        grn = await prisma.goodsReceiptNote.findUnique({ where: { id: grnId } });
+        grn = await prisma.goodsReceiptNote.findUnique({
+          where: { id: grnId },
+          include: { items: { orderBy: { created_at: 'asc' } }, purchase_order: true },
+        });
         if (!grn) throw new ApiError(404, 'GRN not found.');
         if (grn.deleted_at) throw new ApiError(400, 'Cannot use a deleted GRN for matching.');
         if (grn.purchase_order_id !== invoice.purchase_order_id) {
@@ -372,12 +501,17 @@ class MatchingService {
         grn = await prisma.goodsReceiptNote.findFirst({
           where:   { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'rejected' } },
           orderBy: [{ status: 'desc' }, { created_at: 'desc' }],
+          include: { items: { orderBy: { created_at: 'asc' } }, purchase_order: true },
         });
       }
+      grn = serializeGRN(grn);
 
       let deliveryChallan = null;
       if (deliveryChallanId) {
-        deliveryChallan = await prisma.deliveryChallan.findUnique({ where: { id: deliveryChallanId } });
+        deliveryChallan = await prisma.deliveryChallan.findUnique({
+          where: { id: deliveryChallanId },
+          include: { items: { orderBy: { created_at: 'asc' } }, purchase_order: true },
+        });
         if (!deliveryChallan) throw new ApiError(404, 'Delivery Challan not found.');
         if (deliveryChallan.deleted_at) throw new ApiError(400, 'Cannot use a deleted Delivery Challan for matching.');
         if (deliveryChallan.purchase_order_id !== invoice.purchase_order_id) {
@@ -387,8 +521,10 @@ class MatchingService {
         deliveryChallan = await prisma.deliveryChallan.findFirst({
           where: { purchase_order_id: invoice.purchase_order_id, deleted_at: null, status: { not: 'cancelled' } },
           orderBy: { created_at: 'desc' },
+          include: { items: { orderBy: { created_at: 'asc' } }, purchase_order: true },
         });
       }
+      deliveryChallan = serializeDeliveryChallan(deliveryChallan);
 
       const comparison = compareThreeWayDocuments({
         invoice,
@@ -854,11 +990,16 @@ class MatchingService {
   }
 
   async getGRNsByPurchaseOrder(purchaseOrderId) {
-    return prisma.goodsReceiptNote.findMany({
+    const grns = await prisma.goodsReceiptNote.findMany({
       where:   { purchase_order_id: purchaseOrderId, deleted_at: null },
       orderBy: { created_at: 'desc' },
-      include: { items: true, delivery_challan: { select: { id: true, delivery_challan_number: true } } },
+      include: {
+        items: { orderBy: { created_at: 'asc' } },
+        purchase_order: { select: { id: true, po_number: true, line_items: true } },
+        delivery_challan: { select: { id: true, delivery_challan_number: true } },
+      },
     });
+    return grns.map(serializeGRN);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -876,7 +1017,7 @@ class MatchingService {
 
     return prisma.$transaction(async (tx) => {
       const grnNumber = await nextNumber(tx, 'grn_number_seq', 'GRN');
-      return tx.goodsReceiptNote.create({
+      const grn = await tx.goodsReceiptNote.create({
       data: {
         grn_number:         grnNumber,
         vendor_id:          po.vendor_id,
@@ -922,7 +1063,14 @@ class MatchingService {
         remarks:            payload.remarks         || null,
         status:             'draft',
       },
+      include: {
+        items: { orderBy: { created_at: 'asc' } },
+        vendor: true,
+        purchase_order: true,
+        delivery_challan: true,
+      },
     });
+      return serializeGRN(grn);
     });
   }
 
@@ -972,7 +1120,12 @@ class MatchingService {
           }),
         };
       }
-      return tx.goodsReceiptNote.update({ where: { id: grnId }, data: updateData, include: { items: true, vendor: true, purchase_order: true, delivery_challan: true } });
+      const updated = await tx.goodsReceiptNote.update({
+        where: { id: grnId },
+        data: updateData,
+        include: { items: { orderBy: { created_at: 'asc' } }, vendor: true, purchase_order: true, delivery_challan: true },
+      });
+      return serializeGRN(updated);
     });
   }
 
@@ -998,21 +1151,26 @@ class MatchingService {
       where:   { id: grnId },
       include: {
         vendor:        { select: { id: true, name: true, vendor_code: true } },
-        purchase_order: { select: { id: true, po_number: true } },
+        purchase_order: { select: { id: true, po_number: true, line_items: true } },
+        items:         { orderBy: { created_at: 'asc' } },
         created_by:    { select: { id: true, first_name: true, last_name: true } },
       },
     });
     if (!grn) throw new ApiError(404, 'GRN not found.');
     if (grn.deleted_at) throw new ApiError(404, 'GRN not found.');
-    return grn;
+    return serializeGRN(grn);
   }
 
   async getDeliveryChallansByPurchaseOrder(purchaseOrderId) {
-    return prisma.deliveryChallan.findMany({
+    const challans = await prisma.deliveryChallan.findMany({
       where: { purchase_order_id: purchaseOrderId, deleted_at: null },
       orderBy: { created_at: 'desc' },
-      include: { items: true },
+      include: {
+        items: { orderBy: { created_at: 'asc' } },
+        purchase_order: { select: { id: true, po_number: true, line_items: true } },
+      },
     });
+    return challans.map(serializeDeliveryChallan);
   }
 
   async createDeliveryChallan(payload, user) {
@@ -1029,7 +1187,7 @@ class MatchingService {
 
     return prisma.$transaction(async (tx) => {
       const challanNumber = await nextNumber(tx, 'delivery_challan_number_seq', 'DC');
-      return tx.deliveryChallan.create({
+      const challan = await tx.deliveryChallan.create({
         data: {
           delivery_challan_number: challanNumber,
           vendor_id: po.vendor_id,
@@ -1064,7 +1222,13 @@ class MatchingService {
           remarks: payload.remarks || null,
           status: 'created',
         },
+        include: {
+          items: { orderBy: { created_at: 'asc' } },
+          vendor: true,
+          purchase_order: true,
+        },
       });
+      return serializeDeliveryChallan(challan);
     });
   }
 
@@ -1103,7 +1267,12 @@ class MatchingService {
           })),
         };
       }
-      return tx.deliveryChallan.update({ where: { id: challanId }, data: updateData, include: { items: true, vendor: true, purchase_order: true } });
+      const updated = await tx.deliveryChallan.update({
+        where: { id: challanId },
+        data: updateData,
+        include: { items: { orderBy: { created_at: 'asc' } }, vendor: true, purchase_order: true },
+      });
+      return serializeDeliveryChallan(updated);
     });
   }
 
@@ -1129,13 +1298,13 @@ class MatchingService {
       where: { id: challanId },
       include: {
         vendor: { select: { id: true, name: true, vendor_code: true } },
-        purchase_order: { select: { id: true, po_number: true } },
-        items: true,
+        purchase_order: { select: { id: true, po_number: true, line_items: true } },
+        items: { orderBy: { created_at: 'asc' } },
         created_by: { select: { id: true, first_name: true, last_name: true } },
       },
     });
     if (!challan || challan.deleted_at) throw new ApiError(404, 'Delivery Challan not found.');
-    return challan;
+    return serializeDeliveryChallan(challan);
   }
 }
 

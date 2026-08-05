@@ -11,6 +11,16 @@ import { fieldErrorClass, focusValidationField, validateRequiredFields } from ".
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+const valueOrDash = (value) => (value === null || value === undefined || value === "" ? "-" : value);
+const snapshotQuantity = (title, item) => {
+  if (title === "Goods Receipt Note") {
+    return item.receivedQuantity ?? item.received_quantity ?? item.quantity;
+  }
+  if (title === "Delivery Challan") {
+    return item.deliveredQuantity ?? item.delivered_quantity ?? item.quantity;
+  }
+  return item.quantity ?? item.qty;
+};
 
 const normalizeCheckStatus = (status) => {
   const normalized = String(status || "MISMATCH").toUpperCase();
@@ -305,9 +315,9 @@ const MatchingDetail = () => {
                 <div key={`${title}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
                   <div className="font-semibold text-slate-800">{item.itemName || item.item_name || item.name || item.description || "Item"}</div>
                   <div className="mt-1 grid grid-cols-2 gap-2 text-slate-600 sm:grid-cols-3">
-                    <span>Qty: {item.quantity || item.qty || item.deliveredQuantity || item.delivered_quantity || item.receivedQuantity || item.received_quantity || 0}</span>
-                    <span>Rate: {item.unitPrice || item.unit_price || item.rate || 0}</span>
-                    <span>GST: {item.gstAmount || item.gst_amount || item.taxAmount || item.tax_amount || 0}</span>
+                    <span>Qty: {valueOrDash(snapshotQuantity(title, item))}</span>
+                    <span>Rate: {valueOrDash(item.unitPrice ?? item.unit_price ?? item.rate)}</span>
+                    <span>GST: {valueOrDash(item.gstAmount ?? item.gst_amount ?? item.taxAmount ?? item.tax_amount)}</span>
                   </div>
                 </div>
               ))}
