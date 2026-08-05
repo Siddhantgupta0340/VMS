@@ -19,30 +19,30 @@ const StatCard = ({
   gaugeValue = 145,
   gaugeSubtext = "Your customer volume has increased +25%",
 }) => {
-  // Hero Dark Navy Card (Matching Screenshot Card 1: Total Sales)
+  // Hero Card — clean white surface matching the default card style
   if (variant === "hero") {
     return (
-      <div className="group relative flex flex-col justify-between rounded-[24px] bg-gradient-to-br from-[#1E3A5F] via-[#162E4C] to-[#0F1D30] p-6 text-white shadow-xl shadow-[#1E3A5F]/15 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+      <div className="group relative flex flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-[#0090B8]/30">
         <div>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {title}
             </span>
             <button
               type="button"
-              className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <MoreHorizontal size={18} />
             </button>
           </div>
 
           <div className="mt-4 flex items-baseline gap-3">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-heading">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
               {value}
             </h2>
             {change && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-sky-200 backdrop-blur-md border border-white/20">
-                <TrendingUp size={13} className="text-sky-300" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <TrendingUp size={13} className="text-emerald-500 dark:text-emerald-400" />
                 {change}
               </span>
             )}
@@ -50,16 +50,16 @@ const StatCard = ({
         </div>
 
         {subtitle && (
-          <p className="mt-4 text-xs font-medium text-slate-300/80">
+          <p className="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
             {subtitle}
           </p>
         )}
 
         {actionLink && (
-          <div className="mt-5 border-t border-white/10 pt-3">
+          <div className="mt-5 border-t border-slate-100 dark:border-slate-800/80 pt-3">
             <Link
               to={actionLink}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-300 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0090B8] hover:text-[#007799] transition-colors"
             >
               <span>{actionText}</span>
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
@@ -69,6 +69,7 @@ const StatCard = ({
       </div>
     );
   }
+
 
   // Progress Bar Card (Matching Screenshot Card 2: User Growth)
   if (variant === "progress") {

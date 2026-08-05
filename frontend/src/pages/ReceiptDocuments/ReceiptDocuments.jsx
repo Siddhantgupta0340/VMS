@@ -202,7 +202,7 @@ const ReceiptDocuments = () => {
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Purchase Order</span>
           <FilterSelect
@@ -231,7 +231,7 @@ const ReceiptDocuments = () => {
 
       {selectedPO && (
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-xl border border-slate-200 dark:border-slate-800/80 animate-sidebar-bg p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-slate-950 dark:text-slate-100">Document Details</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <label>
