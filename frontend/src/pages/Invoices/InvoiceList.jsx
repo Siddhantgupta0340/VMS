@@ -12,13 +12,12 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ChevronLeft,
-  ChevronRight,
   AlertTriangle,
 } from "lucide-react";
 import ActionMenu from "../../components/common/ActionMenu";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
+import Pagination from "../../components/common/Pagination";
 import { Link, useNavigate } from "react-router-dom";
 import FilterSelect from "../../components/common/FilterSelect";
 
@@ -351,34 +350,17 @@ const InvoiceList = () => {
         ) : null}
 
         {/* ── Server-Side Pagination Bar ───────────────────────────────────── */}
-        {!loading && !error && pagination.total > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-6 py-3 text-xs text-slate-600 dark:text-slate-400 sm:text-sm">
-            <p>
-              Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{invoices.length}</span> of{" "}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">{pagination.total}</span> records
-            </p>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={pagination.page <= 1}
-                onClick={() => loadInvoices(pagination.page - 1)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
-              >
-                <ChevronLeft size={14} /> Previous
-              </button>
-              <span className="px-2 text-xs font-medium text-slate-700 dark:text-slate-300">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => loadInvoices(pagination.page + 1)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
-              >
-                Next <ChevronRight size={14} />
-              </button>
-            </div>
+        {!loading && !error && pagination.totalPages > 1 && (
+          <div className="p-4 border-t border-slate-200/80 dark:border-slate-800">
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.limit}
+              onPageChange={(page) => loadInvoices(page)}
+              isLoading={loading}
+              label="invoices"
+            />
           </div>
         )}
       </section>

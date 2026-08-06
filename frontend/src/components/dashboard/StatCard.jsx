@@ -82,11 +82,11 @@ const StatCard = ({
             </span>
 
             {/* Time Pill Tabs */}
-            <div className="flex items-center gap-1 rounded-full bg-slate-100/80 dark:bg-slate-800 p-1 text-[10px] font-bold">
+            {/* <div className="flex items-center gap-1 rounded-full bg-slate-100/80 dark:bg-slate-800 p-1 text-[10px] font-bold">
               <span className="rounded-full bg-[#1E3A5F] text-white px-2 py-0.5 shadow-xs">24h</span>
               <span className="text-slate-500 px-1.5 hover:text-slate-800 cursor-pointer">30h</span>
               <span className="text-slate-500 px-1.5 hover:text-slate-800 cursor-pointer">Week</span>
-            </div>
+            </div> */}
           </div>
 
           <div className="mt-4 flex items-baseline justify-between">

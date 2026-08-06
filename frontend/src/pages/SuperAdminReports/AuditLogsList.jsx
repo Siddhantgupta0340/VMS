@@ -4,6 +4,7 @@ import { getAuditLogs, getAuditLogById } from "../../services/auditService";
 import { getManagersLookup } from "../../services/lookupService";
 import { toast } from "sonner";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import Pagination from "../../components/common/Pagination";
 import { formatEnumLabel, formatRoleLabel, formatRoleValuesDeep } from "../../utils/displayFormatters";
 import FilterSelect from "../../components/common/FilterSelect";
 import DateInput from "../../components/common/DateInput";
@@ -305,27 +306,15 @@ const AuditLogsList = () => {
 
       {/* Pagination Footer */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-400">
-            Page {filters.page} of {totalPages} (Total {total} entries)
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setFilters((p) => ({ ...p, page: Math.max(p.page - 1, 1) }))}
-              disabled={filters.page === 1}
-              className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => setFilters((p) => ({ ...p, page: Math.min(p.page + 1, totalPages) }))}
-              disabled={filters.page === totalPages}
-              className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={filters.page}
+          totalPages={totalPages}
+          totalItems={total}
+          itemsPerPage={filters.limit}
+          onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
+          isLoading={loading}
+          label="audit logs"
+        />
       )}
 
       {/* ── Detail Drawer (Safe Details Difference view) ────────────────────── */}

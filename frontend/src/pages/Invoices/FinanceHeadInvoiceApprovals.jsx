@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import StatusBadge from "../../components/common/StatusBadge";
+import Pagination from "../../components/common/Pagination";
 import {
   approveInvoiceWithRemarks,
   getFinanceHeadInvoiceApprovals,
@@ -271,43 +272,19 @@ const FinanceHeadInvoiceApprovals = () => {
               </table>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} invoices)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => changePage(pagination.page - 1)}
-                  disabled={pagination.page <= 1}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                {pageRange.map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => changePage(page)}
-                    className={`rounded-lg border px-3 py-1.5 font-semibold ${
-                      page === pagination.page
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => changePage(pagination.page + 1)}
-                  disabled={pagination.page >= pagination.totalPages}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
-                >
-                  Next
-                </button>
+            {!loading && pagination.totalPages > 1 && (
+              <div className="p-4 border-t border-slate-200/80 dark:border-slate-800">
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  totalItems={pagination.total}
+                  itemsPerPage={pagination.limit}
+                  onPageChange={(page) => changePage(page)}
+                  isLoading={loading}
+                  label="invoices"
+                />
               </div>
-            </div>
+            )}
           </>
         )}
       </section>

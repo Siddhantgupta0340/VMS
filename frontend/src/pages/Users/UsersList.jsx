@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import ViewDetailsButton from "../../components/common/ViewDetailsButton";
+import Pagination from "../../components/common/Pagination";
 import { useAuth } from "../../context/AuthContext";
 import { hasPermission, PERMISSIONS } from "../../config/permissions";
 import {
@@ -765,39 +766,15 @@ const UsersList = () => {
 
       {/* Pagination controls */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between select-none">
-          <p className="text-xs text-slate-400">
-            Page {filters.page} of {totalPages} (Total {total} users)
-          </p>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, page: Math.max(prev.page - 1, 1) }))}
-              disabled={filters.page === 1}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setFilters(prev => ({ ...prev, page: idx + 1 }))}
-                className={`h-8 w-8 rounded-lg text-xs font-semibold transition ${filters.page === idx + 1
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-              >
-                {idx + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, page: Math.min(prev.page + 1, totalPages) }))}
-              disabled={filters.page === totalPages}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={filters.page}
+          totalPages={totalPages}
+          totalItems={total}
+          itemsPerPage={filters.limit}
+          onPageChange={(page) => setFilters(prev => ({ ...prev, page }))}
+          isLoading={loading}
+          label="users"
+        />
       )}
 
       {/* ── Slide-over Side Drawer (Details & Edit) ──────────────────────────── */}

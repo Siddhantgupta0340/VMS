@@ -25,6 +25,7 @@ import { useNotifications } from "../../context/NotificationContext";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import FilterSelect from "../../components/common/FilterSelect";
 import DateInput from "../../components/common/DateInput";
+import Pagination from "../../components/common/Pagination";
 
 const PAGE_SIZE = 10;
 
@@ -380,31 +381,20 @@ const NotificationsList = () => {
             </div>
           </div>
         )}
-      </div>
 
-      <div className="flex flex-col gap-3 text-sm text-slate-500 dark:text-slate-400 md:flex-row md:items-center md:justify-between">
-        <span>
-          Showing page {page} of {totalPages} ({total} total)
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 font-semibold text-slate-700 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((current) => Math.max(current - 1, 1))}
-            type="button"
-          >
-            Previous
-          </button>
-          <button
-            className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 font-semibold text-slate-700 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900"
-            disabled={page >= totalPages || loading}
-            onClick={() => setPage((current) => Math.min(current + 1, totalPages))}
-            type="button"
-          >
-            Next
-          </button>
-        </div>
+        {!loading && !error && totalPages > 1 && (
+          <div className="p-4 border-t border-slate-200/80 dark:border-slate-800">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={total}
+              itemsPerPage={PAGE_SIZE}
+              onPageChange={(newPage) => setPage(newPage)}
+              isLoading={loading}
+              label="notifications"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

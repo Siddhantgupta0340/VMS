@@ -21,6 +21,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import EmptyState from "../../components/common/EmptyState";
 import StatusBadge from "../../components/common/StatusBadge";
 import Button from "../../components/common/Button";
+import Pagination from "../../components/common/Pagination";
 import VendorDocumentsPanel from "../../components/vendors/VendorDocumentsPanel";
 import { useAuth } from "../../context/AuthContext";
 import FilterSelect from "../../components/common/FilterSelect";
@@ -509,29 +510,15 @@ const VendorList = () => {
       </section>
 
       {!loading && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Page {pagination.page} of {pagination.totalPages} - {pagination.total} records
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              isDisabled={filters.page <= 1}
-              onClick={() => setFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}
-            >
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              isDisabled={filters.page >= pagination.totalPages}
-              onClick={() => setFilters((current) => ({ ...current, page: Math.min(pagination.totalPages, current.page + 1) }))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={filters.limit}
+          onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+          isLoading={loading}
+          label="vendors"
+        />
       )}
 
       <VendorReviewDrawer vendor={selectedVendor} onClose={() => setSelectedVendor(null)} canManageDocuments={canReviewVendors} />

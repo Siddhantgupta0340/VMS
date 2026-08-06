@@ -183,6 +183,8 @@ const DataTable = ({
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
+          totalItems={sortedData.length}
+          itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
         />
       )}
