@@ -461,11 +461,11 @@ class NotificationService {
     };
 
     const titleMap = {
-      PENDING_THREE_WAY_MATCH: ' Three-Way Matching Required',
+      PENDING_THREE_WAY_MATCH: ' PENDING THREE-WAY MATCH',
       PENDING_ADMIN_REVIEW:    ' Pending Admin Review',
-      PENDING_TEAM_LEAD:       ' Pending Team Lead Approval',
-      PENDING_MANAGER:         ' Pending Manager Approval',
-      PENDING_FINANCE_HEAD:    ' Pending Finance Head Approval',
+      PENDING_TEAM_LEAD:       ' PENDING BY TEAM LEAD',
+      PENDING_MANAGER:         ' PENDING BY MANAGER',
+      PENDING_FINANCE_HEAD:    ' PENDING BY FINANCE HEAD',
       APPROVED:                ' Invoice Approved',
       REJECTED:                ' Invoice Rejected',
       CANCELLED:               ' Invoice Cancelled',

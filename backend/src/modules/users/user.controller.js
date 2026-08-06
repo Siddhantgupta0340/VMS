@@ -16,7 +16,7 @@ class UserController {
     const user = await userService.createUser(req.body, req.user, req.ip, req.headers['user-agent']);
     res.status(201).json({
       success: true,
-      message: USER_MESSAGES.USER_CREATED,
+      message: USER_MESSAGES.USER_CREATED, 
       data: user,
     });
   });

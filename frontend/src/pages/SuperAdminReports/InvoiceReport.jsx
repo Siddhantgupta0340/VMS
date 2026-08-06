@@ -32,11 +32,11 @@ const PAYMENT_STATUS_OPTIONS = ["", "UNPAID", "PARTIALLY_PAID", "PAID"];
 const statusLabel = (s) => {
   if (!s) return "All Statuses";
   const map = {
-    PENDING_THREE_WAY_MATCH: "Pending 3-Way Match",
+    PENDING_THREE_WAY_MATCH: "PENDING THREE-WAY MATCH",
     PENDING_ADMIN_REVIEW:    "Pending Admin Review",
-    PENDING_TEAM_LEAD:       "Pending Team Lead",
-    PENDING_MANAGER:         "Pending Manager",
-    PENDING_FINANCE_HEAD:    "Pending Finance Head",
+    PENDING_TEAM_LEAD:       "PENDING BY TEAM LEAD",
+    PENDING_MANAGER:         "PENDING BY MANAGER",
+    PENDING_FINANCE_HEAD:    "PENDING BY FINANCE HEAD",
   };
   return map[s] || s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 };

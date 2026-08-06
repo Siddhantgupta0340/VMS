@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { formatRoleLabel } from "../utils/displayFormatters";
 
 const mapApprovalLog = (log) => ({
   id: log.id,
@@ -7,7 +8,7 @@ const mapApprovalLog = (log) => ({
   amount: 0,
   priority: "Normal",
   status: log.to_status || log.action || "-",
-  assignedTo: log.performed_by?.role || "-",
+  assignedTo: log.performed_by?.role ? formatRoleLabel(log.performed_by.role) : "-",
   entityType: log.entity_type,
   entityId: log.entity_id,
   action: log.action,

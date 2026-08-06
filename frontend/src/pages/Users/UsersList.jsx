@@ -21,7 +21,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import ViewDetailsButton from "../../components/common/ViewDetailsButton";
 import Pagination from "../../components/common/Pagination";
 import { useAuth } from "../../context/AuthContext";
-import { hasPermission, PERMISSIONS } from "../../config/permissions";
+import { hasPermission, PERMISSIONS, ROLES, ROLE_LABELS } from "../../config/permissions";
 import {
   getUsers,
   getUserById,
@@ -583,11 +583,11 @@ const UsersList = () => {
           onChange={(nextValue) => handleFilterChange("role", nextValue)}
           options={[
             { value: "", label: "All Roles" },
-            { value: "SUPER_ADMIN", label: "Super Admin" },
-            { value: "FINANCE_HEAD", label: "Finance Head" },
-            { value: "MANAGER", label: "Manager" },
-            { value: "TEAM_LEAD", label: "Team Lead" },
-            { value: "CASE_MANAGER", label: "Case Manager" },
+            { value: ROLES.SUPER_ADMIN, label: ROLE_LABELS[ROLES.SUPER_ADMIN] },
+            { value: ROLES.FINANCE_HEAD, label: ROLE_LABELS[ROLES.FINANCE_HEAD] },
+            { value: ROLES.MANAGER, label: ROLE_LABELS[ROLES.MANAGER] },
+            { value: ROLES.TEAM_LEAD, label: ROLE_LABELS[ROLES.TEAM_LEAD] },
+            { value: ROLES.CASE_MANAGER, label: ROLE_LABELS[ROLES.CASE_MANAGER] },
           ]}
           placeholder="All Roles"
           className="w-full sm:w-44"

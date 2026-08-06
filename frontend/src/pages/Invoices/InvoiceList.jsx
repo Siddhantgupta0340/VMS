@@ -202,11 +202,11 @@ const InvoiceList = () => {
               options={[
                 { value: "", label: "All Approval Statuses" },
                 { value: "APPROVED", label: "Approved" },
-                { value: "PENDING_THREE_WAY_MATCH", label: "3-Way Match Pending" },
-                { value: "PENDING_ADMIN_REVIEW", label: "Admin Review Pending" },
-                { value: "PENDING_TEAM_LEAD", label: "Team Lead Pending" },
-                { value: "PENDING_MANAGER", label: "Manager Pending" },
-                { value: "PENDING_FINANCE_HEAD", label: "Finance Head Pending" },
+                { value: "PENDING_THREE_WAY_MATCH", label: "PENDING THREE-WAY MATCH" },
+                { value: "PENDING_ADMIN_REVIEW", label: "Pending Admin Review" },
+                { value: "PENDING_TEAM_LEAD", label: "PENDING BY TEAM LEAD" },
+                { value: "PENDING_MANAGER", label: "PENDING BY MANAGER" },
+                { value: "PENDING_FINANCE_HEAD", label: "PENDING BY FINANCE HEAD" },
                 { value: "REJECTED", label: "Rejected" },
               ]}
               placeholder="All Approval Statuses"

@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { formatRoleLabel } from "../utils/displayFormatters";
 
 export const mapVendorDocument = (document) => ({
   id: document.id,
@@ -91,10 +92,10 @@ const mapVendor = (vendor) => {
     rejectedAt: vendor.rejected_at,
     createdAt: vendor.created_at,
     createdBy: vendor.created_by
-      ? `${vendor.created_by.first_name} ${vendor.created_by.last_name} (${vendor.created_by.role})`
+      ? `${vendor.created_by.first_name} ${vendor.created_by.last_name} (${formatRoleLabel(vendor.created_by.role)})`
       : "-",
     approvedBy: vendor.approved_by
-      ? `${vendor.approved_by.first_name} ${vendor.approved_by.last_name} (${vendor.approved_by.role})`
+      ? `${vendor.approved_by.first_name} ${vendor.approved_by.last_name} (${formatRoleLabel(vendor.approved_by.role)})`
       : "-",
     updatedAt: vendor.updated_at,
     deletedAt: vendor.deleted_at,

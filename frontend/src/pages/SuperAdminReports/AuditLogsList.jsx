@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { History, X, RefreshCw, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { History, X, RefreshCw, Eye } from "lucide-react";
 import { getAuditLogs, getAuditLogById } from "../../services/auditService";
 import { getManagersLookup } from "../../services/lookupService";
 import { toast } from "sonner";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import Pagination from "../../components/common/Pagination";
-import { formatEnumLabel, formatRoleLabel, formatRoleValuesDeep } from "../../utils/displayFormatters";
+import { formatEnumLabel, formatRoleLabel } from "../../utils/displayFormatters";
 import FilterSelect from "../../components/common/FilterSelect";
 import DateInput from "../../components/common/DateInput";
 
@@ -117,8 +117,6 @@ const AuditLogsList = () => {
     const name = `${log.performed_by.first_name || ""} ${log.performed_by.last_name || ""}`.trim();
     return name || log.performed_by.email;
   };
-
-  const displayJson = (value) => JSON.stringify(formatRoleValuesDeep(value), null, 2);
 
   return (
     <div className="space-y-6 relative select-none">
@@ -387,37 +385,6 @@ const AuditLogsList = () => {
                         </p>
                       </div>
                     )}
-
-                    {/* Payload Difference View */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Old Safe Values */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Old Safe Values (Pre-State)</h4>
-                        {selectedLog.old_value ? (
-                          <pre className="bg-slate-900 text-slate-100 rounded-xl p-4 text-xs overflow-x-auto max-h-75 font-mono leading-relaxed">
-                            {displayJson(selectedLog.old_value)}
-                          </pre>
-                        ) : (
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-xs text-slate-400">
-                            No pre-state recorded (e.g. record creation)
-                          </div>
-                        )}
-                      </div>
-
-                      {/* New Safe Values */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">New Safe Values (Post-State)</h4>
-                        {selectedLog.new_value ? (
-                          <pre className="bg-slate-900 text-slate-100 rounded-xl p-4 text-xs overflow-x-auto max-h-75 font-mono leading-relaxed">
-                            {displayJson(selectedLog.new_value)}
-                          </pre>
-                        ) : (
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-xs text-slate-400">
-                            No post-state recorded
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 ) : null}
               </div>

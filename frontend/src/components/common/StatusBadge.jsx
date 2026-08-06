@@ -1,4 +1,4 @@
-import React from "react";
+
 import { X, CheckCircle2, AlertCircle, Clock, RefreshCw, Ban, Sparkles } from "lucide-react";
 
 const normalizeStatus = (status = "") => {
@@ -25,7 +25,14 @@ const normalizeStatus = (status = "") => {
     overdue: "Overdue",
   };
 
-  return map[s] || status;
+  if (map[s]) return map[s];
+
+  if (s.startsWith("pending_")) {
+    const rolePart = s.replace("pending_", "").replaceAll("_", " ");
+    return `PENDING BY ${rolePart.toUpperCase()}`;
+  }
+
+  return status;
 };
 
 const statusConfig = {
@@ -98,11 +105,24 @@ const statusConfig = {
 
 export const StatusBadge = ({ status, className = "", showDot = true }) => {
   const normalized = normalizeStatus(status);
-  const config = statusConfig[normalized] || {
-    badgeClass: "badge-neutral",
-    dotClass: "bg-slate-400",
-    icon: Clock,
-  };
+  let config = statusConfig[normalized];
+  
+  if (!config) {
+    if (normalized.startsWith("Pending By")) {
+      config = {
+        badgeClass: "badge-warning",
+        dotClass: "bg-amber-500",
+        icon: Clock,
+      };
+    } else {
+      config = {
+        badgeClass: "badge-neutral",
+        dotClass: "bg-slate-400",
+        icon: Clock,
+      };
+    }
+  }
+
   const Icon = config.icon;
 
   return (

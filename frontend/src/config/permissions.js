@@ -6,6 +6,14 @@ export const ROLES = {
   FINANCE_HEAD: "FINANCE_HEAD",
 };
 
+export const ROLE_LABELS = {
+  [ROLES.SUPER_ADMIN]: "Super Admin",
+  [ROLES.CASE_MANAGER]: "Case Manager",
+  [ROLES.TEAM_LEAD]: "Team Lead",
+  [ROLES.MANAGER]: "Manager",
+  [ROLES.FINANCE_HEAD]: "Finance Head",
+};
+
 export const PERMISSIONS = {
   VIEW_DASHBOARD: "VIEW_DASHBOARD",   
   VIEW_SYSTEM_ANALYTICS: "VIEW_SYSTEM_ANALYTICS",
