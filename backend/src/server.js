@@ -152,7 +152,7 @@ const startServer = async () => {
   };
 
   // Attempt database connection with retries for transient Neon cold-start timeouts.
-  const connectWithRetry = async (maxAttempts = 5) => {
+  const connectWithRetry = async (maxAttempts = 10) => {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         validateDatabaseUrl();
@@ -164,7 +164,7 @@ const startServer = async () => {
         const isTransient = isTransientDatabaseError(error);
 
         if (!isLast && isTransient) {
-          const delayMs = Math.min(1000 * (2 ** (attempt - 1)), 3000); // 1s, 2s, 3s, 3s...
+          const delayMs = Math.min(1000 * (2 ** (attempt - 1)), 8000); // 1s, 2s, 4s, 8s, 8s...
           console.warn(`[startup] Database connection attempt ${attempt}/${maxAttempts} failed (transient). Retrying in ${delayMs}ms…`);
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         } else {
@@ -176,7 +176,7 @@ const startServer = async () => {
 
   try {
     // 1. Database Configuration and Connection Check (with retry)
-    await connectWithRetry(5);
+    await connectWithRetry(10);
     console.log('Successfully connected to PostgreSQL database.', getSafeDatabaseInfo());
 
     // 2. Run development seeders only when explicitly requested.

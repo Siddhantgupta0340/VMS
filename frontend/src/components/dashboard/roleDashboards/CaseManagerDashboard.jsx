@@ -214,7 +214,6 @@ const CaseManagerDashboard = () => {
             {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Live operational metrics derived directly from system
           </p>
         </div>
 
@@ -251,7 +250,7 @@ const CaseManagerDashboard = () => {
           title="Total Purchase Orders"
           value={formatNumber(cards.totalPurchaseOrders)}
           change="Live DB Record"
-          subtitle="Total purchase order requisitions in system"
+          subtitle="Total purchase order requisitions."
         />
 
         <GlobalStatCard
@@ -261,7 +260,7 @@ const CaseManagerDashboard = () => {
           change={`${cards.activeVendors || 0} Active`}
           progressPercent={vendorRatio}
           progressLabel="Active ratio"
-          progressSubtext="System active vendors"
+          progressSubtext="Active vendors"
         />
 
         <GlobalStatCard

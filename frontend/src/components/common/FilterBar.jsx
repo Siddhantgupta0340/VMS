@@ -17,7 +17,9 @@ const FilterBar = ({ onFilterChange, filters = [] }) => {
     onFilterChange({});
   };
 
-  const activeCount = Object.values(activeFilters).filter((v) => Boolean(v)).length;
+  const activeCount = Object.values(activeFilters).filter((v) =>
+    Boolean(v),
+  ).length;
 
   return (
     <div className="relative">
@@ -38,7 +40,9 @@ const FilterBar = ({ onFilterChange, filters = [] }) => {
       {isOpen && (
         <div className="absolute right-0 z-[9999] mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xl text-slate-900 dark:text-slate-100 animate-in fade-in duration-150">
           <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h3 className="font-bold text-sm uppercase tracking-wider text-slate-900 dark:text-slate-100 font-heading">Filters</h3>
+            <h3 className="font-bold text-sm uppercase tracking-wider text-slate-900 dark:text-slate-100 font-heading">
+              Filters
+            </h3>
             {activeCount > 0 && (
               <button
                 type="button"
@@ -56,8 +60,13 @@ const FilterBar = ({ onFilterChange, filters = [] }) => {
                 <FilterSelect
                   label={filter.label}
                   value={activeFilters[filter.key] || ""}
-                  onChange={(nextValue) => handleFilterChange(filter.key, nextValue)}
-                  options={[{ value: "", label: "All" }, ...(filter.options || [])]}
+                  onChange={(nextValue) =>
+                    handleFilterChange(filter.key, nextValue)
+                  }
+                  options={[
+                    { value: "", label: "All" },
+                    ...(filter.options || []),
+                  ]}
                   placeholder="All"
                 />
               </div>

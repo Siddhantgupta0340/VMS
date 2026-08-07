@@ -12,19 +12,17 @@ import { AppDataProvider } from "./context/AppDataContext";
 import { NotificationProvider } from "./context/NotificationContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppDataProvider>
-            <NotificationProvider>
-              <SidebarProvider>
-                <App />
-              </SidebarProvider>
-            </NotificationProvider>
-          </AppDataProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+  <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppDataProvider>
+          <NotificationProvider>
+            <SidebarProvider>
+              <App />
+            </SidebarProvider>
+          </NotificationProvider>
+        </AppDataProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  </BrowserRouter>
 );

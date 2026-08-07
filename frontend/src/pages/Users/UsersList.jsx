@@ -15,13 +15,18 @@ import {
   X,
   ShieldAlert,
   Clock,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import ViewDetailsButton from "../../components/common/ViewDetailsButton";
 import Pagination from "../../components/common/Pagination";
 import { useAuth } from "../../context/AuthContext";
-import { hasPermission, PERMISSIONS, ROLES, ROLE_LABELS } from "../../config/permissions";
+import {
+  hasPermission,
+  PERMISSIONS,
+  ROLES,
+  ROLE_LABELS,
+} from "../../config/permissions";
 import {
   getUsers,
   getUserById,
@@ -67,7 +72,11 @@ const SortHeader = ({ label, field, sortField, sortOrder, onSort }) => {
     >
       {label}
       {isCurrent ? (
-        sortOrder === "asc" ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-blue-600" />
+        sortOrder === "asc" ? (
+          <ChevronUp size={14} className="text-blue-600" />
+        ) : (
+          <ChevronDown size={14} className="text-blue-600" />
+        )
       ) : (
         <ArrowUpDown size={12} className="text-slate-400" />
       )}
@@ -147,7 +156,11 @@ const UsersList = () => {
     if (currentUser?.role === "SUPER_ADMIN") return true;
     const requesterRank = ROLE_RANK[currentUser?.role] || 0;
     const targetRank = ROLE_RANK[role.value] || 0;
-    return role.value !== "SUPER_ADMIN" && targetRank > 0 && targetRank < requesterRank;
+    return (
+      role.value !== "SUPER_ADMIN" &&
+      targetRank > 0 &&
+      targetRank < requesterRank
+    );
   });
 
   // ── Load User Directory ────────────────────────────────────────────────────
@@ -164,10 +177,17 @@ const UsersList = () => {
       setUsers(res.users || []);
       setTotal(res.pagination.totalRecords || 0);
       setTotalPages(res.pagination.totalPages || 1);
-      setSummary(res.summary || { activeAccounts: 0, deactivatedAccounts: 0, totalAccounts: 0 });
+      setSummary(
+        res.summary || {
+          activeAccounts: 0,
+          deactivatedAccounts: 0,
+          totalAccounts: 0,
+        },
+      );
     } catch (err) {
       console.error(err);
-      const msg = err?.response?.data?.message || "Failed to load user directory.";
+      const msg =
+        err?.response?.data?.message || "Failed to load user directory.";
       setError(msg);
       notify.error(msg);
     } finally {
@@ -182,7 +202,8 @@ const UsersList = () => {
     if (filters.status) params.status = filters.status;
     if (filters.page > 1) params.page = String(filters.page);
     if (filters.limit !== 10) params.limit = String(filters.limit);
-    if (filters.sortField !== "created_at") params.sortField = filters.sortField;
+    if (filters.sortField !== "created_at")
+      params.sortField = filters.sortField;
     if (filters.sortOrder !== "desc") params.sortOrder = filters.sortOrder;
 
     setSearchParams(params, { replace: true });
@@ -296,7 +317,8 @@ const UsersList = () => {
     setEditForm((prev) => ({
       ...prev,
       role,
-      superAdminConfirmed: role === "SUPER_ADMIN" ? prev.superAdminConfirmed : false,
+      superAdminConfirmed:
+        role === "SUPER_ADMIN" ? prev.superAdminConfirmed : false,
     }));
   };
 
@@ -314,7 +336,8 @@ const UsersList = () => {
       errors.email = "Invalid email format";
     }
     if (editForm.role === "SUPER_ADMIN" && !editForm.superAdminConfirmed) {
-      errors.superAdminConfirmed = "Confirmation required to assign Super Admin authority";
+      errors.superAdminConfirmed =
+        "Confirmation required to assign Super Admin authority";
     }
     const phonePattern = /^\d{10}$/;
     const phone = editForm.phone.trim();
@@ -356,9 +379,15 @@ const UsersList = () => {
       console.error(err);
       const status = err?.response?.status;
       if (status === 409) {
-        setEditErrors((prev) => ({ ...prev, email: "An account with this email already exists." }));
+        setEditErrors((prev) => ({
+          ...prev,
+          email: "An account with this email already exists.",
+        }));
         notify.error("An account with this email already exists.");
-      } else if (err?.response?.data?.code === "VALIDATION_ERROR" && err?.response?.data?.errors) {
+      } else if (
+        err?.response?.data?.code === "VALIDATION_ERROR" &&
+        err?.response?.data?.errors
+      ) {
         const formattedErrors = {};
         Object.entries(err.response.data.errors).forEach(([field, msgs]) => {
           formattedErrors[field] = Array.isArray(msgs) ? msgs.join(", ") : msgs;
@@ -379,10 +408,12 @@ const UsersList = () => {
   };
 
   const openStatusConfirmation = (id, currentStatus) => {
-    const nextStatus = currentStatus === USER_ACCOUNT_STATUS.ACTIVE
-      ? USER_ACCOUNT_STATUS.DEACTIVATED
-      : USER_ACCOUNT_STATUS.ACTIVE;
-    const actionText = currentStatus === USER_ACCOUNT_STATUS.ACTIVE ? "deactivate" : "activate";
+    const nextStatus =
+      currentStatus === USER_ACCOUNT_STATUS.ACTIVE
+        ? USER_ACCOUNT_STATUS.DEACTIVATED
+        : USER_ACCOUNT_STATUS.ACTIVE;
+    const actionText =
+      currentStatus === USER_ACCOUNT_STATUS.ACTIVE ? "deactivate" : "activate";
 
     setConfirmation({
       type: "status",
@@ -409,7 +440,11 @@ const UsersList = () => {
 
   const runStatusChange = async ({ id, nextStatus, actionText }) => {
     try {
-      await toggleUserStatus(id, nextStatus, `Status updated by administrative control`);
+      await toggleUserStatus(
+        id,
+        nextStatus,
+        `Status updated by administrative control`,
+      );
       notify.success(`User credentials ${actionText}d successfully.`);
 
       // Update drawer if matching active user
@@ -420,7 +455,9 @@ const UsersList = () => {
       await loadUsers(filters);
     } catch (err) {
       console.error(err);
-      notify.error(getErrorMessage(err, `Failed to ${actionText} user account.`));
+      notify.error(
+        getErrorMessage(err, `Failed to ${actionText} user account.`),
+      );
       throw err;
     }
   };
@@ -456,11 +493,15 @@ const UsersList = () => {
     const errs = [];
 
     // Check complexity rules
-    if (newPassword.length < 8) errs.push("Password must be at least 8 characters");
-    if (!/[A-Z]/.test(newPassword)) errs.push("Must contain an uppercase letter");
-    if (!/[a-z]/.test(newPassword)) errs.push("Must contain a lowercase letter");
+    if (newPassword.length < 8)
+      errs.push("Password must be at least 8 characters");
+    if (!/[A-Z]/.test(newPassword))
+      errs.push("Must contain an uppercase letter");
+    if (!/[a-z]/.test(newPassword))
+      errs.push("Must contain a lowercase letter");
     if (!/[0-9]/.test(newPassword)) errs.push("Must contain a number");
-    if (!/[^A-Za-z0-9]/.test(newPassword)) errs.push("Must contain a special character");
+    if (!/[^A-Za-z0-9]/.test(newPassword))
+      errs.push("Must contain a special character");
     if (newPassword !== confirmNewPassword) errs.push("Passwords do not match");
 
     if (errs.length > 0) {
@@ -472,7 +513,9 @@ const UsersList = () => {
       setResetSubmitting(true);
       setResetErrors([]);
       const result = await adminResetPassword(selectedUser.id, newPassword);
-      notify.success(result?.message || "Temporary password changed successfully.");
+      notify.success(
+        result?.message || "Temporary password changed successfully.",
+      );
       setResetModalOpen(false);
       setNewPassword("");
       setConfirmNewPassword("");
@@ -512,7 +555,8 @@ const UsersList = () => {
     if (confirmation.type === "delete") {
       return {
         title: "Delete user account?",
-        description: "This will soft-delete the employee account, revoke stored refresh access, and prevent normal login for this user.",
+        description:
+          "This will soft-delete the employee account, revoke stored refresh access, and prevent normal login for this user.",
         confirmLabel: "Delete user",
         variant: "destructive",
       };
@@ -524,7 +568,10 @@ const UsersList = () => {
         confirmation.actionText === "activate"
           ? "This will restore the employee account status through the backend."
           : "This will deactivate the employee account and may affect login and platform access.",
-      confirmLabel: confirmation.actionText === "activate" ? "Activate account" : "Deactivate account",
+      confirmLabel:
+        confirmation.actionText === "activate"
+          ? "Activate account"
+          : "Deactivate account",
       variant: confirmation.actionText === "activate" ? "default" : "warning",
     };
   })();
@@ -535,7 +582,9 @@ const UsersList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Users</h1>
-          <p className="mt-2 text-slate-500">Manage internal team members and role-based permissions</p>
+          <p className="mt-2 text-slate-500">
+            Manage internal team members and role-based permissions
+          </p>
         </div>
 
         <Link
@@ -550,16 +599,28 @@ const UsersList = () => {
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Registers</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{total.toLocaleString()}</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Total Registers
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {total.toLocaleString()}
+          </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Credentials</p>
-          <p className="mt-2 text-2xl font-bold text-green-600">{summary.activeAccounts.toLocaleString()}</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Active Credentials
+          </p>
+          <p className="mt-2 text-2xl font-bold text-green-600">
+            {summary.activeAccounts.toLocaleString()}
+          </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Deactivated Accounts</p>
-          <p className="mt-2 text-2xl font-bold text-slate-500">{summary.deactivatedAccounts.toLocaleString()}</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Deactivated Accounts
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-500">
+            {summary.deactivatedAccounts.toLocaleString()}
+          </p>
         </div>
       </div>
 
@@ -584,10 +645,16 @@ const UsersList = () => {
           options={[
             { value: "", label: "All Roles" },
             { value: ROLES.SUPER_ADMIN, label: ROLE_LABELS[ROLES.SUPER_ADMIN] },
-            { value: ROLES.FINANCE_HEAD, label: ROLE_LABELS[ROLES.FINANCE_HEAD] },
+            {
+              value: ROLES.FINANCE_HEAD,
+              label: ROLE_LABELS[ROLES.FINANCE_HEAD],
+            },
             { value: ROLES.MANAGER, label: ROLE_LABELS[ROLES.MANAGER] },
             { value: ROLES.TEAM_LEAD, label: ROLE_LABELS[ROLES.TEAM_LEAD] },
-            { value: ROLES.CASE_MANAGER, label: ROLE_LABELS[ROLES.CASE_MANAGER] },
+            {
+              value: ROLES.CASE_MANAGER,
+              label: ROLE_LABELS[ROLES.CASE_MANAGER],
+            },
           ]}
           placeholder="All Roles"
           className="w-full sm:w-44"
@@ -597,7 +664,10 @@ const UsersList = () => {
         <FilterSelect
           value={filters.status}
           onChange={(nextValue) => handleFilterChange("status", nextValue)}
-          options={[{ value: "", label: "All Statuses" }, ...USER_ACCOUNT_STATUS_OPTIONS]}
+          options={[
+            { value: "", label: "All Statuses" },
+            ...USER_ACCOUNT_STATUS_OPTIONS,
+          ]}
           placeholder="All Statuses"
           className="w-full sm:w-44"
         />
@@ -686,8 +756,13 @@ const UsersList = () => {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {users.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-5 py-4 cursor-pointer" onClick={() => openDrawer(row.id, "details")}>
-                      <p className="font-semibold text-slate-900 hover:text-blue-600 transition">{row.name}</p>
+                    <td
+                      className="px-5 py-4 cursor-pointer"
+                      onClick={() => openDrawer(row.id, "details")}
+                    >
+                      <p className="font-semibold text-slate-900 hover:text-blue-600 transition">
+                        {row.name}
+                      </p>
                       <p className="text-xs text-slate-500">{row.email}</p>
                     </td>
                     <td className="px-5 py-4 font-semibold text-slate-700">
@@ -699,10 +774,14 @@ const UsersList = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "-"}
+                      {row.createdAt
+                        ? new Date(row.createdAt).toLocaleDateString("en-IN")
+                        : "-"}
                     </td>
                     <td className="px-5 py-4">
-                      {row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString("en-IN") : "Never"}
+                      {row.lastLoginAt
+                        ? new Date(row.lastLoginAt).toLocaleString("en-IN")
+                        : "Never"}
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={row.status} />
@@ -729,15 +808,30 @@ const UsersList = () => {
                         </button>
                         {/* Toggle Status */}
                         <button
-                          onClick={() => openStatusConfirmation(row.id, row.status)}
-                          className={`rounded-lg p-2 transition ${row.status === USER_ACCOUNT_STATUS.ACTIVE
+                          onClick={() =>
+                            openStatusConfirmation(row.id, row.status)
+                          }
+                          className={`rounded-lg p-2 transition ${
+                            row.status === USER_ACCOUNT_STATUS.ACTIVE
                               ? "text-slate-500 hover:bg-slate-100 hover:text-amber-600"
                               : "text-slate-400 hover:bg-slate-100 hover:text-green-600"
-                            }`}
-                          title={row.status === USER_ACCOUNT_STATUS.ACTIVE ? "Deactivate User" : "Activate User"}
-                          aria-label={row.status === USER_ACCOUNT_STATUS.ACTIVE ? "Deactivate credentials" : "Activate credentials"}
+                          }`}
+                          title={
+                            row.status === USER_ACCOUNT_STATUS.ACTIVE
+                              ? "Deactivate User"
+                              : "Activate User"
+                          }
+                          aria-label={
+                            row.status === USER_ACCOUNT_STATUS.ACTIVE
+                              ? "Deactivate credentials"
+                              : "Activate credentials"
+                          }
                         >
-                          {row.status === USER_ACCOUNT_STATUS.ACTIVE ? <Lock size={16} /> : <Unlock size={16} />}
+                          {row.status === USER_ACCOUNT_STATUS.ACTIVE ? (
+                            <Lock size={16} />
+                          ) : (
+                            <Unlock size={16} />
+                          )}
                         </button>
                         {canDeleteUsers && (
                           <button
@@ -759,7 +853,9 @@ const UsersList = () => {
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <p className="text-sm font-semibold">No Users Found</p>
-            <p className="text-xs mt-1 text-slate-500">There are no records matching the filters.</p>
+            <p className="text-xs mt-1 text-slate-500">
+              There are no records matching the filters.
+            </p>
           </div>
         )}
       </div>
@@ -771,7 +867,7 @@ const UsersList = () => {
           totalPages={totalPages}
           totalItems={total}
           itemsPerPage={filters.limit}
-          onPageChange={(page) => setFilters(prev => ({ ...prev, page }))}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
           isLoading={loading}
           label="users"
         />
@@ -780,19 +876,25 @@ const UsersList = () => {
       {/* ── Slide-over Side Drawer (Details & Edit) ──────────────────────────── */}
       {drawerMode && (
         <div className="fixed inset-0 z-50 overflow-hidden select-none">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onClick={() => setDrawerMode(null)} />
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+            onClick={() => setDrawerMode(null)}
+          />
 
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-lg bg-white dark:bg-slate-900 shadow-xl flex flex-col border-l border-slate-200 dark:border-slate-800">
-
               {/* Drawer Header */}
               <div className="px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {drawerMode === "details" ? "User Profile Details" : "Modify User Profile"}
+                    {drawerMode === "details"
+                      ? "User Profile Details"
+                      : "Modify User Profile"}
                   </h2>
                   {selectedUser && (
-                    <p className="text-xs text-slate-500 mt-1">ID: {selectedUser.id}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      ID: {selectedUser.id}
+                    </p>
                   )}
                 </div>
                 <button
@@ -808,7 +910,10 @@ const UsersList = () => {
               <div className="flex-1 overflow-y-auto px-6 py-6">
                 {drawerLoading ? (
                   <div className="flex h-64 items-center justify-center">
-                    <LoadingSpinner size="md" text="Loading User Profile Data..." />
+                    <LoadingSpinner
+                      size="md"
+                      text="Loading User Profile Data..."
+                    />
                   </div>
                 ) : selectedUser ? (
                   drawerMode === "details" ? (
@@ -817,12 +922,19 @@ const UsersList = () => {
                       {/* Profile Card */}
                       <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-5 flex items-start gap-4">
                         <div className="h-12 w-12 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shrink-0">
-                          {selectedUser.firstName?.[0] || ""}{selectedUser.lastName?.[0] || ""}
+                          {selectedUser.firstName?.[0] || ""}
+                          {selectedUser.lastName?.[0] || ""}
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900 text-lg">{selectedUser.name}</h3>
-                          <p className="text-xs font-semibold text-slate-500">{selectedUser.employeeId || "Employee ID pending"}</p>
-                          <p className="text-sm text-slate-500">{selectedUser.email}</p>
+                          <h3 className="font-bold text-slate-900 text-lg">
+                            {selectedUser.name}
+                          </h3>
+                          <p className="text-xs font-semibold text-slate-500">
+                            {selectedUser.employeeId || "Employee ID pending"}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {selectedUser.email}
+                          </p>
                           <div className="mt-2.5 flex flex-wrap gap-2">
                             <span className="inline-block rounded-full bg-blue-50 px-3 py-0.5 text-xs font-semibold text-blue-700">
                               {formatRoleLabel(selectedUser.role)}
@@ -833,48 +945,69 @@ const UsersList = () => {
                       </div>
 
                       <div className="space-y-4 rounded-xl border border-slate-200 p-4 bg-white text-sm text-slate-600">
-                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Organization Profile</h4>
+                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+                          Organization Profile
+                        </h4>
                         <div className="grid grid-cols-1 gap-3">
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span className="font-medium">Employee ID</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.employeeId || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.employeeId || "-"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span className="font-medium">Phone</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.phone || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.phone || "-"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span className="font-medium">Alternate Phone</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.alternatePhone || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.alternatePhone || "-"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span className="font-medium">Designation</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.designation || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.designation || "-"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span className="font-medium">Branch</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.branch || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.branch || "-"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="font-medium">Region</span>
-                            <span className="text-slate-950 font-semibold">{selectedUser.region || "-"}</span>
+                            <span className="text-slate-950 font-semibold">
+                              {selectedUser.region || "-"}
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       {/* Permissions scope */}
                       <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Access Scope Permissions</h4>
+                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+                          Access Scope Permissions
+                        </h4>
                         {selectedUser.permissions?.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {selectedUser.permissions.map((p) => (
-                              <span key={p} className="inline-block rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 border border-slate-200">
+                              <span
+                                key={p}
+                                className="inline-block rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 border border-slate-200"
+                              >
                                 {p}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500">No explicit permission keys mapped to role</p>
+                          <p className="text-xs text-slate-500">
+                            No explicit permission keys mapped to role
+                          </p>
                         )}
                       </div>
 
@@ -883,19 +1016,35 @@ const UsersList = () => {
                         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                           <span className="font-medium">Registered Date</span>
                           <span className="text-slate-950 font-semibold">
-                            {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString("en-IN") : "-"}
+                            {selectedUser.createdAt
+                              ? new Date(
+                                  selectedUser.createdAt,
+                                ).toLocaleDateString("en-IN")
+                              : "-"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <span className="font-medium">Last Modified Date</span>
+                          <span className="font-medium">
+                            Last Modified Date
+                          </span>
                           <span className="text-slate-950 font-semibold">
-                            {selectedUser.updatedAt ? new Date(selectedUser.updatedAt).toLocaleDateString("en-IN") : "-"}
+                            {selectedUser.updatedAt
+                              ? new Date(
+                                  selectedUser.updatedAt,
+                                ).toLocaleDateString("en-IN")
+                              : "-"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between pb-1">
-                          <span className="font-medium">Last Login Session</span>
+                          <span className="font-medium">
+                            Last Login Session
+                          </span>
                           <span className="text-slate-950 font-semibold">
-                            {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString("en-IN") : "Never"}
+                            {selectedUser.lastLoginAt
+                              ? new Date(
+                                  selectedUser.lastLoginAt,
+                                ).toLocaleString("en-IN")
+                              : "Never"}
                           </span>
                         </div>
                       </div>
@@ -914,13 +1063,27 @@ const UsersList = () => {
                                 {/* Bullet indicator */}
                                 <div className="absolute -left-[31px] top-1.5 h-3.5 w-3.5 rounded-full border border-blue-600 bg-white" />
                                 <div>
-                                  <p className="font-semibold text-slate-900">{log.remarks}</p>
+                                  <p className="font-semibold text-slate-900">
+                                    {log.remarks}
+                                  </p>
                                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                                    <span>By: {log.performed_by?.employee_id ? `${log.performed_by.employee_id} - ` : ""}{log.performed_by?.email || "System"}</span>
+                                    <span>
+                                      By:{" "}
+                                      {log.performed_by?.employee_id
+                                        ? `${log.performed_by.employee_id} - `
+                                        : ""}
+                                      {log.performed_by?.email || "System"}
+                                    </span>
                                     <span>•</span>
-                                    <span>IP: {log.ip_address || "Internal"}</span>
+                                    <span>
+                                      IP: {log.ip_address || "Internal"}
+                                    </span>
                                     <span>•</span>
-                                    <span>{new Date(log.created_at).toLocaleString("en-IN")}</span>
+                                    <span>
+                                      {new Date(log.created_at).toLocaleString(
+                                        "en-IN",
+                                      )}
+                                    </span>
                                   </p>
                                 </div>
                               </div>
@@ -928,17 +1091,27 @@ const UsersList = () => {
                           </div>
                         ) : (
                           <p className="text-xs text-slate-400 bg-slate-50 p-4 text-center rounded-xl border border-slate-100">
-                            No operational audit logs found for this user account.
+                            No operational audit logs found for this user
+                            account.
                           </p>
                         )}
                       </div>
                     </div>
                   ) : (
                     /* Edit Form Panel */
-                    <form onSubmit={handleEditSubmit} className="space-y-6" noValidate>
+                    <form
+                      onSubmit={handleEditSubmit}
+                      className="space-y-6"
+                      noValidate
+                    >
                       <div className="space-y-4">
                         <div>
-                          <label htmlFor="edit-firstName" className="block text-sm font-medium text-slate-700 mb-1.5">First Name *</label>
+                          <label
+                            htmlFor="edit-firstName"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            First Name *
+                          </label>
                           <input
                             id="edit-firstName"
                             type="text"
@@ -949,12 +1122,19 @@ const UsersList = () => {
                             required
                           />
                           {editErrors.firstName && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.firstName}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.firstName}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="edit-lastName" className="block text-sm font-medium text-slate-700 mb-1.5">Last Name *</label>
+                          <label
+                            htmlFor="edit-lastName"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Last Name *
+                          </label>
                           <input
                             id="edit-lastName"
                             type="text"
@@ -965,12 +1145,19 @@ const UsersList = () => {
                             required
                           />
                           {editErrors.lastName && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.lastName}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.lastName}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="edit-email" className="block text-sm font-medium text-slate-700 mb-1.5">Email Address *</label>
+                          <label
+                            htmlFor="edit-email"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Email Address *
+                          </label>
                           <input
                             id="edit-email"
                             type="email"
@@ -981,12 +1168,19 @@ const UsersList = () => {
                             required
                           />
                           {editErrors.email && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.email}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.email}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="edit-employeeId" className="block text-sm font-medium text-slate-700 mb-1.5">Employee ID</label>
+                          <label
+                            htmlFor="edit-employeeId"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Employee ID
+                          </label>
                           <input
                             id="edit-employeeId"
                             type="text"
@@ -998,7 +1192,12 @@ const UsersList = () => {
                         </div>
 
                         <div>
-                          <label htmlFor="edit-phone" className="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
+                          <label
+                            htmlFor="edit-phone"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Phone
+                          </label>
                           <input
                             id="edit-phone"
                             type="tel"
@@ -1011,12 +1210,19 @@ const UsersList = () => {
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none transition focus:border-blue-600"
                           />
                           {editErrors.phone && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.phone}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.phone}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="edit-alternatePhone" className="block text-sm font-medium text-slate-700 mb-1.5">Alternate Phone</label>
+                          <label
+                            htmlFor="edit-alternatePhone"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Alternate Phone
+                          </label>
                           <input
                             id="edit-alternatePhone"
                             type="tel"
@@ -1029,12 +1235,19 @@ const UsersList = () => {
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 outline-none transition focus:border-blue-600"
                           />
                           {editErrors.alternatePhone && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.alternatePhone}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.alternatePhone}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="edit-designation" className="block text-sm font-medium text-slate-700 mb-1.5">Designation</label>
+                          <label
+                            htmlFor="edit-designation"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Designation
+                          </label>
                           <input
                             id="edit-designation"
                             type="text"
@@ -1052,7 +1265,12 @@ const UsersList = () => {
                         </div>
 
                         <div>
-                          <label htmlFor="edit-branch" className="block text-sm font-medium text-slate-700 mb-1.5">Branch</label>
+                          <label
+                            htmlFor="edit-branch"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Branch
+                          </label>
                           <input
                             id="edit-branch"
                             type="text"
@@ -1070,7 +1288,12 @@ const UsersList = () => {
                         </div>
 
                         <div>
-                          <label htmlFor="edit-region" className="block text-sm font-medium text-slate-700 mb-1.5">Region</label>
+                          <label
+                            htmlFor="edit-region"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                          >
+                            Region
+                          </label>
                           <input
                             id="edit-region"
                             type="text"
@@ -1088,7 +1311,12 @@ const UsersList = () => {
                         </div>
 
                         <div>
-                          <label htmlFor="edit-role" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Role Permission Guard *</label>
+                          <label
+                            htmlFor="edit-role"
+                            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                          >
+                            Role Permission Guard *
+                          </label>
                           <FilterSelect
                             ariaLabel="Role Permission Guard"
                             value={editForm.role}
@@ -1100,7 +1328,9 @@ const UsersList = () => {
                             placeholder="Select system role"
                           />
                           {editErrors.role && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{editErrors.role}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {editErrors.role}
+                            </p>
                           )}
                         </div>
 
@@ -1110,9 +1340,12 @@ const UsersList = () => {
                             <div className="flex gap-2.5 text-sm text-red-800">
                               <ShieldAlert className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
                               <div>
-                                <p className="font-semibold">⚠️ High Privilege Assignment</p>
+                                <p className="font-semibold">
+                                  ⚠️ High Privilege Assignment
+                                </p>
                                 <p className="mt-1 text-xs leading-relaxed text-red-700">
-                                  You are upgrading this account to Super Admin privileges.
+                                  You are upgrading this account to Super Admin
+                                  privileges.
                                 </p>
                               </div>
                             </div>
@@ -1129,7 +1362,9 @@ const UsersList = () => {
                               </span>
                             </label>
                             {editErrors.superAdminConfirmed && (
-                              <p className="text-xs font-semibold text-red-600 mt-1">{editErrors.superAdminConfirmed}</p>
+                              <p className="text-xs font-semibold text-red-600 mt-1">
+                                {editErrors.superAdminConfirmed}
+                              </p>
                             )}
                           </div>
                         )}
@@ -1137,7 +1372,9 @@ const UsersList = () => {
 
                       {/* Lifecyle status and Reset controls */}
                       <div className="border-t border-slate-100 pt-6 space-y-4">
-                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Credentials Actions</h4>
+                        <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+                          Credentials Actions
+                        </h4>
 
                         <div className="grid grid-cols-2 gap-3">
                           {/* Force Password Reset */}
@@ -1154,12 +1391,14 @@ const UsersList = () => {
                           <button
                             type="button"
                             onClick={handleDeactivateInDrawer}
-                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-bold transition ${selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-bold transition ${
+                              selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE
                                 ? "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100"
                                 : "border-green-200 bg-green-50/50 text-green-700 hover:bg-green-100"
-                              }`}
+                            }`}
                           >
-                            {selectedUser.status === USER_ACCOUNT_STATUS.ACTIVE ? (
+                            {selectedUser.status ===
+                            USER_ACCOUNT_STATUS.ACTIVE ? (
                               <>
                                 <Lock size={14} />
                                 Deactivate Account
@@ -1225,31 +1464,52 @@ const UsersList = () => {
           <div className="space-y-4">
             <dl className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Employee</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{confirmationUserName}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Employee
+                </dt>
+                <dd className="mt-1 font-semibold text-slate-900">
+                  {confirmationUserName}
+                </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Employee ID</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{confirmationUser?.employeeId || "-"}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Employee ID
+                </dt>
+                <dd className="mt-1 font-semibold text-slate-900">
+                  {confirmationUser?.employeeId || "-"}
+                </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</dt>
-                <dd className="mt-1 break-words font-semibold text-slate-900">{confirmationUser?.email || "-"}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Email
+                </dt>
+                <dd className="mt-1 break-words font-semibold text-slate-900">
+                  {confirmationUser?.email || "-"}
+                </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Role</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{formatRoleLabel(confirmationUser?.role) || "-"}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Role
+                </dt>
+                <dd className="mt-1 font-semibold text-slate-900">
+                  {formatRoleLabel(confirmationUser?.role) || "-"}
+                </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Current Status</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{confirmationUser?.status || "-"}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Current Status
+                </dt>
+                <dd className="mt-1 font-semibold text-slate-900">
+                  {confirmationUser?.status || "-"}
+                </dd>
               </div>
             </dl>
 
             {confirmation.type === "delete" && (
               <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
-                Deletion is processed by the backend as an account removal action. It may immediately affect login,
-                access, active sessions, reporting, and audit visibility for this employee.
+                Deletion is processed by the backend as an account removal
+                action. It may immediately affect login, access, active
+                sessions, reporting, and audit visibility for this employee.
               </div>
             )}
           </div>
@@ -1258,11 +1518,16 @@ const UsersList = () => {
 
       {resetModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setResetModalOpen(false)} />
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+            onClick={() => setResetModalOpen(false)}
+          />
 
           <div className="relative max-w-md w-full bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden z-10 border border-slate-200/80 dark:border-slate-800 select-none">
             <div className="px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-950 dark:text-slate-100">Change Credentials Password</h3>
+              <h3 className="text-lg font-bold text-slate-950 dark:text-slate-100">
+                Change Credentials Password
+              </h3>
               <button
                 type="button"
                 onClick={() => setResetModalOpen(false)}
@@ -1272,17 +1537,28 @@ const UsersList = () => {
               </button>
             </div>
 
-            <form onSubmit={handlePasswordResetSubmit} className="p-6 space-y-4" noValidate>
+            <form
+              onSubmit={handlePasswordResetSubmit}
+              className="p-6 space-y-4"
+              noValidate
+            >
               {resetErrors.length > 0 && (
                 <div className="rounded-xl bg-red-50 border border-red-100 p-3 space-y-1">
                   {resetErrors.map((err, idx) => (
-                    <p key={idx} className="text-xs font-semibold text-red-700">• {err}</p>
+                    <p key={idx} className="text-xs font-semibold text-red-700">
+                      • {err}
+                    </p>
                   ))}
                 </div>
               )}
 
               <div>
-                <label htmlFor="modal-newPassword" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">New Password *</label>
+                <label
+                  htmlFor="modal-newPassword"
+                  className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider"
+                >
+                  New Password *
+                </label>
                 <input
                   id="modal-newPassword"
                   type="password"
@@ -1296,7 +1572,12 @@ const UsersList = () => {
               </div>
 
               <div>
-                <label htmlFor="modal-confirmPassword" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Confirm Password *</label>
+                <label
+                  htmlFor="modal-confirmPassword"
+                  className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider"
+                >
+                  Confirm Password *
+                </label>
                 <input
                   id="modal-confirmPassword"
                   type="password"
@@ -1315,7 +1596,11 @@ const UsersList = () => {
                   disabled={resetSubmitting}
                   className="flex-1 inline-flex justify-center items-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
                 >
-                  {resetSubmitting ? <Loader2 size={14} className="animate-spin" /> : "Update Password"}
+                  {resetSubmitting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    "Update Password"
+                  )}
                 </button>
                 <button
                   type="button"

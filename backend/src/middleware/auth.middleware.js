@@ -78,7 +78,7 @@ export const protect = async (req, res, next) => {
         deleted_at: true,
         must_change_password: true,
       },
-    }));
+    }), { attempts: 5, baseDelayMs: 500, maxDelayMs: 3000 });
 
     if (!user || user.deleted_at !== null) { 
       throw authError(401, AUTH_MESSAGES.UNAUTHORIZED, 'UNAUTHENTICATED');

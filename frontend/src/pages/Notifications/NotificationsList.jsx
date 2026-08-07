@@ -164,7 +164,8 @@ const NotificationsList = () => {
             Notifications
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Review workflow, account, invoice, vendor, and payment updates assigned to you.
+            Review workflow, account, invoice, vendor, and payment updates
+            assigned to you.
           </p>
         </div>
 
@@ -276,7 +277,9 @@ const NotificationsList = () => {
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">
             <AlertCircle className="text-red-500" size={32} />
-            <p className="font-semibold text-slate-900 dark:text-slate-100">{error}</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">
+              {error}
+            </p>
             <button
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               onClick={refreshAll}
@@ -332,16 +335,17 @@ const NotificationsList = () => {
                       </time>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {notification.entityType === "payment" && notification.entityId && (
-                        <Link
-                          to={`/payments?id=${notification.entityId}`}
-                          onClick={() => handleMarkRead(notification)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
-                        >
-                          <Eye size={14} />
-                          View Payment Request
-                        </Link>
-                      )}
+                      {notification.entityType === "payment" &&
+                        notification.entityId && (
+                          <Link
+                            to={`/payments?id=${notification.entityId}`}
+                            onClick={() => handleMarkRead(notification)}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+                          >
+                            <Eye size={14} />
+                            View Payment Request
+                          </Link>
+                        )}
 
                       {!notification.isRead && (
                         <button
@@ -374,7 +378,9 @@ const NotificationsList = () => {
           <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">
             <Inbox className="text-slate-400 dark:text-slate-500" size={36} />
             <div>
-              <p className="font-semibold text-slate-900 dark:text-slate-100">No notifications found</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">
+                No notifications found
+              </p>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 New workflow and account updates will appear here.
               </p>

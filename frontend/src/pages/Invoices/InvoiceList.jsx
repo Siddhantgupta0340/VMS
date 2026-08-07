@@ -14,7 +14,7 @@ import {
   Search,
   AlertTriangle,
 } from "lucide-react";
-import ActionMenu from "../../components/common/ActionMenu";
+
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
 import Pagination from "../../components/common/Pagination";
@@ -56,7 +56,6 @@ const InvoiceList = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
-
   const loadInvoices = useCallback(
     async (pageToLoad = pagination.page) => {
       try {
@@ -86,13 +85,19 @@ const InvoiceList = () => {
         setError(
           err?.response?.data?.message ||
             err?.response?.data?.error ||
-            "Unable to load invoice history. Please try again."
+            "Unable to load invoice history. Please try again.",
         );
       } finally {
         setLoading(false);
       }
     },
-    [pagination.limit, search, statusFilter, paymentStatusFilter, pagination.page]
+    [
+      pagination.limit,
+      search,
+      statusFilter,
+      paymentStatusFilter,
+      pagination.page,
+    ],
   );
 
   useEffect(() => {
@@ -104,10 +109,14 @@ const InvoiceList = () => {
     const normalizedInvoiceStatus = (invoice?.status || "").toUpperCase();
     const normalizedRoleValue = (role || "").toUpperCase();
     if (normalizedRoleValue === ROLES.TEAM_LEAD) {
-      return ["PENDING_TEAM_LEAD", "PENDING_L1", "PENDING"].includes(normalizedInvoiceStatus);
+      return ["PENDING_TEAM_LEAD", "PENDING_L1", "PENDING"].includes(
+        normalizedInvoiceStatus,
+      );
     }
     if (normalizedRoleValue === ROLES.MANAGER) {
-      return ["PENDING_MANAGER", "PENDING_L2"].includes(normalizedInvoiceStatus);
+      return ["PENDING_MANAGER", "PENDING_L2"].includes(
+        normalizedInvoiceStatus,
+      );
     }
     return false;
   };
@@ -134,18 +143,17 @@ const InvoiceList = () => {
     }
   };
 
-  const rowActions = (row) => [
-    <ActionMenu
+  const rowActions = (row) => (
+    <button
       key={row.id}
-      actions={[
-        {
-          icon: Eye,
-          label: "View",
-          onClick: () => navigate(`/invoices/${row.id}`),
-        },
-      ]}
-    />,
-  ];
+      type="button"
+      onClick={() => navigate(`/invoices/${row.id}`)}
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+    >
+      <Eye size={14} />
+      View
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -185,7 +193,10 @@ const InvoiceList = () => {
       <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm dark:shadow-slate-950/40 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={17}
+            />
             <input
               type="text"
               placeholder="Search by Invoice , PO , or Vendor Name/Code..."
@@ -202,11 +213,20 @@ const InvoiceList = () => {
               options={[
                 { value: "", label: "All Approval Statuses" },
                 { value: "APPROVED", label: "Approved" },
-                { value: "PENDING_THREE_WAY_MATCH", label: "PENDING THREE-WAY MATCH" },
-                { value: "PENDING_ADMIN_REVIEW", label: "Pending Admin Review" },
+                {
+                  value: "PENDING_THREE_WAY_MATCH",
+                  label: "PENDING THREE-WAY MATCH",
+                },
+                {
+                  value: "PENDING_ADMIN_REVIEW",
+                  label: "Pending Admin Review",
+                },
                 { value: "PENDING_TEAM_LEAD", label: "PENDING BY TEAM LEAD" },
                 { value: "PENDING_MANAGER", label: "PENDING BY MANAGER" },
-                { value: "PENDING_FINANCE_HEAD", label: "PENDING BY FINANCE HEAD" },
+                {
+                  value: "PENDING_FINANCE_HEAD",
+                  label: "PENDING BY FINANCE HEAD",
+                },
                 { value: "REJECTED", label: "Rejected" },
               ]}
               placeholder="All Approval Statuses"
@@ -234,10 +254,17 @@ const InvoiceList = () => {
       {error && (
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-500/20 bg-red-50 dark:bg-red-950/30 p-5 text-red-800 dark:text-red-300">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="text-red-600 dark:text-red-400" size={20} />
+            <AlertTriangle
+              className="text-red-600 dark:text-red-400"
+              size={20}
+            />
             <div>
-              <p className="text-sm font-semibold">Unable to load invoice history</p>
-              <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-sm font-semibold">
+                Unable to load invoice history
+              </p>
+              <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+                {error}
+              </p>
             </div>
           </div>
           <button
@@ -257,7 +284,10 @@ const InvoiceList = () => {
             <div className="h-6 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />
+                <div
+                  key={i}
+                  className="h-12 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60"
+                />
               ))}
             </div>
           </div>
@@ -280,9 +310,15 @@ const InvoiceList = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
                 {invoices.map((row) => (
-                  <tr key={row.id} className="transition hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                  <tr
+                    key={row.id}
+                    className="transition hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                  >
                     <td className="px-4 py-3.5 font-semibold">
-                      <Link to={`/invoices/${row.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      <Link
+                        to={`/invoices/${row.id}`}
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
                         {row.invoiceNumber}
                       </Link>
                     </td>
@@ -290,8 +326,14 @@ const InvoiceList = () => {
                       {row.poNumber || "N/A"}
                     </td>
                     <td className="px-4 py-3.5">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{row.vendorName || row.vendor || "N/A"}</p>
-                      {row.vendorCode && <p className="text-xs font-mono text-slate-400">{row.vendorCode}</p>}
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">
+                        {row.vendorName || row.vendor || "N/A"}
+                      </p>
+                      {row.vendorCode && (
+                        <p className="text-xs font-mono text-slate-400">
+                          {row.vendorCode}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                       {formatDate(row.invoiceDate)}
@@ -300,7 +342,9 @@ const InvoiceList = () => {
                       {formatCurrency(row.amount, row.currency)}
                     </td>
                     <td className="px-4 py-3.5 text-center">
-                      <StatusBadge status={row.threeWayMatchStatus || "PENDING"} />
+                      <StatusBadge
+                        status={row.threeWayMatchStatus || "PENDING"}
+                      />
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <StatusBadge status={row.status} />

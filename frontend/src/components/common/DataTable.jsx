@@ -1,5 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, Search, ArrowUpDown, Inbox } from "lucide-react";
+import {
+  ChevronUp,
+  ChevronDown,
+  Search,
+  ArrowUpDown,
+  Inbox,
+} from "lucide-react";
 import Pagination from "./Pagination";
 
 const DataTable = ({
@@ -22,8 +28,10 @@ const DataTable = ({
 
     return data.filter((row) =>
       searchableFields.some((field) =>
-        String(row[field] || "").toLowerCase().includes(searchTerm.toLowerCase())
-      )
+        String(row[field] || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      ),
     );
   }, [data, searchTerm, searchableFields]);
 
@@ -60,7 +68,10 @@ const DataTable = ({
   };
 
   const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40 hover:opacity-100 transition" />;
+    if (sortConfig.key !== columnKey)
+      return (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-40 hover:opacity-100 transition" />
+      );
     return sortConfig.direction === "asc" ? (
       <ChevronUp className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 font-bold" />
     ) : (
@@ -88,9 +99,7 @@ const DataTable = ({
             </div>
           )}
           {extraHeaderContent && (
-            <div className="flex items-center gap-3">
-              {extraHeaderContent}
-            </div>
+            <div className="flex items-center gap-3">{extraHeaderContent}</div>
           )}
         </div>
       )}
@@ -105,7 +114,9 @@ const DataTable = ({
                     key={col.key || col.label}
                     onClick={() => col.sortable && handleSort(col.key)}
                     className={`px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 ${
-                      col.sortable ? "cursor-pointer select-none hover:text-slate-900 dark:hover:text-white" : ""
+                      col.sortable
+                        ? "cursor-pointer select-none hover:text-slate-900 dark:hover:text-white"
+                        : ""
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -143,16 +154,26 @@ const DataTable = ({
                     key={row.id || idx}
                     onClick={() => onRowClick && onRowClick(row)}
                     className={`group transition-all duration-150 ${
-                      onRowClick ? "cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-950/20" : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                      onRowClick
+                        ? "cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-950/20"
+                        : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
                     }`}
                   >
                     {columns.map((col) => (
-                      <td key={col.key} className="px-5 py-4 text-slate-700 dark:text-slate-300 font-medium">
-                        {col.render ? col.render(row[col.key], row) : row[col.key] ?? "-"}
+                      <td
+                        key={col.key}
+                        className="px-5 py-4 text-slate-700 dark:text-slate-300 font-medium"
+                      >
+                        {col.render
+                          ? col.render(row[col.key], row)
+                          : (row[col.key] ?? "-")}
                       </td>
                     ))}
                     {rowActions && (
-                      <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-5 py-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1.5">
                           {rowActions(row)}
                         </div>
@@ -162,7 +183,10 @@ const DataTable = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length + (rowActions ? 1 : 0)} className="py-12 text-center">
+                  <td
+                    colSpan={columns.length + (rowActions ? 1 : 0)}
+                    className="py-12 text-center"
+                  >
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
                         <Inbox className="h-6 w-6" />
