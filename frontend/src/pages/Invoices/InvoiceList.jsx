@@ -156,7 +156,7 @@ const InvoiceList = () => {
             Invoice History
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
-            Track and manage all historical vendor invoices from PostgreSQL.
+            Track and manage all historical vendor invoices .
           </p>
         </div>
         <div className="flex items-center gap-3">

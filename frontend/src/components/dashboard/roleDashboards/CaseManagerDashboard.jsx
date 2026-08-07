@@ -214,7 +214,7 @@ const CaseManagerDashboard = () => {
             {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Live operational metrics derived directly from system databases
+            Live operational metrics derived directly from system
           </p>
         </div>
 
