@@ -36,10 +36,17 @@ const safeNumber = (value) => {
 };
 
 const formatCompact = (value) =>
-  new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 }).format(safeNumber(value));
+  new Intl.NumberFormat("en-IN", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(safeNumber(value));
 
 const formatCurrency = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(safeNumber(value));
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(safeNumber(value));
 
 const normalizeSeries = (source) =>
   Array.isArray(source)
@@ -67,14 +74,22 @@ const EmptyPanel = ({ message = "No data available yet" }) => (
 
 const ChartCard = ({ title, subtitle, hasData, children }) => (
   <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-    <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 font-heading">{title}</h2>
-    {subtitle ? <p className="mt-1 truncate text-xs text-slate-400">{subtitle}</p> : null}
-    <div className="mt-4 min-w-0 w-full flex-1">{hasData ? children : <EmptyPanel />}</div>
+    <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 font-heading">
+      {title}
+    </h2>
+    {subtitle ? (
+      <p className="mt-1 truncate text-xs text-slate-400">{subtitle}</p>
+    ) : null}
+    <div className="mt-4 min-w-0 w-full flex-1">
+      {hasData ? children : <EmptyPanel />}
+    </div>
   </section>
 );
 
 const CleanPieChart = ({ data, colors = STATUS_COLORS }) => {
-  const total = Array.isArray(data) ? data.reduce((sum, item) => sum + safeNumber(item.value), 0) : 0;
+  const total = Array.isArray(data)
+    ? data.reduce((sum, item) => sum + safeNumber(item.value), 0)
+    : 0;
 
   if (!data || data.length === 0 || total === 0) {
     return <EmptyPanel message="No chart data available" />;
@@ -89,11 +104,17 @@ const CleanPieChart = ({ data, colors = STATUS_COLORS }) => {
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const item = payload[0];
-                  const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
+                  const pct =
+                    total > 0 ? ((item.value / total) * 100).toFixed(0) : 0;
                   return (
                     <div className="rounded-xl border border-slate-700 bg-[#1E3A5F] p-2.5 shadow-xl text-white backdrop-blur-md">
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.payload?.fill || item.color }} />
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{
+                            backgroundColor: item.payload?.fill || item.color,
+                          }}
+                        />
                         <span className="text-xs font-bold">{item.name}</span>
                       </div>
                       <p className="mt-1 text-xs font-extrabold text-sky-300">
@@ -117,14 +138,21 @@ const CleanPieChart = ({ data, colors = STATUS_COLORS }) => {
               stroke="none"
             >
               {data.map((entry, index) => (
-                <Cell key={entry.name || index} fill={colors[index % colors.length]} />
+                <Cell
+                  key={entry.name || index}
+                  fill={colors[index % colors.length]}
+                />
               ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-heading">{total}</span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-heading">
+            {total}
+          </span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Total
+          </span>
         </div>
       </div>
 
@@ -133,15 +161,27 @@ const CleanPieChart = ({ data, colors = STATUS_COLORS }) => {
           const color = colors[index % colors.length];
           const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0;
           return (
-            <div key={entry.name || index} className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 text-xs">
+            <div
+              key={entry.name || index}
+              className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 text-xs"
+            >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title={entry.name}>
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span
+                  className="truncate text-xs font-bold text-slate-700 dark:text-slate-200"
+                  title={entry.name}
+                >
                   {entry.name}
                 </span>
               </div>
               <span className="shrink-0 text-xs font-extrabold text-slate-900 dark:text-white">
-                {entry.value} <span className="text-[10px] text-slate-400 font-medium">({pct}%)</span>
+                {entry.value}{" "}
+                <span className="text-[10px] text-slate-400 font-medium">
+                  ({pct}%)
+                </span>
               </span>
             </div>
           );
@@ -164,23 +204,32 @@ const FinanceDashboard = () => {
     endDate: "",
   });
 
-  const displayName = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.name || user?.email || "User";
+  const displayName =
+    `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
+    user?.name ||
+    user?.email ||
+    "User";
 
-  const loadDashboard = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true);
-    setRefreshing(silent);
-    setError("");
+  const loadDashboard = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      setRefreshing(silent);
+      setError("");
 
-    try {
-      const response = await getFinanceHeadDashboard(filters);
-      setData(response);
-    } catch {
-      setError("Finance Head dashboard data could not be loaded. Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [filters]);
+      try {
+        const response = await getFinanceHeadDashboard(filters);
+        setData(response);
+      } catch {
+        setError(
+          "Finance Head dashboard data could not be loaded. Please try again.",
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [filters],
+  );
 
   useEffect(() => {
     loadDashboard();
@@ -189,20 +238,29 @@ const FinanceDashboard = () => {
   const vendorReview = data?.summary?.vendorReview ?? {};
   const payments = data?.summary?.payments ?? {};
   const employees = data?.summary?.employees ?? {};
-  const vendorDistribution = Array.isArray(data?.charts?.vendorReviewStatusDistribution)
-    ? data.charts.vendorReviewStatusDistribution.filter((item) => safeNumber(item.value) > 0)
+  const vendorDistribution = Array.isArray(
+    data?.charts?.vendorReviewStatusDistribution,
+  )
+    ? data.charts.vendorReviewStatusDistribution.filter(
+        (item) => safeNumber(item.value) > 0,
+      )
     : [];
-  const employeeDistribution = Array.isArray(data?.charts?.employeeStatusDistribution)
-    ? data.charts.employeeStatusDistribution.filter((item) => safeNumber(item.value) > 0)
+  const employeeDistribution = Array.isArray(
+    data?.charts?.employeeStatusDistribution,
+  )
+    ? data.charts.employeeStatusDistribution.filter(
+        (item) => safeNumber(item.value) > 0,
+      )
     : [];
-  const highValuePaymentTrend = normalizeSeries(data?.trends?.highValuePayments);
+  const highValuePaymentTrend = normalizeSeries(
+    data?.trends?.highValuePayments,
+  );
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
-  const totalReviews = safeNumber(vendorReview.pending) + safeNumber(vendorReview.approved) + safeNumber(vendorReview.onHold);
-  const reviewCompletion = totalReviews > 0 ? Math.round((safeNumber(vendorReview.approved) / totalReviews) * 100) : 0;
+
 
   if (loading) {
     return (
@@ -210,7 +268,10 @@ const FinanceDashboard = () => {
         <div className="h-32 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
         <div className="grid gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-44 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+            <div
+              key={index}
+              className="h-44 animate-pulse rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            />
           ))}
         </div>
       </div>
@@ -223,10 +284,12 @@ const FinanceDashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
-            {getGreeting()}, <span className="text-[#0090B8]">{displayName}</span> 👋
+            {getGreeting()},{" "}
+            <span className="text-[#0090B8]">{displayName}</span> 👋
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Live vendor-review, high-value payment, and managed employee analytics from database
+            Live vendor-review, high-value payment, and managed employee
+            analytics from database
           </p>
         </div>
 
@@ -268,13 +331,11 @@ const FinanceDashboard = () => {
         />
 
         <StatCard
-          variant="progress"
-          title="Vendor Reviews"
-          value={formatCompact(vendorReview.pending)}
-          change={`${vendorReview.approved || 0} Approved`}
-          progressPercent={reviewCompletion}
-          progressLabel="Completion rate"
-          progressSubtext="Based on DB reviews"
+          title="Active Vendors"
+          value={formatCompact(vendorReview.approved)}
+          icon={Users}
+          actionText="Currently active in system"
+          actionLink="/vendors?status=approved"
         />
 
         <StatCard
@@ -286,7 +347,11 @@ const FinanceDashboard = () => {
       </div>
 
       {/* Main Bar Chart */}
-      <ChartCard title="High-Value Payment Trend" subtitle="INR payments at or above the Finance Head approval threshold." hasData={highValuePaymentTrend.length > 0}>
+      <ChartCard
+        title="High-Value Payment Trend"
+        subtitle="INR payments at or above the Finance Head approval threshold."
+        hasData={highValuePaymentTrend.length > 0}
+      >
         <div className="h-64 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={highValuePaymentTrend}>
@@ -296,11 +361,32 @@ const FinanceDashboard = () => {
                   <stop offset="100%" stopColor="#1E3A5F" />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-200 dark:stroke-slate-800" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} dy={6} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                className="stroke-slate-200 dark:stroke-slate-800"
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#64748B" }}
+                dy={6}
+              />
               <YAxis tick={{ fontSize: 11, fill: "#64748B" }} dx={-6} />
-              <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: "#1E3A5F", borderRadius: "12px", color: "#FFF", fontSize: "11px" }} />
-              <Bar dataKey="value" fill="url(#financeBarGrad)" radius={[8, 8, 0, 0]} barSize={32} />
+              <Tooltip
+                formatter={(value) => formatCurrency(value)}
+                contentStyle={{
+                  backgroundColor: "#1E3A5F",
+                  borderRadius: "12px",
+                  color: "#FFF",
+                  fontSize: "11px",
+                }}
+              />
+              <Bar
+                dataKey="value"
+                fill="url(#financeBarGrad)"
+                radius={[8, 8, 0, 0]}
+                barSize={32}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -308,32 +394,62 @@ const FinanceDashboard = () => {
 
       {/* Balanced 3-Column Chart & Overview Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ChartCard title="Vendor Review Status" subtitle="Distribution from real vendor review statuses." hasData={vendorDistribution.length > 0}>
+        <ChartCard
+          title="Vendor Review Status"
+          subtitle="Distribution from real vendor review statuses."
+          hasData={vendorDistribution.length > 0}
+        >
           <CleanPieChart data={vendorDistribution} />
         </ChartCard>
 
-        <ChartCard title="Managed Employee Status" subtitle="Excludes Super Admin and Finance Head users." hasData={employeeDistribution.length > 0}>
+        <ChartCard
+          title="Managed Employee Status"
+          subtitle="Excludes Super Admin and Finance Head users."
+          hasData={employeeDistribution.length > 0}
+        >
           <CleanPieChart data={employeeDistribution} />
         </ChartCard>
 
         <section className="rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 font-heading">Payment Overview</h2>
-          <p className="mt-1 text-xs text-slate-400">High-value payment counts from your approval scope.</p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 font-heading">
+            Payment Overview
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">
+            High-value payment counts from your approval scope.
+          </p>
           <dl className="mt-5 space-y-3">
             {[
-              { label: "Awaiting Approval", value: formatCompact(payments.awaitingApproval), hint: formatCurrency(payments.awaitingAmount), tone: "cyan" },
-              { label: "High-Value Payments", value: formatCompact(payments.highValueCount), hint: `≥ ${formatCurrency(payments.threshold)}`, tone: "navy" },
+              {
+                label: "Awaiting Approval",
+                value: formatCompact(payments.awaitingApproval),
+                hint: formatCurrency(payments.awaitingAmount),
+                tone: "cyan",
+              },
+              {
+                label: "High-Value Payments",
+                value: formatCompact(payments.highValueCount),
+                hint: `≥ ${formatCurrency(payments.threshold)}`,
+                tone: "navy",
+              },
             ].map(({ label, value, hint, tone }) => {
               const bg =
-                tone === "cyan" ? "bg-sky-50 dark:bg-slate-800 text-[#0090B8] border-sky-100 dark:border-slate-700"
-                : "bg-slate-900 text-white border-slate-800";
+                tone === "cyan"
+                  ? "bg-sky-50 dark:bg-slate-800 text-[#0090B8] border-sky-100 dark:border-slate-700"
+                  : "bg-slate-900 text-white border-slate-800";
               return (
-                <div key={label} className={`flex items-center justify-between rounded-2xl border p-4 ${bg}`}>
+                <div
+                  key={label}
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${bg}`}
+                >
                   <div>
                     <p className="text-xs font-bold">{label}</p>
-                    {hint ? <p className="mt-0.5 text-[11px] opacity-80">{hint}</p> : null}
+                    {hint ? (
+                      <p className="mt-0.5 text-[11px] opacity-80">{hint}</p>
+                    ) : null}
                   </div>
-                  <span className="text-2xl font-extrabold font-heading">{value}</span>
+                  <span className="text-2xl font-extrabold font-heading">
+                    {value}
+                  </span>
                 </div>
               );
             })}
