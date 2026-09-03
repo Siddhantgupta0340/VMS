@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
-  Download,
   DollarSign,
   Wallet,
   TrendingUp,
@@ -9,19 +8,19 @@ import {
   XCircle,
   Eye,
   Clock,
-  RefreshCw,
   X,
-  FileText,
+  Layers,
+  ArrowRight,
+  Receipt,
 } from "lucide-react";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import DataTable from "../../components/common/DataTable";
 import FilterBar from "../../components/common/FilterBar";
 import StatusBadge from "../../components/common/StatusBadge";
 import EmptyState from "../../components/common/EmptyState";
-import { Link, useSearchParams, useLocation } from "react-router-dom";
+import { Link, useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import {
   getPayments,
-  getPendingPayments,
   getCompletedPayments,
   getPaymentById,
   getPaymentHistory,
@@ -54,6 +53,7 @@ const historyEventMeta = (action = "") => {
 
 const PaymentsList = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const paymentIdParam = searchParams.get("id");
   const location = useLocation();
@@ -119,7 +119,7 @@ const PaymentsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, isPaymentApprover, isHistoryPage]);
+  }, [activeFilters, isHistoryPage]);
 
   useEffect(() => {
     loadPayments();
@@ -211,11 +211,108 @@ const PaymentsList = () => {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (value, row) => (
-        <span className="font-semibold">{money(value, row.currency)}</span>
-      ),
+      render: (value, row) => {
+        const isInstallment = row.poPaymentType === "INSTALLMENT";
+        if (!isInstallment) {
+          return <span className="font-semibold text-slate-900 dark:text-slate-100">{money(value, row.currency)}</span>;
+        }
+        return (
+          <div className="space-y-0.5 min-w-28">
+            <span className="font-bold text-slate-900 dark:text-slate-100">{money(row.totalAmount || value, row.currency)}</span>
+            <div className="text-[10px] flex items-center gap-1.5 font-medium">
+              <span className="text-emerald-600 dark:text-emerald-400">Paid: {money(row.totalPaidAmount, row.currency)}</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="text-amber-600 dark:text-amber-400">Rem: {money(row.totalRemainingAmount, row.currency)}</span>
+            </div>
+          </div>
+        );
+      },
     },
     { key: "paymentMethod", label: "Method", sortable: true },
+    {
+      key: "poPaymentType",
+      label: "Payment Type",
+      sortable: true,
+      render: (value) => {
+        // Use PO-level payment_type as canonical source — ONE_TIME | INSTALLMENT
+        const isInstallment = value === "INSTALLMENT";
+        return (
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+            isInstallment
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+              : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          }`}>
+            {isInstallment ? <Layers size={11} /> : null}
+            {isInstallment ? "Installment" : "One-Time"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "paidInstallments",
+      label: "Installments",
+      render: (_, row) => {
+        // For ONE_TIME POs, show a simple dash
+        if (row.poPaymentType !== "INSTALLMENT" || row.totalInstallments === 0) {
+          return <span className="text-xs text-slate-400 font-medium">—</span>;
+        }
+
+        const paid = row.paidInstallments || 0;
+        const total = row.totalInstallments || 0;
+        const remaining = row.remainingInstallments || 0;
+        const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+        const allPaid = remaining === 0;
+
+        return (
+          <div className="space-y-1.5 min-w-32.5">
+            {/* Progress fraction */}
+            <div className="flex items-center justify-between gap-2">
+              <span className={`text-xs font-bold ${
+                allPaid ? "text-emerald-600 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200"
+              }`}>
+                {paid} / {total} Paid
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">{pct}%</span>
+            </div>
+
+            {/* Mini progress bar */}
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  allPaid ? "bg-emerald-500" : "bg-blue-500"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+
+            {/* Next Due & "N Remaining" action */}
+            {!allPaid && (
+              <div className="flex flex-col gap-0.5 pt-0.5">
+                {row.nextPayableInstallmentNumber && (
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    Next: #{row.nextPayableInstallmentNumber}
+                  </span>
+                )}
+                {row.invoiceId ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/payments/new?invoiceId=${row.invoiceId}`)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:underline transition"
+                    title="Open Payment Store for this installment PO"
+                  >
+                    Remaining Payment <ArrowRight size={11} />
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    {remaining} Remaining
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
     { key: "createdBy", label: "Requested By", sortable: true },
     {
       key: "createdAt",
@@ -256,6 +353,16 @@ const PaymentsList = () => {
             >
               <Eye size={14} /> View
             </button>
+            {row.poPaymentType === "INSTALLMENT" && (row.remainingInstallments || 0) > 0 && row.invoiceId && (
+              <button
+                type="button"
+                onClick={() => navigate(`/payments/new?invoiceId=${row.invoiceId}`)}
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-800 px-2.5 text-xs font-semibold transition whitespace-nowrap"
+                title="Pay next installment in Payment Store"
+              >
+                <ArrowRight size={13} /> Remaining Payment
+              </button>
+            )}
             {!isHistoryPage && isPending && isPaymentApprover && (
               <>
                 <button
@@ -475,6 +582,42 @@ const PaymentsList = () => {
                 <Detail label="Vendor Name" value={viewPaymentModal.vendor} />
                 <Detail label="Vendor Code" value={viewPaymentModal.vendorCode} />
                 <Detail label="Requested Amount" value={money(viewPaymentModal.amount, viewPaymentModal.currency)} />
+                {/* Use poPaymentType (PO-level) as canonical payment type */}
+                <Detail
+                  label="PO Payment Type"
+                  value={viewPaymentModal.poPaymentType === 'INSTALLMENT' ? 'Installment Payment' : 'One-Time Payment'}
+                />
+                {viewPaymentModal.poPaymentType === 'INSTALLMENT' && (
+                  <Detail
+                    label="Installment #"
+                    value={viewPaymentModal.installmentNumber != null ? `#${viewPaymentModal.installmentNumber}` : '—'}
+                  />
+                )}
+                {viewPaymentModal.poPaymentType === 'INSTALLMENT' && viewPaymentModal.totalInstallments > 0 && (
+                  <Detail
+                    label="Installment Progress"
+                    value={`${viewPaymentModal.paidInstallments} / ${viewPaymentModal.totalInstallments} Paid`}
+                  />
+                )}
+                {viewPaymentModal.poPaymentType === 'INSTALLMENT' && viewPaymentModal.totalInstallments > 0 && (
+                  <Detail
+                    label="Total Remaining"
+                    value={money(viewPaymentModal.totalRemainingAmount, viewPaymentModal.currency)}
+                  />
+                )}
+                {viewPaymentModal.poPaymentType === 'INSTALLMENT' && (
+                  <Detail
+                    label="Next Payable"
+                    value={
+                      viewPaymentModal.nextPayableInstallmentNumber
+                        ? `Installment #${viewPaymentModal.nextPayableInstallmentNumber}`
+                        : viewPaymentModal.remainingInstallments === 0
+                        ? 'Fully Paid'
+                        : '—'
+                    }
+                  />
+                )}
+                <Detail label="Invoice Approval" value="APPROVED" />
                 <Detail label="Current Status" value={<StatusBadge status={viewPaymentModal.status} />} />
                 <Detail label="Priority" value={viewPaymentModal.priority} />
                 <Detail label="Required Approver Role" value={formatRoleLabel(viewPaymentModal.requiredApprovalRole) || "—"} />
@@ -485,6 +628,102 @@ const PaymentsList = () => {
                   value={viewPaymentModal.createdAt ? new Date(viewPaymentModal.createdAt).toLocaleString("en-IN") : "—"}
                 />
               </div>
+
+              {/* Installment Schedule Breakdown */}
+              {viewPaymentModal.poPaymentType === "INSTALLMENT" && viewPaymentModal.poInstallments?.length > 0 && (
+                <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <h3 className="text-base font-bold text-slate-950 dark:text-slate-100 flex items-center gap-2">
+                      <Layers size={16} className="text-blue-600" /> Installment Schedule & Progress
+                    </h3>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                      {viewPaymentModal.paidInstallments} / {viewPaymentModal.totalInstallments} Paid
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto mt-4">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-bold border-b border-slate-200 dark:border-slate-800">
+                          <th className="py-2.5 px-3">#</th>
+                          <th className="py-2.5 px-3">Due Date</th>
+                          <th className="py-2.5 px-3 text-right">Amount</th>
+                          <th className="py-2.5 px-3 text-right">Paid</th>
+                          <th className="py-2.5 px-3 text-right">Remaining</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {viewPaymentModal.poInstallments.map((inst, idx) => (
+                          <tr key={inst.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="py-2.5 px-3 font-bold text-blue-600">#{inst.installmentNumber}</td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                              {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-semibold">₹ {inst.amount?.toLocaleString("en-IN")}</td>
+                            <td className="py-2.5 px-3 text-right font-medium text-emerald-600">₹ {inst.paidAmount?.toLocaleString("en-IN")}</td>
+                            <td className="py-2.5 px-3 text-right font-medium text-amber-600">₹ {inst.remainingAmount?.toLocaleString("en-IN")}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                inst.status === "PAID"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {inst.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {/* Recorded Payment Transactions / History (Section 26 & Section 38) */}
+              {viewPaymentModal.transactions?.length > 0 && (
+                <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <h3 className="text-base font-bold text-slate-950 dark:text-slate-100 flex items-center gap-2">
+                      <Receipt size={16} className="text-emerald-600" /> Recorded Payment Transactions ({viewPaymentModal.transactions.length})
+                    </h3>
+                    <span className="text-xs font-semibold text-slate-500">
+                      Audit & Financial Records
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto mt-4">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-bold border-b border-slate-200 dark:border-slate-800">
+                          <th className="py-2.5 px-3">Payment #</th>
+                          <th className="py-2.5 px-3">Installment</th>
+                          <th className="py-2.5 px-3 text-right">Amount</th>
+                          <th className="py-2.5 px-3">Method</th>
+                          <th className="py-2.5 px-3">Transaction / UTR</th>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {viewPaymentModal.transactions.map((tx) => (
+                          <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">{tx.paymentNumber}</td>
+                            <td className="py-2.5 px-3 text-blue-600 font-medium">{tx.installmentNumber ? `#${tx.installmentNumber}` : "One-Time"}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100">{money(tx.amount, tx.currency)}</td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">{tx.paymentMethod || "—"}</td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-mono text-[11px]">{tx.providerTransactionId || tx.gatewayReference || "—"}</td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">{tx.paymentDate ? new Date(tx.paymentDate).toLocaleDateString("en-IN") : "—"}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                {tx.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
 
               {/* Complete Approval Timeline */}
               <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40">

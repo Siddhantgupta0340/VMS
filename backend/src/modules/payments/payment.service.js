@@ -131,10 +131,30 @@ const decoratePayment = (payment) => {
     ? `${payment.processed_by.first_name || ''} ${payment.processed_by.last_name || ''}`.trim() || payment.processed_by.email
     : null;
 
+  // ── Installment Progress (derived from DB, not calculated on frontend) ────────
+  const poInstallments = payment.purchase_order?.installments || [];
+  const poPaymentType  = payment.purchase_order?.payment_type || 'ONE_TIME';
+  const isInstallment  = poPaymentType === 'INSTALLMENT' || payment.payment_type === 'INSTALLMENT';
+  const sortedPoInsts  = [...poInstallments].sort((a, b) => a.installment_number - b.installment_number);
+  const totalInstallments     = sortedPoInsts.length;
+  const paidInstallments      = sortedPoInsts.filter((i) => i.status === 'PAID' || Number(i.remaining_amount) <= 0.01).length;
+  const remainingInstallments = Math.max(0, totalInstallments - paidInstallments);
+  const nextPayableInst       = sortedPoInsts.find((i) => i.status !== 'PAID' && Number(i.remaining_amount ?? i.amount) > 0.01);
+  const totalAmount           = payment.consolidatedTotalAmount !== undefined
+    ? Number(payment.consolidatedTotalAmount)
+    : Number(payment.invoice?.invoice_total || payment.purchase_order?.amount || amount);
+  const totalPaidAmount       = payment.consolidatedPaidAmount !== undefined 
+    ? Number(payment.consolidatedPaidAmount) 
+    : (isInstallment ? sortedPoInsts.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0) : Number(payment.invoice?.paid_amount ?? payment.amount ?? 0));
+  const totalRemainingAmount  = payment.consolidatedRemainingAmount !== undefined 
+    ? Number(payment.consolidatedRemainingAmount) 
+    : (isInstallment ? sortedPoInsts.reduce((sum, i) => sum + Number(i.remaining_amount ?? i.amount ?? 0), 0) : Math.max(0, totalAmount - totalPaidAmount));
+
   return {
     ...payment,
     paymentNumber: payment.payment_number,
     invoiceNumber: payment.invoice?.invoice_number || payment.invoice_number || null,
+    invoiceId: payment.invoice_id || null,
     purchaseOrderNumber: payment.purchase_order?.po_number || payment.po_number || null,
     vendorName: payment.vendor?.name || payment.vendor_name || null,
     vendorCode: payment.vendor?.vendor_code || payment.vendor_code || null,
@@ -152,6 +172,48 @@ const decoratePayment = (payment) => {
     approvedAt: payment.approved_at,
     processedBy: processedByName,
     processedById: payment.processed_by_id,
+    // ── PO Payment Type & Installment Progress ────────────────────────────────
+    poPaymentType,
+    installmentId: payment.installment_id || null,
+    installmentNumber: payment.installment?.installment_number || null,
+    nextPayableInstallmentNumber: nextPayableInst ? nextPayableInst.installment_number : null,
+    poInstallments: sortedPoInsts.map((i) => ({
+      id: i.id,
+      installmentNumber: i.installment_number,
+      amount: Number(i.amount || 0),
+      paidAmount: Number(i.paid_amount || 0),
+      remainingAmount: Number(i.remaining_amount ?? i.amount ?? 0),
+      status: i.status || 'PENDING',
+      dueDate: i.due_date || null,
+    })),
+    totalAmount: payment.consolidatedTotalAmount !== undefined
+      ? Number(payment.consolidatedTotalAmount)
+      : Number(payment.invoice?.invoice_total || payment.purchase_order?.amount || amount),
+    paidAmount: totalPaidAmount,
+    remainingAmount: totalRemainingAmount,
+    totalInstallments,
+    paidInstallments,
+    remainingInstallments,
+    totalPaidAmount,
+    totalRemainingAmount,
+    transactions: (payment.transactions || []).map((t) => ({
+      id: t.id,
+      paymentNumber: t.payment_number,
+      amount: Number(t.amount || 0),
+      currency: t.currency || 'INR',
+      status: t.status,
+      paymentMethod: t.payment_method,
+      providerTransactionId: t.provider_transaction_id,
+      gatewayReference: t.gateway_reference,
+      installmentId: t.installment_id,
+      installmentNumber: t.installment?.installment_number,
+      paymentDate: t.payment_date || t.created_at,
+      createdAt: t.created_at,
+      remarks: t.remarks,
+      recordedBy: t.created_by
+        ? `${t.created_by.first_name || ''} ${t.created_by.last_name || ''}`.trim() || t.created_by.email
+        : null,
+    })),
   };
 };
 
@@ -204,6 +266,64 @@ export const isValidPaymentStatusTransition = (from, to) => {
 
 const buildPaymentNumber = () => `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+const isPositiveMoney = (value) => Number.isFinite(Number(value)) && Number(value) > 0;
+
+const toMoney = (value) => roundMoney(value);
+
+const summarizeInstallmentPlan = (installments = [], invoice = null) => {
+  const sorted = [...installments].sort((a, b) => a.installment_number - b.installment_number);
+  const current = sorted.find((inst) => {
+    const remaining = Number(inst.remaining_amount ?? inst.amount ?? 0);
+    return inst.status !== 'PAID' && remaining > 0.01;
+  }) || null;
+
+  const mapped = sorted.map((inst) => {
+    const amount = toMoney(inst.amount);
+    const paidAmount = toMoney(inst.paid_amount);
+    const remainingAmount = toMoney(inst.remaining_amount ?? Math.max(0, amount - paidAmount));
+    const isPaid = inst.status === 'PAID' || remainingAmount <= 0.01;
+    const isCurrent = Boolean(current && current.id === inst.id && !isPaid);
+    const status = isPaid ? 'PAID' : (isCurrent ? 'PAYABLE' : 'LOCKED');
+    const lockedReason = !isPaid && !isCurrent && current
+      ? `Pay Installment #${current.installment_number} first`
+      : null;
+
+    return {
+      id: inst.id,
+      installmentNumber: inst.installment_number,
+      number: inst.installment_number,
+      amount,
+      paidAmount,
+      paid: paidAmount,
+      remainingAmount,
+      remaining: remainingAmount,
+      status,
+      persistedStatus: inst.status || 'PENDING',
+      dueDate: inst.due_date || null,
+      payable: isCurrent,
+      lockedReason,
+    };
+  });
+
+  const paidInstallmentCount = mapped.filter((inst) => inst.status === 'PAID').length;
+  const totalAmount = toMoney(invoice?.invoice_total ?? invoice?.amount ?? sorted.reduce((sum, inst) => sum + Number(inst.amount || 0), 0));
+  const paidAmount = toMoney(invoice?.paid_amount ?? mapped.reduce((sum, inst) => sum + inst.paidAmount, 0));
+  const remainingAmount = toMoney(invoice?.remaining_amount ?? Math.max(0, totalAmount - paidAmount));
+
+  return {
+    paymentType: sorted.length > 0 ? 'INSTALLMENT' : 'ONE_TIME',
+    totalAmount,
+    paidAmount,
+    remainingAmount,
+    installmentCount: mapped.length,
+    paidInstallmentCount,
+    remainingInstallmentCount: Math.max(0, mapped.length - paidInstallmentCount),
+    currentInstallment: current ? mapped.find((inst) => inst.id === current.id) : null,
+    installments: mapped,
+  };
+};
+
 const VENDOR_BANK_FIELDS_REQUIRED_FOR_PAYMENT = [
   ['bank_name', 'Bank Name'],
   ['account_holder', 'Account Holder'],
@@ -242,6 +362,7 @@ class PaymentService {
         vendor: true,
         purchase_order: {
           include: {
+            installments: { orderBy: { installment_number: 'asc' } },
             grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
             delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
           },
@@ -287,6 +408,9 @@ class PaymentService {
       const directGrn = inv.purchase_order?.grns?.[0];
       const directDc = inv.purchase_order?.delivery_challans?.[0];
 
+      const installmentPlan = summarizeInstallmentPlan(inv.purchase_order?.installments || [], inv);
+      const currentInstallment = installmentPlan.currentInstallment;
+
       eligible.push({
         id: inv.id,
         invoiceId: inv.id,
@@ -319,6 +443,16 @@ class PaymentService {
         poDate: inv.purchase_order?.order_date,
         poTotal: Number(inv.purchase_order?.amount || 0),
         purchaseOrderAmount: Number(inv.purchase_order?.amount || 0),
+        poPaymentType: inv.purchase_order?.payment_type || 'ONE_TIME',
+        paymentType: inv.purchase_order?.payment_type || 'ONE_TIME',
+        nextPayableInstallmentId: currentInstallment?.id || null,
+        nextPayableInstallmentNumber: currentInstallment?.installmentNumber || null,
+        currentInstallment,
+        installmentPlan,
+        installments: installmentPlan.installments,
+        totalInstallments: installmentPlan.installmentCount,
+        paidInstallments: installmentPlan.paidInstallmentCount,
+        remainingInstallments: installmentPlan.remainingInstallmentCount,
 
         // GRN & DC Details
         grnNumber: grnSnap?.grnNumber || grnSnap?.grn_number || directGrn?.grn_number || 'GRN-VERIFIED',
@@ -339,85 +473,245 @@ class PaymentService {
     return eligible;
   }
 
-  /**
-   * Create a new payment request against an approved invoice.
-   */
-  async createPayment(payload, user) {
-    const invoice = await invoiceRepository.findById(payload.invoiceId);
-    if (!invoice) {
+  async getPaymentStoreData(invoiceId, user) {
+    const inv = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        vendor: true,
+        purchase_order: {
+          include: {
+            installments: { orderBy: { installment_number: 'asc' } },
+            grns: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+            delivery_challans: { where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 1 },
+          },
+        },
+        three_way_matches: {
+          where: { status: 'MATCHED' },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
+        payment_approvals: {
+          where: { status: 'APPROVED' },
+          orderBy: { approved_at: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!inv || inv.deleted_at) {
       throw new ApiError(404, 'Invoice not found.');
     }
 
-    if (invoice.status.toUpperCase() !== INVOICE_STATUS.APPROVED) {
-      throw new ApiError(400, 'Payment can only be recorded for an APPROVED invoice.');
-    }
-
-    if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
+    if (user.role === ROLES.CASE_MANAGER && inv.created_by_id !== user.id) {
       throw new ApiError(403, 'You can only create payments for invoices created by you.');
     }
 
-    assertVendorBankReadyForPayment(invoice.vendor);
-
-    // Mandate Three-Way Matching MATCHED status
-    if ((invoice.three_way_match_status || '').toUpperCase() !== THREE_WAY_MATCH_STATUS.MATCHED) {
-      throw new ApiError(400, `Payment blocked: Three-Way Matching status is ${invoice.three_way_match_status || 'UNMATCHED'}.`);
+    if ((inv.status || '').toUpperCase() !== INVOICE_STATUS.APPROVED) {
+      throw new ApiError(400, 'Payment can only be recorded for an approved invoice.');
     }
 
-    // MANDATE PAYMENT APPROVAL WORKFLOW COMPLETED & APPROVED
-    const approvedApproval = await prisma.paymentApproval.findFirst({
-      where: { invoice_id: payload.invoiceId, status: 'APPROVED', payment_id: null },
-      orderBy: { approved_at: 'desc' },
-    });
+    if ((inv.three_way_match_status || '').toUpperCase() !== THREE_WAY_MATCH_STATUS.MATCHED) {
+      throw new ApiError(400, `Payment blocked: Three-Way Matching status is ${inv.three_way_match_status || 'UNMATCHED'}.`);
+    }
+
+    const approvedApproval = inv.payment_approvals?.[0];
     if (!approvedApproval) {
       throw new ApiError(400, 'Payment cannot be created: Required Payment Approval workflow is not completed or approved.');
     }
 
-    // Calculate unallocated balance to check for overpayments
-    const existingPayments = await prisma.payment.findMany({
-      where: {
-        invoice_id: payload.invoiceId,
-        status: { in: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.PROCESSING, PAYMENT_STATUS.SUCCESS] },
-      },
-      select: { id: true, amount: true },
-    });
+    const invoiceTotal = toMoney(inv.invoice_total || inv.amount || 0);
+    const paidAmount = toMoney(inv.paid_amount || 0);
+    const remainingAmount = toMoney(inv.remaining_amount ?? Math.max(0, invoiceTotal - paidAmount));
+    const installmentPlan = summarizeInstallmentPlan(inv.purchase_order?.installments || [], inv);
+    const currentInstallment = installmentPlan.currentInstallment;
+    const match = inv.three_way_matches?.[0];
+    const grnSnap = match?.grn_snapshot || match?.grnSnapshot;
+    const dcSnap = match?.delivery_challan_snapshot || match?.deliveryChallanSnapshot;
+    const directGrn = inv.purchase_order?.grns?.[0];
+    const directDc = inv.purchase_order?.delivery_challans?.[0];
 
-    const totalAllocated = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const remainingAllocated = Number(invoice.invoice_total) - totalAllocated;
-    const paymentAmount = Number(payload.amount);
+    return {
+      id: inv.id,
+      invoiceId: inv.id,
+      invoiceNumber: inv.invoice_number,
+      invoiceDate: inv.invoice_date,
+      dueDate: inv.due_date,
+      status: inv.status,
+      paymentStatus: inv.payment_status,
+      threeWayMatchStatus: inv.three_way_match_status,
+      paymentApprovalStatus: approvedApproval.status,
+      approvalId: approvedApproval.id,
+      approvedAmount: Number(approvedApproval.amount || invoiceTotal),
+      vendorId: inv.vendor_id,
+      vendor: inv.vendor?.name,
+      vendorName: inv.vendor?.name,
+      vendorCode: inv.vendor?.vendor_code,
+      vendorGst: inv.vendor?.gst_number || inv.vendor?.tax_id || null,
+      gstNumber: inv.vendor?.gst_number || inv.vendor?.tax_id || null,
+      vendorAddress: inv.vendor?.billing_address || inv.vendor?.address || null,
+      vendorBankName: inv.vendor?.bank_name || null,
+      vendorAccountHolder: inv.vendor?.account_holder || null,
+      vendorBankAccountNo: inv.vendor?.bank_account_no || null,
+      vendorIfscCode: inv.vendor?.ifsc_code || null,
+      vendorBankBranch: inv.vendor?.bank_branch || null,
+      purchaseOrderId: inv.purchase_order_id,
+      poNumber: inv.purchase_order?.po_number,
+      poDate: inv.purchase_order?.order_date,
+      poTotal: Number(inv.purchase_order?.amount || 0),
+      purchaseOrderAmount: Number(inv.purchase_order?.amount || 0),
+      poPaymentType: inv.purchase_order?.payment_type || 'ONE_TIME',
+      paymentType: inv.purchase_order?.payment_type || 'ONE_TIME',
+      nextPayableInstallmentId: currentInstallment?.id || null,
+      nextPayableInstallmentNumber: currentInstallment?.installmentNumber || null,
+      currentInstallment,
+      installmentPlan,
+      installments: installmentPlan.installments,
+      totalInstallments: installmentPlan.installmentCount,
+      paidInstallments: installmentPlan.paidInstallmentCount,
+      remainingInstallments: installmentPlan.remainingInstallmentCount,
+      grnNumber: grnSnap?.grnNumber || grnSnap?.grn_number || directGrn?.grn_number || 'GRN-VERIFIED',
+      grnDate: grnSnap?.receivedDate || directGrn?.received_date || null,
+      deliveryChallanNumber: dcSnap?.deliveryChallanNumber || dcSnap?.delivery_challan_number || directDc?.delivery_challan_number || 'DC-VERIFIED',
+      deliveryChallanDate: dcSnap?.deliveryDate || directDc?.delivery_date || null,
+      invoiceTotal,
+      amount: invoiceTotal,
+      paidAmount,
+      outstandingAmount: remainingAmount,
+      remainingPayableAmount: remainingAmount,
+      currency: inv.currency || 'INR',
+      paymentAmount: currentInstallment?.remainingAmount ?? remainingAmount,
+    };
+  }
 
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      throw new ApiError(400, 'Payment amount must be positive.');
-    }
-
-    if (paymentAmount > remainingAllocated + 0.01) {
-      throw new ApiError(
-        400,
-        `Overpayment blocked. Remaining unallocated invoice balance: INR ${remainingAllocated.toFixed(2)}`,
-      );
-    }
-
+  /**
+   * Create a new payment request against an approved invoice.
+   */
+  async createPayment(payload, user) {
     const paymentNumber = buildPaymentNumber();
-    const currency = payload.currency || invoice.currency || 'INR';
+    const paymentAmount = toMoney(payload.amount);
+
+    if (!isPositiveMoney(paymentAmount)) {
+      throw new ApiError(400, 'Payment amount must be greater than 0.');
+    }
 
     const createdPayment = await paymentRepository.transaction(async (tx) => {
+      await tx.$queryRawUnsafe('SELECT id FROM invoices WHERE id = $1 FOR UPDATE', payload.invoiceId);
+
+      const invoice = await tx.invoice.findUnique({
+        where: { id: payload.invoiceId },
+        include: {
+          vendor: true,
+          purchase_order: {
+            include: {
+              installments: { orderBy: { installment_number: 'asc' } },
+            },
+          },
+          payment_approvals: {
+            where: { status: 'APPROVED' },
+            orderBy: { approved_at: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      if (!invoice || invoice.deleted_at) {
+        throw new ApiError(404, 'Invoice not found.');
+      }
+
+      if (user.role === ROLES.CASE_MANAGER && invoice.created_by_id !== user.id) {
+        throw new ApiError(403, 'You can only create payments for invoices created by you.');
+      }
+
+      if ((invoice.status || '').toUpperCase() !== INVOICE_STATUS.APPROVED) {
+        throw new ApiError(400, 'Payment can only be recorded for an approved invoice.');
+      }
+
+      if ((invoice.three_way_match_status || '').toUpperCase() !== THREE_WAY_MATCH_STATUS.MATCHED) {
+        throw new ApiError(400, `Payment blocked: Three-Way Matching status is ${invoice.three_way_match_status || 'UNMATCHED'}.`);
+      }
+
+      assertVendorBankReadyForPayment(invoice.vendor);
+
+      const approvedApproval = invoice.payment_approvals?.[0];
+      if (!approvedApproval) {
+        throw new ApiError(400, 'Payment cannot be created: Required Payment Approval workflow is not completed or approved.');
+      }
+
+      const invoiceTotal = toMoney(invoice.invoice_total || invoice.amount || 0);
+      const invoiceRemaining = toMoney(invoice.remaining_amount ?? Math.max(0, invoiceTotal - Number(invoice.paid_amount || 0)));
+      if (invoice.payment_status === 'PAID' || invoiceRemaining <= 0.01) {
+        throw new ApiError(400, 'This invoice has already been fully paid.');
+      }
+
+      if (paymentAmount > invoiceRemaining + 0.01) {
+        throw new ApiError(400, 'Payment amount cannot exceed the invoice remaining amount.');
+      }
+
+      const poPaymentType = invoice.purchase_order?.payment_type || 'ONE_TIME';
+      let targetInstallment = null;
+
+      if (poPaymentType === 'INSTALLMENT') {
+        await tx.$queryRawUnsafe('SELECT id FROM installments WHERE purchase_order_id = $1 ORDER BY installment_number ASC FOR UPDATE', invoice.purchase_order_id);
+
+        const lockedInstallments = await tx.installment.findMany({
+          where: { purchase_order_id: invoice.purchase_order_id },
+          orderBy: { installment_number: 'asc' },
+        });
+
+        if (!lockedInstallments.length) {
+          throw new ApiError(400, 'Installment payment plan is missing for this purchase order.');
+        }
+
+        const currentInstallment = summarizeInstallmentPlan(lockedInstallments, invoice).currentInstallment;
+        if (!currentInstallment) {
+          throw new ApiError(400, 'All installments for this purchase order have already been fully paid.');
+        }
+
+        targetInstallment = lockedInstallments.find((inst) =>
+          payload.installmentId ? inst.id === payload.installmentId : inst.id === currentInstallment.id
+        );
+
+        if (payload.installmentId && !targetInstallment) {
+          throw new ApiError(400, 'Installment does not belong to this invoice/PO.');
+        }
+
+        if (!targetInstallment || targetInstallment.id !== currentInstallment.id) {
+          throw new ApiError(400, 'Only the current payable installment can be paid.');
+        }
+
+        const installmentRemaining = toMoney(targetInstallment.remaining_amount);
+        if (targetInstallment.status === 'PAID' || installmentRemaining <= 0.01) {
+          throw new ApiError(400, 'This installment has already been fully paid.');
+        }
+
+        if (paymentAmount > installmentRemaining + 0.01) {
+          throw new ApiError(400, 'Payment amount cannot exceed the installment remaining amount.');
+        }
+      } else if (payload.installmentId) {
+        throw new ApiError(400, 'Installment payments are only allowed for installment purchase orders.');
+      }
+
+      const currency = payload.currency || invoice.currency || 'INR';
+
       const payment = await tx.payment.create({
         data: {
-          payment_number:    paymentNumber,
-          invoice_id:        payload.invoiceId,
-          vendor_id:         invoice.vendor_id,
+          payment_number: paymentNumber,
+          invoice_id: payload.invoiceId,
+          vendor_id: invoice.vendor_id,
           purchase_order_id: invoice.purchase_order_id,
-          amount:            paymentAmount,
+          installment_id: targetInstallment ? targetInstallment.id : null,
+          amount: paymentAmount,
           currency,
-          status:            'SUCCESS', // Payment payout recorded successfully!
-          payment_method:    payload.paymentMethod || 'NEFT',
-          payment_type:      payload.paymentType || 'FULL',
-          payment_provider:  payload.paymentProvider || 'MANUAL',
+          status: PAYMENT_STATUS.SUCCESS,
+          payment_method: payload.paymentMethod || 'NEFT',
+          payment_type: targetInstallment ? 'INSTALLMENT' : (payload.paymentType || 'FULL'),
+          payment_provider: payload.paymentProvider || 'MANUAL',
           provider_transaction_id: payload.referenceNo || payload.providerTransactionId || null,
-          remarks:           payload.remarks || payload.notes || '',
-          due_date:          payload.dueDate ? new Date(payload.dueDate) : null,
-          payment_date:      new Date(),
-          created_by_id:     user.id,
-          updated_by_id:     user.id,
+          remarks: payload.remarks || payload.notes || '',
+          due_date: payload.dueDate ? new Date(payload.dueDate) : (targetInstallment ? targetInstallment.due_date : null),
+          payment_date: new Date(),
+          created_by_id: user.id,
+          updated_by_id: user.id,
         },
         select: {
           id: true,
@@ -425,6 +719,7 @@ class PaymentService {
           invoice_id: true,
           vendor_id: true,
           purchase_order_id: true,
+          installment_id: true,
           amount: true,
           currency: true,
           status: true,
@@ -441,15 +736,32 @@ class PaymentService {
         },
       });
 
-      // Calculate new paid amount and remaining amount on invoice
-      const oldPaid = Number(invoice.paid_amount || 0);
-      const newPaidAmount = oldPaid + paymentAmount;
-      const invoiceTotal = Number(invoice.invoice_total || invoice.amount || 0);
-      const newRemainingAmount = Math.max(0, invoiceTotal - newPaidAmount);
+      let instStatus = 'PAID';
+      if (targetInstallment) {
+        const freshTarget = await tx.installment.findUnique({ where: { id: targetInstallment.id } });
+        const instNewPaid = toMoney(Number(freshTarget.paid_amount || 0) + paymentAmount);
+        const instNewRemaining = toMoney(Math.max(0, Number(freshTarget.amount || 0) - instNewPaid));
+        instStatus = instNewRemaining <= 0.01 ? 'PAID' : 'PARTIALLY_PAID';
 
-      const isFullyPaid = newRemainingAmount <= 0.01;
-      const finalPaymentStatus = isFullyPaid ? 'PAID' : 'PARTIALLY_PAID';
-      const finalInvoiceStatus = isFullyPaid ? 'PAID' : 'PARTIALLY_PAID';
+        await tx.installment.update({
+          where: { id: targetInstallment.id },
+          data: {
+            paid_amount: instNewPaid,
+            remaining_amount: instNewRemaining,
+            status: instStatus,
+            paid_date: instStatus === 'PAID' ? new Date() : null,
+          },
+        });
+      }
+
+      const newPaidAmount = toMoney(Number(invoice.paid_amount || 0) + paymentAmount);
+      const newRemainingAmount = toMoney(Math.max(0, invoiceTotal - newPaidAmount));
+      const allInstsPaid = poPaymentType !== 'INSTALLMENT' || (await tx.installment.findMany({
+        where: { purchase_order_id: invoice.purchase_order_id },
+      })).every((inst) =>
+        inst.id === targetInstallment?.id ? instStatus === 'PAID' : (inst.status === 'PAID' || Number(inst.remaining_amount) <= 0.01)
+      );
+      const finalPaymentStatus = newRemainingAmount <= 0.01 && allInstsPaid ? 'PAID' : 'PARTIALLY_PAID';
 
       await tx.invoice.update({
         where: { id: invoice.id },
@@ -457,60 +769,60 @@ class PaymentService {
           paid_amount: newPaidAmount,
           remaining_amount: newRemainingAmount,
           payment_status: finalPaymentStatus,
-          status: finalInvoiceStatus,
+          last_payment_date: new Date(),
+          last_payment_id: payment.id,
         },
       });
 
-      // Update the PaymentApproval record to link it to the newly created payment
-      await tx.paymentApproval.update({
-        where: { id: approvedApproval.id },
-        data: { payment_id: payment.id, status: 'APPROVED' },
-      });
+      if (!approvedApproval.payment_id) {
+        await tx.paymentApproval.update({
+          where: { id: approvedApproval.id },
+          data: { payment_id: payment.id, status: 'APPROVED' },
+        });
+      }
 
-      // Create history entry for linking and completion
       await tx.paymentApprovalHistory.create({
         data: {
           payment_approval_id: approvedApproval.id,
-          payment_id:          payment.id,
-          invoice_id:          invoice.id,
-          action:              'COMPLETED',
-          previous_status:     'APPROVED',
-          new_status:          'COMPLETED',
-          performed_by_id:     user.id,
-          remarks:             `Payment ${payment.payment_number} created for ${currency} ${paymentAmount}. Invoice updated to ${finalInvoiceStatus}.`,
+          payment_id: payment.id,
+          invoice_id: invoice.id,
+          action: targetInstallment ? `INSTALLMENT_${targetInstallment.installment_number}_PAID` : 'COMPLETED',
+          previous_status: 'APPROVED',
+          new_status: 'APPROVED',
+          performed_by_id: user.id,
+          remarks: `Payment ${payment.payment_number} created for ${currency} ${paymentAmount} against ${targetInstallment ? `Installment #${targetInstallment.installment_number}` : 'Invoice'}. Invoice payment status: ${finalPaymentStatus}.`,
         },
       });
 
-      // Log payment creation in both AuditLog and ApprovalLog
       await Promise.all([
         tx.auditLog.create({
           data: {
-            entity_type:     'payment',
-            entity_id:       payment.id,
-            action:          'created',
-            from_status:     null,
-            to_status:       'SUCCESS',
+            entity_type: 'payment',
+            entity_id: payment.id,
+            action: 'created',
+            from_status: null,
+            to_status: PAYMENT_STATUS.SUCCESS,
             performed_by_id: user.id,
-            remarks:         payload.remarks || `Payment of ${currency} ${paymentAmount} recorded for invoice ${invoice.invoice_number}`,
+            remarks: `Payment recorded. Status: ${PAYMENT_STATUS.SUCCESS}`,
           },
         }),
         tx.approvalLog.create({
           data: {
-            entity_type:     'payment',
-            entity_id:       payment.id,
-            action:          'created',
-            from_status:     null,
-            to_status:       'SUCCESS',
+            entity_type: 'payment',
+            entity_id: payment.id,
+            action: 'created',
+            from_status: null,
+            to_status: PAYMENT_STATUS.SUCCESS,
             performed_by_id: user.id,
-            remarks:         payload.remarks || `Payment of ${currency} ${paymentAmount} recorded for invoice ${invoice.invoice_number}`,
+            remarks: `Payment recorded. Status: ${PAYMENT_STATUS.SUCCESS}`,
           },
         }),
       ]);
 
       return payment;
-    });
+    }, { isolationLevel: 'Serializable' });
 
-    return decoratePayment(createdPayment);
+    return decoratePayment(await paymentRepository.findById(createdPayment.id));
   }
 
   /**
@@ -630,7 +942,20 @@ class PaymentService {
     }
 
     if (query.status) {
-      conditions.push({ status: query.status });
+      if (query.status === 'PARTIALLY_PAID') {
+        conditions.push({
+          invoice: { payment_status: 'PARTIALLY_PAID' },
+        });
+      } else if (query.status === 'PAID') {
+        conditions.push({
+          OR: [
+            { status: 'SUCCESS', invoice: { payment_status: 'PAID' } },
+            { status: 'SUCCESS', purchase_order: { payment_type: 'ONE_TIME' } },
+          ],
+        });
+      } else {
+        conditions.push({ status: query.status });
+      }
     }
     if (query.invoiceId) {
       conditions.push({ invoice_id: query.invoiceId });
@@ -645,7 +970,12 @@ class PaymentService {
       conditions.push({ payment_method: query.paymentMethod });
     }
     if (query.paymentType) {
-      conditions.push({ payment_type: query.paymentType });
+      conditions.push({
+        OR: [
+          { payment_type: query.paymentType },
+          { purchase_order: { payment_type: query.paymentType } },
+        ],
+      });
     }
     if (query.paymentProvider) {
       conditions.push({ payment_provider: query.paymentProvider });
@@ -669,7 +999,7 @@ class PaymentService {
 
     const where = conditions.length > 0 ? { AND: conditions } : {};
 
-    const result = await paymentRepository.findAll({
+    const result = await paymentRepository.findConsolidatedPayments({
       where,
       skip: (page - 1) * limit,
       take: limit,

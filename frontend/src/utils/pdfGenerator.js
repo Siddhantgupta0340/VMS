@@ -1,4 +1,3 @@
-import html2pdf from "html2pdf.js";
 import { toast } from "sonner";
 
 /**
@@ -35,6 +34,7 @@ export const downloadHtmlAsPdf = async ({ htmlContent, filename, documentTitle =
 
     toast.loading(`Downloading ${documentTitle}...`, { id: toastId });
 
+    const { default: html2pdf } = await import("html2pdf.js/src/index.js");
     await html2pdf().from(container).set(opt).save();
 
     if (document.body.contains(container)) {

@@ -473,6 +473,7 @@ const InvoiceDetails = () => {
     ["Delivery Challan Number", safeVal(deliveryChallanNumber)],
     ["Currency", displayResolved(invoiceSources, ["currency", "header.currency"])],
     ["Payment Terms", displayResolved(invoiceSources, ["paymentTerms", "payment_terms", "header.paymentTerms", "terms.paymentTerms"])],
+    ["Payment Type", (invoice?.paymentType || invoice?.poPaymentType || invoice?.purchaseOrder?.payment_type || invoice?.purchase_order?.payment_type) === 'INSTALLMENT' ? 'Installment Payment' : 'One-Time Payment'],
     ["Subtotal", displayAmount(firstValue(summary.subtotal, summary.taxableAmount, ocrDraft.totals?.subtotal, ocrStructured.totals?.subtotal))],
     ["Discount", displayAmount(firstValue(summary.discount, summary.totalDiscount, ocrDraft.totals?.totalDiscount, ocrStructured.totals?.totalDiscount))],
     ["Taxable Amount", displayAmount(firstValue(summary.taxableAmount, summary.taxable_amount, summary.subtotal, ocrDraft.totals?.taxableAmount, ocrStructured.totals?.taxableAmount))],

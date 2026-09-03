@@ -179,7 +179,7 @@ const InvoiceList = () => {
           </button>
           {normalizedRole === ROLES.CASE_MANAGER && (
             <Link
-              to="/invoices/new"
+              to="/invoices/create"
               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 sm:h-10 sm:px-4 sm:text-sm"
             >
               <Plus size={16} />

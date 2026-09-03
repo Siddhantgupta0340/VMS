@@ -7,7 +7,6 @@ import { getVendors } from "../../services/vendorService";
 import { toast } from "sonner";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import FilterSelect from "../../components/common/FilterSelect";
-import * as XLSX from "xlsx";
 
 const Reports = () => {
   const [vendors, setVendors] = useState([]);
@@ -42,7 +41,7 @@ const Reports = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     let dataToExport = [];
     let fileName = "";
 
@@ -107,6 +106,7 @@ const Reports = () => {
       fileName = "VMS_Payments_Report";
     }
 
+    const XLSX = await import("xlsx");
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");

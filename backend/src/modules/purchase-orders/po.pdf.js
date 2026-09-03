@@ -530,8 +530,12 @@ export const generatePurchaseOrderPdf = (po) => {
       y += 10;
 
       // ─── SECTION 7: PAYMENT TERMS & CONDITIONS ────────────────────────────
-      // Check page space
-      if (y + 80 > PAGE_H - MARGIN - 40) {
+      const paymentType = po.payment_type || po.paymentType || 'ONE_TIME';
+      const isInstallment = paymentType === 'INSTALLMENT';
+      const installments = Array.isArray(po.installments) ? po.installments : [];
+
+      const requiredSec7Height = isInstallment ? 120 + installments.length * 15 : 90;
+      if (y + requiredSec7Height > PAGE_H - MARGIN - 40) {
         doc.addPage();
         y = MARGIN;
       }
@@ -543,6 +547,9 @@ export const generatePurchaseOrderPdf = (po) => {
       doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.accentBlue)
         .text('PAYMENT CONDITIONS', MARGIN, y);
       y += 12;
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.black)
+        .text(`Payment Type: ${isInstallment ? 'Installment Payment' : 'One-Time Payment'}`, MARGIN, y, { width: col1End - MARGIN });
+      y += 11;
       doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.black)
         .text(`Payment Terms: ${safe(paymentTerms)}`, MARGIN, y, { width: col1End - MARGIN });
       y += 11;
@@ -550,6 +557,16 @@ export const generatePurchaseOrderPdf = (po) => {
       y += 11;
       doc.text(`Expected Delivery: ${fmtDate(expectedDate)}`, MARGIN, y, { width: col1End - MARGIN });
       y += 14;
+
+      if (isInstallment && installments.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.black)
+          .text(`Installment Duration: ${installments.length} Months`, MARGIN, y, { width: col1End - MARGIN });
+        y += 11;
+        const monthlyAmt = installments[0]?.amount || (grandTotal / installments.length);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.accentBlue)
+          .text(`Monthly Installment: ${money(monthlyAmt, currency)}`, MARGIN, y, { width: col1End - MARGIN });
+        y += 14;
+      }
 
       // Right: Terms and Conditions
       doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.accentBlue)
@@ -562,6 +579,49 @@ export const generatePurchaseOrderPdf = (po) => {
         );
 
       y = Math.max(y, sec7StartY + 50);
+
+      // Render Installment Schedule Table on PDF if Installment Payment
+      if (isInstallment && installments.length > 0) {
+        y += 8;
+        y = sectionLabel(doc, 'Installment Schedule', y);
+
+        const instCols = [
+          { label: 'No.',      width: 40,  align: 'center' },
+          { label: 'Due Date', width: 150, align: 'center' },
+          { label: 'Amount',   width: 150, align: 'right'  },
+        ];
+
+        // Header
+        rect(doc, MARGIN, y, 340, 15, COLORS.headerBg);
+        let ix = MARGIN + 5;
+        instCols.forEach((col) => {
+          doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.headerText)
+            .text(col.label, ix, y + 3, { width: col.width, align: col.align });
+          ix += col.width;
+        });
+        y += 15;
+
+        // Rows
+        installments.forEach((inst, idx) => {
+          if (idx % 2 === 0) rect(doc, MARGIN, y, 340, 14, COLORS.rowEven);
+          hLine(doc, y + 14, COLORS.border, 0.3);
+
+          let rX = MARGIN + 5;
+          doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.accentBlue)
+            .text(String(inst.installment_number || inst.installmentNumber || idx + 1), rX, y + 3, { width: instCols[0].width, align: 'center' });
+          rX += instCols[0].width;
+
+          doc.font('Helvetica').fontSize(7).fillColor(COLORS.black)
+            .text(fmtDate(inst.due_date || inst.dueDate), rX, y + 3, { width: instCols[1].width, align: 'center' });
+          rX += instCols[1].width;
+
+          doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.black)
+            .text(money(inst.amount, currency), rX, y + 3, { width: instCols[2].width, align: 'right' });
+
+          y += 14;
+        });
+      }
+
       hLine(doc, y, COLORS.border);
       y += 10;
 

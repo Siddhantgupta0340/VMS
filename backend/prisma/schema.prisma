@@ -219,6 +219,7 @@ model PurchaseOrder {
   cost_center                 String?
   department                  String?
   po_type                     String                @default("STANDARD")
+  payment_type                String                @default("ONE_TIME")
   purchase_requisition_number String?
   quotation_date              DateTime?
   requester                   String?
@@ -232,6 +233,7 @@ model PurchaseOrder {
   ocr_invoice_drafts          OCRInvoiceDraft[]
   payment_approvals           PaymentApproval[]
   payments                    Payment[]
+  installments                Installment[]
   created_by                  User?                 @relation("PurchaseOrderCreatedBy", fields: [created_by_id], references: [id])
   vendor                      Vendor                @relation(fields: [vendor_id], references: [id])
   three_way_matches           ThreeWayMatch[]
@@ -769,6 +771,7 @@ model Payment {
   approved_at              DateTime?
   approval_status          String            @default("PENDING")
   three_way_match_id       String?
+  installment_id           String?
   payment_approvals        PaymentApproval[]
   approved_by              User?             @relation("PaymentApprovedBy", fields: [approved_by_id], references: [id])
   created_by               User?             @relation("PaymentCreatedBy", fields: [created_by_id], references: [id])
@@ -776,6 +779,7 @@ model Payment {
   processed_by             User?             @relation("PaymentProcessedBy", fields: [processed_by_id], references: [id])
   purchase_order           PurchaseOrder     @relation(fields: [purchase_order_id], references: [id])
   three_way_match          ThreeWayMatch?    @relation(fields: [three_way_match_id], references: [id])
+  installment              Installment?      @relation(fields: [installment_id], references: [id])
   updated_by               User?             @relation("PaymentUpdatedBy", fields: [updated_by_id], references: [id])
   vendor                   Vendor            @relation(fields: [vendor_id], references: [id])
 
@@ -784,7 +788,30 @@ model Payment {
   @@index([invoice_id])
   @@index([vendor_id])
   @@index([purchase_order_id])
+  @@index([installment_id])
   @@map("payments")
+}
+
+model Installment {
+  id                 String        @id @default(uuid())
+  purchase_order_id  String
+  installment_number Int
+  amount             Decimal       @db.Decimal(14, 2)
+  due_date           DateTime
+  status             String        @default("PENDING")
+  paid_amount        Decimal       @default(0) @db.Decimal(14, 2)
+  remaining_amount   Decimal       @db.Decimal(14, 2)
+  paid_date          DateTime?
+  remarks            String?
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+  purchase_order     PurchaseOrder @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade)
+  payments           Payment[]
+
+  @@unique([purchase_order_id, installment_number])
+  @@index([purchase_order_id])
+  @@index([status])
+  @@map("installments")
 }
 
 model PaymentOld {

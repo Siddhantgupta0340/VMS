@@ -420,8 +420,9 @@ const InvoiceCreate = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { draftId } = useParams();
-  // Detect OCR route by URL — '/invoices/create/ocr' or '/invoices/ocr'
-  const isOcrRoute = pathname.includes('/create/ocr') || pathname === '/invoices/ocr';
+  // OCR invoice creation temporarily disabled on frontend.
+  // Keep isOcrRoute strictly false to force Manual Invoice Creation.
+  const isOcrRoute = false; // pathname.includes('/create/ocr') || pathname === '/invoices/ocr';
   const dropdownRef = useRef(null);
   const loadedOcrDraftRef = useRef(null);
   const validationPanelRef = useRef(null);
@@ -1265,7 +1266,7 @@ const InvoiceCreate = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/invoices/new" className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-900">
+        <Link to="/invoices" className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-900">
           <ArrowLeft size={20} className="text-slate-600 dark:text-slate-400" />
         </Link>
         <div>
@@ -1274,9 +1275,9 @@ const InvoiceCreate = () => {
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs font-semibold text-slate-600 md:grid-cols-6">
-        {["Method", "Select PO", formData.invoiceCreationMethod === "OCR" ? "OCR Upload" : "Manual Entry", "Review", "Save"].map((step, index) => (
-          <div key={step} className={`rounded-lg px-3 py-2 ${index <= 2 || selectedPurchaseOrder ? "bg-blue-50 text-blue-700" : "bg-slate-50"}`}>
+      <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs font-semibold text-slate-600 md:grid-cols-4">
+        {["Select PO", "Manual Entry", "Review", "Save"].map((step, index) => (
+          <div key={step} className={`rounded-lg px-3 py-2 ${index <= 1 || selectedPurchaseOrder ? "bg-blue-50 text-blue-700" : "bg-slate-50"}`}>
             Step {index + 1}: {step}
           </div>
         ))}
@@ -1321,24 +1322,7 @@ const InvoiceCreate = () => {
 
       <form onSubmit={handleSubmit} noValidate className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
-            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100 font-heading">Invoice Creation Method</h2>
-            </div>
-            <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-semibold ${isOcrRoute ? "border-violet-200 bg-violet-50 text-violet-800" : "border-blue-200 bg-blue-50 text-blue-800"}`}>
-              {isOcrRoute ? (
-                <>
-                  <span className="grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-white text-xs">✦</span>
-                  OCR Extraction — Upload an invoice document and extract data automatically.
-                </>
-              ) : (
-                <>
-                  <span className="grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-white text-xs">✎</span>
-                  Manual Entry — Select an approved Purchase Order and enter invoice details manually.
-                </>
-              )}
-            </div>
-          </section>
+          {/* Invoice Creation Method header temporarily hidden for manual-only flow */}
 
           {isOcrRoute ? (
           <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">

@@ -95,6 +95,9 @@ const StatCard = ({
   isActive = false,
   onClick,
 }) => {
+  const valueTitle = value === null || value === undefined ? "" : String(value);
+  const wrappingStyle = { overflowWrap: "anywhere" };
+
   const tones = {
     blue: "text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/50 border-blue-500/20",
     amber:
@@ -117,7 +120,7 @@ const StatCard = ({
       onClick={onClick}
       role="button"
       tabIndex={0}
-      className={`group relative cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 md:p-4 h-20 sm:h-24 flex flex-col justify-between shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:shadow-slate-950/40 w-full min-w-0 ${
+      className={`group relative cursor-pointer rounded-xl sm:rounded-2xl border bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 md:p-4 min-h-24 flex flex-col justify-between shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:shadow-slate-950/40 w-full min-w-0 ${
         isActive
           ? `${activeBorders[tone]} bg-slate-50/90 dark:bg-slate-800/90`
           : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
@@ -125,7 +128,7 @@ const StatCard = ({
     >
       <div className="flex items-center justify-between gap-1 sm:gap-2 min-w-0">
         <p
-          className="text-[10px] sm:text-xs md:text-sm font-semibold tracking-tight text-slate-500 dark:text-slate-400 truncate"
+          className="min-w-0 break-words text-[10px] sm:text-xs md:text-sm font-semibold tracking-tight text-slate-500 dark:text-slate-400"
           title={title}
         >
           {title}
@@ -138,9 +141,11 @@ const StatCard = ({
           </div>
         )}
       </div>
-      <div className="flex items-baseline justify-between">
+      <div className="flex min-w-0 items-baseline justify-between">
         <p
-          className={`inline-flex rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-base sm:text-lg md:text-xl lg:text-2xl font-black font-heading tracking-tight ${tones[tone]}`}
+          className={`inline-flex max-w-full break-words rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-[clamp(0.95rem,2vw,1.5rem)] font-black leading-tight font-heading tracking-tight tabular-nums ${tones[tone]}`}
+          style={wrappingStyle}
+          title={valueTitle}
         >
           {value}
         </p>
@@ -427,7 +432,7 @@ const VendorList = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-2.5 sm:gap-4 w-full">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 w-full">
         <StatCard
           title="Pending Review"
           value={summary.pending || 0}

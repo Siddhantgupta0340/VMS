@@ -72,6 +72,19 @@ const mapPO = (po) => {
     requester: po.requester || null,
     buyer: po.buyer || null,
     quotationDate: po.quotation_date || po.quotationDate || null,
+    // ── Payment Type & Installment Schedule ─────────────────────────────────
+    paymentType: po.payment_type || po.paymentType || "ONE_TIME",
+    installments: (po.installments || []).map((inst) => ({
+      id: inst.id,
+      installmentNumber: inst.installment_number || inst.installmentNumber,
+      amount: Number(inst.amount || 0),
+      dueDate: inst.due_date || inst.dueDate || null,
+      status: inst.status || "PENDING",
+      paidAmount: Number(inst.paid_amount || inst.paidAmount || 0),
+      remainingAmount: Number(inst.remaining_amount ?? inst.remainingAmount ?? inst.amount ?? 0),
+      paidDate: inst.paid_date || inst.paidDate || null,
+      remarks: inst.remarks || null,
+    })),
     createdBy:
       typeof po.createdBy === "string"
         ? po.createdBy
@@ -158,6 +171,19 @@ export const createPurchaseOrder = async (data) => {
     expectedDeliveryDate: data.expectedDelivery,
     paymentTerms: data.terms,
     poType: data.poType || 'STANDARD',
+    // ── Payment Type & Installment Schedule ─────────────────────────────────
+    paymentType: data.paymentType || 'ONE_TIME',
+    installmentDurationMonths: data.paymentType === 'INSTALLMENT'
+      ? Number(data.installmentDurationMonths || data.installments?.length || 1)
+      : undefined,
+    installments: data.paymentType === 'INSTALLMENT' && Array.isArray(data.installments)
+      ? data.installments.map((inst, idx) => ({
+          installmentNumber: inst.installmentNumber || idx + 1,
+          amount: Number(inst.amount),
+          dueDate: inst.dueDate,
+          ...(inst.remarks ? { remarks: inst.remarks } : {}),
+        }))
+      : undefined,
     ...(data.purchaseRequisitionNumber ? { purchaseRequisitionNumber: data.purchaseRequisitionNumber } : {}),
     ...(data.department ? { department: data.department } : {}),
     ...(data.costCenter ? { costCenter: data.costCenter } : {}),
@@ -182,6 +208,19 @@ export const updatePurchaseOrder = async (id, data) => {
     expectedDeliveryDate: data.expectedDelivery,
     paymentTerms: data.terms ?? data.paymentTerms,
     reason: data.reason,
+    // ── Payment Type & Installment Schedule ─────────────────────────────────
+    paymentType: data.paymentType || 'ONE_TIME',
+    installmentDurationMonths: data.paymentType === 'INSTALLMENT'
+      ? Number(data.installmentDurationMonths || data.installments?.length || 1)
+      : undefined,
+    installments: data.paymentType === 'INSTALLMENT' && Array.isArray(data.installments)
+      ? data.installments.map((inst, idx) => ({
+          installmentNumber: inst.installmentNumber || idx + 1,
+          amount: Number(inst.amount),
+          dueDate: inst.dueDate,
+          ...(inst.remarks ? { remarks: inst.remarks } : {}),
+        }))
+      : undefined,
   };
 
   const res = await api.put(`/v1/purchase-orders/${id}`, payload);

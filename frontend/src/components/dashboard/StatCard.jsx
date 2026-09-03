@@ -19,13 +19,17 @@ const StatCard = ({
   gaugeValue = 145,
   gaugeSubtext = "Your customer volume has increased +25%",
 }) => {
+  const valueTitle = value === null || value === undefined ? "" : String(value);
+  const valueTextClass = "max-w-full break-words leading-tight tabular-nums";
+  const wrappingStyle = { overflowWrap: "anywhere" };
+
   // Hero Card — clean white surface matching the default card style
   if (variant === "hero") {
     return (
-      <div className="group relative flex flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-[#0090B8]/30">
+      <div className="group relative flex min-w-0 flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-[#0090B8]/30">
         <div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="flex items-start justify-between gap-3">
+            <span className="min-w-0 break-words text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {title}
             </span>
             <button
@@ -36,14 +40,18 @@ const StatCard = ({
             </button>
           </div>
 
-          <div className="mt-4 flex items-baseline gap-3">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+          <div className="mt-4 flex min-w-0 flex-wrap items-baseline gap-3">
+            <h2
+              className={`${valueTextClass} text-[clamp(1.5rem,3vw,2.25rem)] font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading`}
+              style={wrappingStyle}
+              title={valueTitle}
+            >
               {value}
             </h2>
             {change && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <TrendingUp size={13} className="text-emerald-500 dark:text-emerald-400" />
-                {change}
+                <span className="break-words" style={wrappingStyle}>{change}</span>
               </span>
             )}
           </div>
@@ -74,10 +82,10 @@ const StatCard = ({
   // Progress Bar Card (Matching Screenshot Card 2: User Growth)
   if (variant === "progress") {
     return (
-      <div className="group relative flex flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div className="group relative flex min-w-0 flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
         <div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="flex items-start justify-between gap-3">
+            <span className="min-w-0 break-words text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {title}
             </span>
 
@@ -89,13 +97,17 @@ const StatCard = ({
             </div> */}
           </div>
 
-          <div className="mt-4 flex items-baseline justify-between">
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+          <div className="mt-4 flex min-w-0 flex-wrap items-baseline justify-between gap-3">
+            <h2
+              className={`${valueTextClass} text-[clamp(1.25rem,2vw,1.875rem)] font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading`}
+              style={wrappingStyle}
+              title={valueTitle}
+            >
               {value}
             </h2>
             {change && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                +{change}
+              <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="break-words" style={wrappingStyle}>+{change}</span>
               </span>
             )}
           </div>
@@ -109,9 +121,9 @@ const StatCard = ({
               style={{ width: `${Math.min(100, Math.max(10, progressPercent))}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <span>{progressLabel}</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{progressSubtext}</span>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span className="break-words" style={wrappingStyle}>{progressLabel}</span>
+            <span className="break-words text-emerald-600 dark:text-emerald-400 font-bold" style={wrappingStyle}>{progressSubtext}</span>
           </div>
         </div>
       </div>
@@ -121,9 +133,9 @@ const StatCard = ({
   // Semi-Gauge Radial Card (Matching Screenshot Card 3: Customers Volume)
   if (variant === "gauge") {
     return (
-      <div className="group relative flex flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+      <div className="group relative flex min-w-0 flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <span className="min-w-0 break-words text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {title}
           </span>
           <button
@@ -165,7 +177,11 @@ const StatCard = ({
 
           {/* Central Value */}
           <div className="absolute top-10 flex flex-col items-center">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+            <span
+              className={`${valueTextClass} max-w-32 text-center text-[clamp(1.25rem,2vw,1.875rem)] font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading`}
+              style={wrappingStyle}
+              title={String(gaugeValue ?? "")}
+            >
               {gaugeValue}
             </span>
             <span className="text-[11px] font-semibold text-slate-400">New Customers</span>
@@ -174,7 +190,7 @@ const StatCard = ({
 
         {/* Bottom Callout Badge */}
         <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-center">
+          <span className="inline-flex min-w-0 items-center gap-1.5 break-words rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" style={wrappingStyle}>
             {gaugeSubtext}
           </span>
         </div>
@@ -184,14 +200,18 @@ const StatCard = ({
 
   // Default Crisp White Card
   return (
-    <div className="group relative flex flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-[#0090B8]/30">
+    <div className="group relative flex min-h-[132px] min-w-0 flex-col justify-between rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-[#0090B8]/30">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <p className="break-words text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {title}
           </p>
 
-          <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading">
+          <h2
+            className={`mt-2 ${valueTextClass} text-[clamp(1.25rem,2vw,1.875rem)] font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-heading`}
+            style={wrappingStyle}
+            title={valueTitle}
+          >
             {value}
           </h2>
 
@@ -202,13 +222,13 @@ const StatCard = ({
           )}
 
           {change && (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <div className="mt-3 inline-flex min-w-0 items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               {isPositive ? (
                 <TrendingUp size={14} className="shrink-0" />
               ) : (
                 <TrendingDown size={14} className="shrink-0 text-red-500" />
               )}
-              <span>{change}</span>
+              <span className="break-words" style={wrappingStyle}>{change}</span>
             </div>
           )}
         </div>

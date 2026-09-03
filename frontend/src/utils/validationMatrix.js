@@ -13,6 +13,17 @@ const postalCode = (value) => /^\d{6}$/.test(String(value || "").trim());
 const accountNumber = (value) => /^\d{9,18}$/.test(String(value || "").trim());
 const ifsc = (value) => !required(value) || /^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(value || "").trim().toUpperCase());
 
+const poRules = [
+  { field: "vendorId", label: "Vendor", dbColumn: "purchase_orders.vendor_id", required: true, rule: required, message: "Vendor is required.", usedIn: ["PO", "Invoice", "Matching"] },
+  { field: "orderDate", label: "Purchase Order Date", dbColumn: "purchase_orders.order_date", required: true, rule: required, message: "Purchase Order Date is required.", usedIn: ["PO", "Invoice"] },
+  { field: "expectedDelivery", label: "Expected Delivery Date", dbColumn: "purchase_orders.expected_delivery_date", required: true, rule: required, message: "Expected Delivery Date is required.", usedIn: ["PO", "GRN"] },
+  { field: "deliveryAddress", label: "Delivery Address", dbColumn: "purchase_orders.delivery_address", required: true, rule: required, message: "Delivery Address is required.", usedIn: ["PO", "Invoice"] },
+  { field: "billingAddress", label: "Billing Address", dbColumn: "purchase_orders.billing_address", required: true, rule: required, message: "Billing Address is required.", usedIn: ["PO", "Invoice"] },
+  { field: "terms", label: "Payment Terms", dbColumn: "purchase_orders.payment_terms", required: true, rule: required, message: "Payment Terms are required.", usedIn: ["PO", "Invoice", "Payment"] },
+  { field: "paymentType", label: "Payment Type", dbColumn: "purchase_orders.payment_type", required: true, rule: required, message: "Please select a payment type.", usedIn: ["PO", "Payment"] },
+  { field: "items", label: "Purchase Order Items", dbColumn: "purchase_orders.line_items", required: true, rule: (items) => Array.isArray(items) && items.length > 0 && items.every((item) => required(item.itemName) && positive(item.quantity) && (item.rate !== undefined || item.unitPrice !== undefined) && nonNegative(item.rate !== undefined ? item.rate : item.unitPrice)), message: "Every PO item requires Item Name, Quantity (>0), and Unit Price (>=0).", usedIn: ["PO", "Invoice", "Matching"] },
+];
+
 export const REQUIRED_FIELD_MATRIX = {
   vendor: [
     { field: "companyName", label: "Vendor Name", dbColumn: "vendors.name", required: true, rule: required, message: "Vendor Name is required.", usedIn: ["Vendor", "Purchase Order", "Invoice", "Three-Way Matching"] },
@@ -36,15 +47,8 @@ export const REQUIRED_FIELD_MATRIX = {
     { field: "ifscCode", label: "IFSC Code", dbColumn: "vendors.ifsc_code", required: true, rule: ifsc, message: "IFSC Code is required and must be valid.", usedIn: ["Payment"] },
     { field: "bankBranch", label: "Bank Branch", dbColumn: "vendors.bank_branch", required: true, rule: required, message: "Bank Branch is required.", usedIn: ["Payment"] },
   ],
-  purchaseOrder: [
-    { field: "vendorId", label: "Vendor", dbColumn: "purchase_orders.vendor_id", required: true, rule: required, message: "Vendor is required.", usedIn: ["PO", "Invoice", "Matching"] },
-    { field: "orderDate", label: "Purchase Order Date", dbColumn: "purchase_orders.order_date", required: true, rule: required, message: "Purchase Order Date is required.", usedIn: ["PO", "Invoice"] },
-    { field: "expectedDelivery", label: "Expected Delivery Date", dbColumn: "purchase_orders.expected_delivery_date", required: true, rule: required, message: "Expected Delivery Date is required.", usedIn: ["PO", "GRN"] },
-    { field: "deliveryAddress", label: "Delivery Address", dbColumn: "purchase_orders.delivery_address", required: true, rule: required, message: "Delivery Address is required.", usedIn: ["PO", "Invoice"] },
-    { field: "billingAddress", label: "Billing Address", dbColumn: "purchase_orders.billing_address", required: true, rule: required, message: "Billing Address is required.", usedIn: ["PO", "Invoice"] },
-    { field: "terms", label: "Payment Terms", dbColumn: "purchase_orders.payment_terms", required: true, rule: required, message: "Payment Terms are required.", usedIn: ["PO", "Invoice", "Payment"] },
-    { field: "items", label: "Purchase Order Items", dbColumn: "purchase_orders.line_items", required: true, rule: (items) => Array.isArray(items) && items.length > 0 && items.every((item) => required(item.itemName) && positive(item.quantity) && (item.rate !== undefined || item.unitPrice !== undefined) && nonNegative(item.rate !== undefined ? item.rate : item.unitPrice)), message: "Every PO item requires Item Name, Quantity (>0), and Unit Price (>=0).", usedIn: ["PO", "Invoice", "Matching"] },
-  ],
+  purchaseOrder: poRules,
+  purchaseOrderCreate: poRules,
   invoice: [
     { field: "purchaseOrderId", label: "Purchase Order", dbColumn: "invoices.purchase_order_id", required: true, rule: required, message: "Purchase Order is required.", usedIn: ["Invoice", "Matching", "Payment"] },
     { field: "invoiceDate", label: "Invoice Date", dbColumn: "invoices.invoice_date", required: true, rule: required, message: "Invoice Date is required.", usedIn: ["Invoice", "Approval"] },

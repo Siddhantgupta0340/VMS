@@ -598,27 +598,27 @@ const UsersList = () => {
 
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="break-words text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Total Registers
           </p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-2 max-w-full break-words text-[clamp(1.25rem,2vw,1.5rem)] font-bold leading-tight text-slate-900 tabular-nums" style={{ overflowWrap: "anywhere" }} title={total.toLocaleString()}>
             {total.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="break-words text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Active Credentials
           </p>
-          <p className="mt-2 text-2xl font-bold text-green-600">
+          <p className="mt-2 max-w-full break-words text-[clamp(1.25rem,2vw,1.5rem)] font-bold leading-tight text-green-600 tabular-nums" style={{ overflowWrap: "anywhere" }} title={summary.activeAccounts.toLocaleString()}>
             {summary.activeAccounts.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="break-words text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Deactivated Accounts
           </p>
-          <p className="mt-2 text-2xl font-bold text-slate-500">
+          <p className="mt-2 max-w-full break-words text-[clamp(1.25rem,2vw,1.5rem)] font-bold leading-tight text-slate-500 tabular-nums" style={{ overflowWrap: "anywhere" }} title={summary.deactivatedAccounts.toLocaleString()}>
             {summary.deactivatedAccounts.toLocaleString()}
           </p>
         </div>

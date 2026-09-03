@@ -623,13 +623,78 @@ const PurchaseOrderDetails = () => {
 
           {/* SECTION 7: PAYMENT TERMS & SECTION 8: TERMS AND CONDITIONS */}
           <section className="grid gap-6 md:grid-cols-2 border-t border-slate-200 dark:border-slate-800 pt-6">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Payment Conditions</h4>
-              <div className="text-xs space-y-1 text-slate-750 dark:text-slate-300">
+              <div className="text-xs space-y-1.5 text-slate-750 dark:text-slate-300">
                 <p><strong>Payment Terms:</strong> {po.paymentTerms || "No payment terms defined"}</p>
+                <div className="flex items-center gap-2">
+                  <strong>Payment Type:</strong>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    po.paymentType === 'INSTALLMENT' || po.payment_type === 'INSTALLMENT'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+                  }`}>
+                    {po.paymentType === 'INSTALLMENT' || po.payment_type === 'INSTALLMENT' ? 'Installment Payment' : 'One-Time Payment'}
+                  </span>
+                </div>
                 <p><strong>Currency:</strong> {po.currency || "INR"}</p>
-                <p><strong>Expected Delivery Date:</strong> {fmtDate(po.expectedDelivery) || "Not Available"}</p>
+                <p><strong>Expected Delivery Date:</strong> {fmtDate(po.expectedDelivery || po.expected_delivery_date) || "Not Available"}</p>
               </div>
+
+              {(po.paymentType === 'INSTALLMENT' || po.payment_type === 'INSTALLMENT') && po.installments?.length > 0 && (
+                <div className="mt-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Installment Schedule ({po.installments.length} Installments)</h5>
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                      Total: {money(po.installments.reduce((sum, item) => sum + Number(item.amount || 0), 0), po.currency)}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 dark:bg-slate-800/80 text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">
+                          <th className="py-2 px-2 text-center">#</th>
+                          <th className="py-2 px-3 text-right">Amount</th>
+                          <th className="py-2 px-3 text-center">Due Date</th>
+                          <th className="py-2 px-3 text-right">Paid</th>
+                          <th className="py-2 px-3 text-right">Remaining</th>
+                          <th className="py-2 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {po.installments.map((inst, idx) => {
+                          const amt = Number(inst.amount || 0);
+                          const paid = Number(inst.paidAmount || inst.paid_amount || 0);
+                          const rem = Math.max(0, amt - paid);
+                          const isOverdue = inst.status !== 'PAID' && inst.dueDate && new Date(inst.dueDate || inst.due_date) < new Date();
+                          const displayStatus = isOverdue && inst.status !== 'PAID' ? 'OVERDUE' : (inst.status || 'PENDING');
+
+                          return (
+                            <tr key={inst.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="py-2 px-2 text-center font-bold text-blue-600 dark:text-blue-400">#{inst.installmentNumber || inst.installment_number || idx + 1}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-slate-900 dark:text-slate-100">{money(amt, po.currency)}</td>
+                              <td className="py-2 px-3 text-center text-slate-600 dark:text-slate-400">{fmtDate(inst.dueDate || inst.due_date)}</td>
+                              <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{money(paid, po.currency)}</td>
+                              <td className="py-2 px-3 text-right font-medium text-amber-600 dark:text-amber-400">{money(rem, po.currency)}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  displayStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                                  displayStatus === 'PARTIALLY_PAID' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                                  displayStatus === 'OVERDUE' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' :
+                                  'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                }`}>
+                                  {displayStatus}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Terms and Conditions</h4>

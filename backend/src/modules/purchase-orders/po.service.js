@@ -24,6 +24,18 @@ const generatePoNumber = async () => {
 };
 
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+const moneyToCents = (value) => Math.round(Number(value || 0) * 100);
+const centsToMoney = (value) => roundMoney(Number(value || 0) / 100);
+
+const addMonths = (date, monthsToAdd) => {
+  const result = new Date(date);
+  const originalDay = result.getDate();
+  result.setMonth(result.getMonth() + monthsToAdd);
+  if (result.getDate() !== originalDay) {
+    result.setDate(0);
+  }
+  return result;
+};
 
 const calculatePurchaseOrderTax = ({ vendor, items = [], otherCharges = 0 }) => {
   const vendorState = String(vendor?.state || '').trim().toLowerCase();
@@ -122,6 +134,89 @@ const assertVendorMasterReadyForPO = (vendor) => {
   }
 };
 
+const generateInstallmentsFromDuration = (poGrandTotal, durationMonths, startDate) => {
+  const months = Number(durationMonths || 0);
+  if (!Number.isInteger(months) || months <= 0) {
+    throw new ApiError(400, 'Installment duration is required when Installment Payment is selected.');
+  }
+
+  const totalCents = moneyToCents(poGrandTotal);
+  const baseCents = Math.floor(totalCents / months);
+  const schedule = [];
+  let allocatedCents = 0;
+  const anchorDate = startDate ? new Date(startDate) : new Date();
+
+  for (let i = 0; i < months; i += 1) {
+    const isLast = i === months - 1;
+    const amountCents = isLast ? totalCents - allocatedCents : baseCents;
+    allocatedCents += amountCents;
+    schedule.push({
+      installmentNumber: i + 1,
+      amount: centsToMoney(amountCents),
+      dueDate: addMonths(anchorDate, i + 1),
+      remarks: `Month ${i + 1} installment`,
+    });
+  }
+
+  return schedule;
+};
+
+const validateAndPrepareInstallments = (paymentType, rawInstallments, poGrandTotal, durationMonths, startDate) => {
+  if (paymentType !== 'INSTALLMENT') {
+    return [];
+  }
+
+  const sourceInstallments = Array.isArray(rawInstallments) && rawInstallments.length > 0
+    ? rawInstallments
+    : generateInstallmentsFromDuration(poGrandTotal, durationMonths, startDate);
+
+  let installmentTotal = 0;
+  const numbersSeen = new Set();
+  const prepared = [];
+
+  for (let i = 0; i < sourceInstallments.length; i++) {
+    const inst = sourceInstallments[i];
+    const instNum = Number(inst.installmentNumber || i + 1);
+    const amount = roundMoney(inst.amount);
+    const dueDate = inst.dueDate ? new Date(inst.dueDate) : null;
+
+    if (isNaN(amount) || amount <= 0) {
+      throw new ApiError(400, `Installment #${instNum} amount must be greater than zero.`);
+    }
+
+    if (!dueDate || isNaN(dueDate.getTime())) {
+      throw new ApiError(400, `Installment #${instNum} has an invalid or missing due date.`);
+    }
+
+    if (numbersSeen.has(instNum)) {
+      throw new ApiError(400, `Duplicate installment number #${instNum} found.`);
+    }
+    numbersSeen.add(instNum);
+
+    installmentTotal = roundMoney(installmentTotal + amount);
+
+    prepared.push({
+      installment_number: instNum,
+      amount,
+      due_date: dueDate,
+      status: 'PENDING',
+      paid_amount: 0,
+      remaining_amount: amount,
+      remarks: inst.remarks || null,
+    });
+  }
+
+  const diff = Math.abs(installmentTotal - poGrandTotal);
+  if (diff > 0.01) {
+    throw new ApiError(
+      400,
+      `Total installment amount (₹${installmentTotal.toLocaleString('en-IN')}) does not match the Purchase Order total amount (₹${poGrandTotal.toLocaleString('en-IN')}).`,
+    );
+  }
+
+  return prepared;
+};
+
 class PurchaseOrderService {
   async getAllowedVendorForPurchaseOrder(vendorId, user) {
     const vendor = await vendorRepository.findById(vendorId);
@@ -162,31 +257,56 @@ class PurchaseOrderService {
         otherCharges: payload.otherCharges,
       });
 
-      const poData = {
-        po_number: await generatePoNumber(),
-        vendor_id: payload.vendorId,
-        created_by_id: user.id,
-        amount: taxCalculation.summary.grandTotal,
-        currency,
-        description: payload.description || null,
-        billing_address: payload.billingAddress || null,
-        delivery_address: payload.deliveryAddress || null,
-        order_date: payload.orderDate ? new Date(payload.orderDate) : new Date(),
-        expected_delivery_date: payload.expectedDeliveryDate ? new Date(payload.expectedDeliveryDate) : null,
-        payment_terms: payload.paymentTerms || null,
-        line_items: taxCalculation.items,
-        tax_summary: taxCalculation.summary,
-        status: PO_STATUS.CREATED,
-        po_type: payload.poType || 'STANDARD',
-        purchase_requisition_number: payload.purchaseRequisitionNumber || null,
-        department: payload.department || null,
-        cost_center: payload.costCenter || null,
-        requester: payload.requester || null,
-        buyer: payload.buyer || null,
-        quotation_date: payload.quotationDate ? new Date(payload.quotationDate) : null,
-      };
+      const paymentType = payload.paymentType || 'ONE_TIME';
+      const preparedInstallments = validateAndPrepareInstallments(
+        paymentType,
+        payload.installments,
+        taxCalculation.summary.grandTotal,
+        payload.installmentDurationMonths,
+        payload.orderDate,
+      );
 
-      const created = await purchaseOrderRepository.create(poData);
+      const poNumber = await generatePoNumber();
+
+      const created = await purchaseOrderRepository.transaction(async (tx) => {
+        const po = await tx.purchaseOrder.create({
+          data: {
+            po_number: poNumber,
+            vendor_id: payload.vendorId,
+            created_by_id: user.id,
+            amount: taxCalculation.summary.grandTotal,
+            currency,
+            description: payload.description || null,
+            billing_address: payload.billingAddress || null,
+            delivery_address: payload.deliveryAddress || null,
+            order_date: payload.orderDate ? new Date(payload.orderDate) : new Date(),
+            expected_delivery_date: payload.expectedDeliveryDate ? new Date(payload.expectedDeliveryDate) : null,
+            payment_terms: payload.paymentTerms || null,
+            payment_type: paymentType,
+            line_items: taxCalculation.items,
+            tax_summary: taxCalculation.summary,
+            status: PO_STATUS.CREATED,
+            po_type: payload.poType || 'STANDARD',
+            purchase_requisition_number: payload.purchaseRequisitionNumber || null,
+            department: payload.department || null,
+            cost_center: payload.costCenter || null,
+            requester: payload.requester || null,
+            buyer: payload.buyer || null,
+            quotation_date: payload.quotationDate ? new Date(payload.quotationDate) : null,
+            installments: preparedInstallments.length > 0 ? {
+              create: preparedInstallments,
+            } : undefined,
+          },
+          include: {
+            vendor: true,
+            created_by: { select: { id: true, email: true, first_name: true, last_name: true, role: true } },
+            installments: { orderBy: { installment_number: 'asc' } },
+          },
+        });
+
+        return po;
+      });
+
       return created;
     } catch (error) {
       if (error.code === 'P2002') {
@@ -278,7 +398,39 @@ class PurchaseOrderService {
       otherCharges: payload.otherCharges,
     });
 
+    const paymentType = payload.paymentType !== undefined ? payload.paymentType : (existing.payment_type || 'ONE_TIME');
+    const hasPaidInstallments = existing.installments?.some((inst) => Number(inst.paid_amount || 0) > 0);
+
+    if (hasPaidInstallments) {
+      if (payload.paymentType !== undefined && payload.paymentType !== existing.payment_type) {
+        throw new ApiError(400, 'Cannot change Payment Type because payments have already been recorded against this Purchase Order.');
+      }
+      if (payload.installments && payload.installments.length > 0) {
+        throw new ApiError(400, 'Cannot modify installment schedule because payments have already been recorded against one or more installments.');
+      }
+    }
+
+    const preparedInstallments = validateAndPrepareInstallments(
+      paymentType,
+      payload.installments,
+      taxCalculation.summary.grandTotal,
+      payload.installmentDurationMonths,
+      payload.orderDate || existing.order_date,
+    );
+
     return purchaseOrderRepository.transaction(async (tx) => {
+      if (!hasPaidInstallments && (payload.paymentType !== undefined || payload.installments !== undefined)) {
+        await tx.installment.deleteMany({ where: { purchase_order_id: id } });
+        if (preparedInstallments.length > 0) {
+          await tx.installment.createMany({
+            data: preparedInstallments.map((inst) => ({
+              ...inst,
+              purchase_order_id: id,
+            })),
+          });
+        }
+      }
+
       const updated = await tx.purchaseOrder.update({
         where: { id },
         data: {
@@ -292,6 +444,7 @@ class PurchaseOrderService {
           order_date: payload.orderDate ? new Date(payload.orderDate) : existing.order_date,
           expected_delivery_date: payload.expectedDeliveryDate ? new Date(payload.expectedDeliveryDate) : null,
           payment_terms: payload.paymentTerms || null,
+          payment_type: paymentType,
           line_items: taxCalculation.items,
           tax_summary: taxCalculation.summary,
           po_type: payload.poType || existing.po_type,
@@ -302,10 +455,14 @@ class PurchaseOrderService {
           buyer: payload.buyer !== undefined ? payload.buyer : existing.buyer,
           quotation_date: payload.quotationDate !== undefined ? (payload.quotationDate ? new Date(payload.quotationDate) : null) : existing.quotation_date,
         },
-        include: { vendor: true, created_by: { select: { id: true, email: true, first_name: true, last_name: true, role: true } } },
+        include: {
+          vendor: true,
+          created_by: { select: { id: true, email: true, first_name: true, last_name: true, role: true } },
+          installments: { orderBy: { installment_number: 'asc' } },
+        },
       });
 
-      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'line_items', 'tax_summary', 'po_type', 'purchase_requisition_number', 'department', 'cost_center', 'requester', 'buyer', 'quotation_date'];
+      const fields = ['vendor_id', 'amount', 'currency', 'description', 'billing_address', 'delivery_address', 'order_date', 'expected_delivery_date', 'payment_terms', 'payment_type', 'line_items', 'tax_summary', 'po_type', 'purchase_requisition_number', 'department', 'cost_center', 'requester', 'buyer', 'quotation_date'];
       const summary = summarizeChanges(existing, updated, fields);
       await tx.auditLog.create({
         data: {

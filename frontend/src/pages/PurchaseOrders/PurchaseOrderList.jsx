@@ -14,7 +14,6 @@ import { deletePurchaseOrder, getPurchaseOrders, downloadPurchaseOrderPdf } from
 import { getErrorMessage, notify } from "../../utils/feedback";
 import { useAuth } from "../../context/AuthContext";
 import { canDownloadDocument } from "../../config/permissions";
-import { downloadHtmlAsPdf } from "../../utils/pdfGenerator";
 import { formatRoleLabel } from "../../utils/displayFormatters";
 
 // Company constants loaded dynamically from COMPANY_CONFIG
@@ -134,11 +133,33 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
         <div class="box"><div class="lbl">Order Date</div><div class="val">${fmtDate(po.orderDate)}</div></div>
         <div class="box"><div class="lbl">Expected Delivery</div><div class="val">${fmtDate(po.expectedDelivery)}</div></div>
         <div class="box"><div class="lbl">Payment Terms</div><div class="val">${esc(po.paymentTerms || "N/A")}</div></div>
+        <div class="box"><div class="lbl">Payment Type</div><div class="val" style="font-weight:bold;color:#1d4ed8">${(po.paymentType || po.payment_type) === 'INSTALLMENT' ? 'Installment Payment' : 'One-Time Payment'}</div></div>
         <div class="box"><div class="lbl">Currency</div><div class="val">${esc(po.currency || "INR")}</div></div>
         <div class="box"><div class="lbl">Status</div><div class="val">${esc(po.status || "N/A")}</div></div>
         <div class="box"><div class="lbl">Created By</div><div class="val">${esc(po.createdBy || "N/A")}</div></div>
-        <div class="box"><div class="lbl">Role</div><div class="val">${esc(formatRoleLabel(po.createdByRole) || "N/A")}</div></div>
       </div>
+
+      ${(po.paymentType || po.payment_type) === 'INSTALLMENT' && po.installments?.length ? `
+      <h2>Installment Schedule (${po.installments.length} Months)</h2>
+      <table style="width:100%;margin-bottom:16px;border-collapse:collapse;">
+        <thead>
+          <tr style="background-color:#1e293b;color:#ffffff;font-size:10px;text-transform:uppercase;">
+            <th style="padding:6px;text-align:center;width:40px;">#</th>
+            <th style="padding:6px;text-align:center;">Due Date</th>
+            <th style="padding:6px;text-align:right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${po.installments.map((inst, idx) => `
+            <tr style="border-bottom:1px solid #e2e8f0;font-size:10px;${idx % 2 === 0 ? 'background-color:#f8fafc;' : ''}">
+              <td style="padding:6px;text-align:center;font-weight:bold;color:#1d4ed8;">#${inst.installmentNumber || inst.installment_number || idx + 1}</td>
+              <td style="padding:6px;text-align:center;">${fmtDate(inst.dueDate || inst.due_date)}</td>
+              <td style="padding:6px;text-align:right;font-weight:bold;">${esc(money(inst.amount, po.currency))}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      ` : ""}
 
       <!-- Vendor -->
       <h2>Vendor &amp; Delivery Details</h2>
@@ -221,10 +242,7 @@ const buildPurchaseOrderHtml = (po, autoPrint = true) => {
 
 const handleDownloadPO = async (po) => {
   try {
-    const full = await downloadPurchaseOrderPdf(po.id);
-    const htmlContent = buildPurchaseOrderHtml(full, false);
-    const filename = `${full.poNumber || "PurchaseOrder"}.pdf`;
-    await downloadHtmlAsPdf({ htmlContent, filename, documentTitle: `Purchase Order (${full.poNumber || "PO"})` });
+    await downloadPurchaseOrderPdf(po.id, `${po.poNumber || "PurchaseOrder"}.pdf`);
   } catch (err) {
     let msg = "Unable to generate PDF.";
     if (err?.response?.status === 403 || err?.status === 403) {
@@ -239,13 +257,16 @@ const handleDownloadPO = async (po) => {
 const Detail = ({ label, value }) => (
   <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-4">
     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-    <p className="mt-1 break-words text-sm font-bold text-slate-900 dark:text-slate-100">
+    <p className="mt-1 wrap-break-word text-sm font-bold text-slate-900 dark:text-slate-100">
       {value || <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">Not Available</span>}
     </p>
   </div>
 );
 
 const StatCard = ({ title, value, tone = "blue", icon: Icon, isActive = false, onClick }) => {
+  const valueTitle = value === null || value === undefined ? "" : String(value);
+  const wrappingStyle = { overflowWrap: "anywhere" };
+
   const tones = {
     blue: "text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/50 border-blue-500/20",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/50 border-amber-500/20",
@@ -267,13 +288,13 @@ const StatCard = ({ title, value, tone = "blue", icon: Icon, isActive = false, o
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
-      className={`group relative cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 md:p-4 h-20 sm:h-24 flex flex-col justify-between shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:shadow-slate-950/40 w-full min-w-0 ${isActive
+      className={`group relative cursor-pointer rounded-xl sm:rounded-2xl border bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 md:p-4 min-h-24 flex flex-col justify-between shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:shadow-slate-950/40 w-full min-w-0 ${isActive
         ? `${activeBorders[tone]} bg-slate-50/90 dark:bg-slate-800/90`
         : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
         }`}
     >
       <div className="flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-        <p className="text-[10px] sm:text-xs md:text-sm font-semibold tracking-tight text-slate-500 dark:text-slate-400 truncate" title={title}>
+        <p className="min-w-0 break-words text-[10px] sm:text-xs md:text-sm font-semibold tracking-tight text-slate-500 dark:text-slate-400" title={title}>
           {title}
         </p>
         {Icon && (
@@ -282,8 +303,12 @@ const StatCard = ({ title, value, tone = "blue", icon: Icon, isActive = false, o
           </div>
         )}
       </div>
-      <div className="flex items-baseline justify-between">
-        <p className={`inline-flex rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-base sm:text-lg md:text-xl lg:text-2xl font-black font-heading tracking-tight ${tones[tone]}`}>
+      <div className="flex min-w-0 items-baseline justify-between">
+        <p
+          className={`inline-flex max-w-full break-words rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-[clamp(0.95rem,2vw,1.5rem)] font-black leading-tight font-heading tracking-tight tabular-nums ${tones[tone]}`}
+          style={wrappingStyle}
+          title={valueTitle}
+        >
           {value}
         </p>
       </div>

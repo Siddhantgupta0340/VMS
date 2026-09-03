@@ -1,10 +1,8 @@
 import {
   ChevronLeft,
   ChevronRight,
-  LogOut,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 import { navigation } from "../../constants/navigation";
 import { hasPermission } from "../../config/permissions";
@@ -21,9 +19,8 @@ const Sidebar = () => {
     mobileOpen,
     toggleSidebar,
   } = useSidebar();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { unreadCount } = useNotifications();
-  const navigate = useNavigate();
 
   const filteredNavigation = navigation
     .map((section) => ({
@@ -42,12 +39,6 @@ const Sidebar = () => {
     .filter((section) => section.items.length > 0);
 
   const compact = collapsed && !mobileOpen;
-
-  const handleLogout = () => {
-    closeMobileSidebar();
-    logout();
-    navigate("/login", { replace: true });
-  };
 
   const profileName = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.name || user?.email || "User";
   const notificationBadge = unreadCount > 99 ? "99+" : unreadCount > 0 ? String(unreadCount) : undefined;
@@ -163,19 +154,6 @@ const Sidebar = () => {
               </div>
             </div>
           )}
-
-          <button
-            className={`
-              flex h-9 w-full items-center ${compact ? "justify-center px-0" : "gap-2.5 px-3"}
-              rounded-xl text-slate-700 dark:text-slate-200 font-bold transition-all duration-200 hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-300 hover:scale-[1.01] cursor-pointer
-            `}
-            onClick={handleLogout}
-            title={compact ? "Logout" : undefined}
-            type="button"
-          >
-            <LogOut size={16} className="shrink-0 text-red-500 transition-transform group-hover:rotate-12" />
-            {!compact && <span className="text-xs font-bold">Sign out</span>}
-          </button>
         </div>
       </aside>
     </>

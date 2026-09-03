@@ -23,7 +23,7 @@ const mapPayment = (payment) => {
   return {
     id: payment.id,
     paymentNumber: payment.payment_number || payment.paymentNumber || "N/A",
-    invoiceId: payment.invoice_id || payment.invoiceId,
+    invoiceId: payment.invoice_id || payment.invoiceId || null,
     invoiceNumber: payment.invoice?.invoice_number || payment.invoiceNumber || "N/A",
     vendor: payment.vendor?.name || payment.vendorName || "N/A",
     vendorCode: payment.vendor?.vendor_code || payment.vendorCode || "N/A",
@@ -37,7 +37,10 @@ const mapPayment = (payment) => {
     approvalBand: payment.approval_band || payment.approvalBand || "-",
     priority: payment.priority || "Normal",
     paymentMethod: payment.payment_method || payment.paymentMethod || "-",
+    // payment_type on the Payment record is FULL/INSTALLMENT (per-transaction).
+    // poPaymentType is the canonical PO-level type: ONE_TIME | INSTALLMENT
     paymentType: payment.payment_type || payment.paymentType || "FULL",
+    poPaymentType: payment.poPaymentType || payment.purchase_order?.payment_type || "ONE_TIME",
     paymentProvider: payment.payment_provider || payment.paymentProvider || "MANUAL",
     providerTransactionId: payment.provider_transaction_id || payment.providerTransactionId || "-",
     gatewayReference: payment.gateway_reference || payment.gatewayReference || "-",
@@ -52,6 +55,43 @@ const mapPayment = (payment) => {
     processedBy: processorName,
     createdAt: payment.created_at || payment.requestDate,
     updatedAt: payment.updated_at || payment.updatedAt,
+    // ── Installment Progress (from DB via decoratePayment) ─────────────────────
+    installmentId: payment.installmentId || payment.installment_id || null,
+    installmentNumber: payment.installmentNumber || payment.installment?.installment_number || null,
+    nextPayableInstallmentNumber: payment.nextPayableInstallmentNumber || payment.nextPayableInstallment || null,
+    totalInstallments: Number(payment.totalInstallments || 0),
+    paidInstallments: Number(payment.paidInstallments || 0),
+    remainingInstallments: Number(payment.remainingInstallments || 0),
+    totalPaidAmount: Number(payment.totalPaidAmount !== undefined ? payment.totalPaidAmount : (payment.paidAmount || 0)),
+    totalRemainingAmount: Number(payment.totalRemainingAmount !== undefined ? payment.totalRemainingAmount : (payment.remainingAmount || 0)),
+    totalAmount: Number(payment.totalAmount || payment.amount || 0),
+    paidAmount: Number(payment.totalPaidAmount !== undefined ? payment.totalPaidAmount : (payment.paidAmount || 0)),
+    remainingAmount: Number(payment.totalRemainingAmount !== undefined ? payment.totalRemainingAmount : (payment.remainingAmount || 0)),
+    transactions: (payment.transactions || []).map((t) => ({
+      id: t.id,
+      paymentNumber: t.paymentNumber,
+      amount: Number(t.amount || 0),
+      currency: t.currency || "INR",
+      status: t.status,
+      paymentMethod: t.paymentMethod,
+      providerTransactionId: t.providerTransactionId,
+      gatewayReference: t.gatewayReference,
+      installmentId: t.installmentId,
+      installmentNumber: t.installmentNumber,
+      paymentDate: t.paymentDate,
+      createdAt: t.createdAt,
+      remarks: t.remarks,
+      recordedBy: t.recordedBy,
+    })),
+    poInstallments: (payment.poInstallments || []).map((i) => ({
+      id: i.id,
+      installmentNumber: i.installmentNumber || i.installment_number,
+      amount: Number(i.amount || 0),
+      paidAmount: Number(i.paidAmount || i.paid_amount || 0),
+      remainingAmount: Number(i.remainingAmount ?? i.remaining_amount ?? i.amount ?? 0),
+      status: i.status || "PENDING",
+      dueDate: i.dueDate || i.due_date || null,
+    })),
   };
 };
 
@@ -83,6 +123,11 @@ export const getPaymentCreationStats = async () => {
 export const getEligibleInvoices = async () => {
   const res = await api.get("/v1/payments/eligible-invoices");
   return res.data.data || [];
+};
+
+export const getPaymentStoreData = async (invoiceId) => {
+  const res = await api.get(`/v1/payments/payment-store/${invoiceId}`);
+  return res.data.data || null;
 };
 
 export const getPaymentById = async (id) => {

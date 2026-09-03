@@ -9,6 +9,7 @@ import {
   paymentActionSchema,
   paymentApproveSchema,
   paymentIdSchema,
+  paymentStoreInvoiceSchema,
   searchPaymentsSchema,
 } from './payment.validation.js';
 import { PERMISSION_KEYS } from '../auth/role-permissions.js';
@@ -25,6 +26,7 @@ router.use(protect);
 router.get('/stats', authorize(READ_ACCESS), paymentController.getPaymentStats);
 router.get('/creation-stats', authorize(CREATE_ACCESS), paymentController.getPaymentCreationStats);
 router.get('/eligible-invoices', authorize(CREATE_ACCESS), paymentController.getEligibleInvoices);
+router.get('/payment-store/:invoiceId', authorize(CREATE_ACCESS), validate(paymentStoreInvoiceSchema), paymentController.getPaymentStoreData);
 router.get('/pending', authorize(REVIEW_ACCESS), validate(searchPaymentsSchema), paymentController.getPendingPayments);
 router.get('/completed', authorize(READ_ACCESS), validate(searchPaymentsSchema), paymentController.getCompletedPayments);
 

@@ -1,7 +1,15 @@
-import { ArrowLeft, FileText, ScanLine } from "lucide-react";
-import { Link } from "react-router-dom";
+// import { ArrowLeft, FileText, ScanLine } from "lucide-react";
+// import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 
+/**
+ * OCR Invoice Creation temporarily disabled on frontend.
+ * Directs user directly to the Manual Invoice Creation Form.
+ */
 const InvoiceCreateEntry = () => {
+  return <Navigate to="/invoices/create" replace />;
+
+  /* OCR temporarily disabled
   const options = [
     {
       title: "Manual Invoice",
@@ -56,6 +64,7 @@ const InvoiceCreateEntry = () => {
       </div>
     </div>
   );
+  */
 };
 
 export default InvoiceCreateEntry;

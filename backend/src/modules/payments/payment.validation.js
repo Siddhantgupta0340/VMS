@@ -7,6 +7,7 @@ const uuidParamSchema = z.object({
 export const createPaymentSchema = z.object({
   body: z.object({
     invoiceId: z.string().uuid('Invalid invoice ID format'),
+    installmentId: z.string().uuid('Invalid installment ID format').optional(),
     amount: z.coerce.number().positive('Payment amount must be greater than 0'),
     currency: z.string().trim().optional().default('INR'),
     paymentMethod: z.enum([
@@ -56,6 +57,12 @@ export const updatePaymentSchema = z.object({
 
 export const paymentIdSchema = z.object({
   params: uuidParamSchema,
+});
+
+export const paymentStoreInvoiceSchema = z.object({
+  params: z.object({
+    invoiceId: z.string().uuid('Invalid invoice ID format'),
+  }),
 });
 
 export const paymentActionSchema = z.object({

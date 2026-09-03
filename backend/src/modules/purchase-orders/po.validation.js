@@ -95,6 +95,26 @@ const requiredDate = (label) => z.preprocess(
   }),
 );
 
+const installmentItemSchema = z.object({
+  installmentNumber: numberInput(
+    z.number({ invalid_type_error: 'Installment number must be a valid number' })
+      .int()
+      .positive('Installment number must be a positive integer'),
+  ),
+  amount: numberInput(
+    z.number({ invalid_type_error: 'Installment amount must be a valid number' })
+      .positive('Installment amount must be greater than zero'),
+  ),
+  dueDate: z.preprocess(
+    (val) => (val ? new Date(val) : undefined),
+    z.date({
+      required_error: 'Installment due date is required',
+      invalid_type_error: 'Installment due date must be a valid ISO date',
+    }),
+  ),
+  remarks: stringOptional,
+});
+
 export const createPurchaseOrderSchema = z.object({
   body: purchaseOrderTaxPayloadSchema.extend({
     currency: z.enum(['INR', 'USD', 'EUR']).optional().default('INR'),
@@ -109,6 +129,13 @@ export const createPurchaseOrderSchema = z.object({
     items: z.array(poItemSchema).min(1, 'At least one line item is required'),
     otherCharges: otherChargesSchema,
     paymentTerms: z.string().trim().optional().default('Net 30'),
+    paymentType: z.enum(['ONE_TIME', 'INSTALLMENT']).optional().default('ONE_TIME'),
+    installmentDurationMonths: numberInput(
+      z.number({ invalid_type_error: 'Installment duration must be a valid number' })
+        .int()
+        .positive('Installment duration must be a positive integer'),
+    ).optional(),
+    installments: z.array(installmentItemSchema).optional().default([]),
     poType: z.enum(['STANDARD', 'URGENT', 'DIRECT', 'BLANKET']).optional().default('STANDARD'),
     purchaseRequisitionNumber: z.string().trim().optional(),
     department: z.string().trim().optional(),
@@ -135,6 +162,13 @@ export const updatePurchaseOrderSchema = z.object({
       z.date({ invalid_type_error: 'Expected delivery date must be a valid ISO date' }).optional(),
     ),
     paymentTerms: z.string().optional(),
+    paymentType: z.enum(['ONE_TIME', 'INSTALLMENT']).optional().default('ONE_TIME'),
+    installmentDurationMonths: numberInput(
+      z.number({ invalid_type_error: 'Installment duration must be a valid number' })
+        .int()
+        .positive('Installment duration must be a positive integer'),
+    ).optional(),
+    installments: z.array(installmentItemSchema).optional().default([]),
     reason: z.string().trim().max(500, 'Reason cannot exceed 500 characters').optional(),
     poType: z.enum(['STANDARD', 'URGENT', 'DIRECT', 'BLANKET']).optional(),
     purchaseRequisitionNumber: z.string().trim().optional(),

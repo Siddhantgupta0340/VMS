@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, Plus, Trash2, CreditCard, Calendar, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { COMPANY_CONFIG } from "../../config/company";
@@ -15,7 +15,45 @@ const input = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-
 const readOnly = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-300";
 const emptyItem = { itemCode: "", itemName: "", description: "", quantity: "", rate: "", gstRate: "", unit: "" };
 
-const currency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const currency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+const addMonthsToDate = (dateStr, monthsToAdd) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const startDay = d.getDate();
+  d.setMonth(d.getMonth() + monthsToAdd);
+  if (d.getDate() !== startDay) {
+    d.setDate(0);
+  }
+  return d.toISOString().split("T")[0];
+};
+
+const generateMonthInstallments = (poTotalAmount, monthsCount, startDateStr) => {
+  const total = roundMoney(poTotalAmount);
+  const months = Math.max(1, Number(monthsCount || 1));
+  if (total <= 0) return [];
+
+  const baseAmount = roundMoney(total / months);
+  const installments = [];
+  let currentSum = 0;
+
+  for (let i = 0; i < months; i++) {
+    const isLast = i === months - 1;
+    const amount = isLast ? roundMoney(total - currentSum) : baseAmount;
+    currentSum = roundMoney(currentSum + amount);
+
+    installments.push({
+      installmentNumber: i + 1,
+      amount: String(amount),
+      dueDate: addMonthsToDate(startDateStr || new Date().toISOString().split("T")[0], i + 1),
+      remarks: `Month ${i + 1} installment`,
+    });
+  }
+
+  return installments;
+};
 
 const emptyPreview = {
   items: [],
@@ -69,6 +107,19 @@ const ReadOnlyMetric = ({ label, value, strong = false }) => (
   </div>
 );
 
+const DURATION_OPTIONS = [
+  { label: "1 Month", value: 1 },
+  { label: "2 Months", value: 2 },
+  { label: "3 Months", value: 3 },
+  { label: "4 Months", value: 4 },
+  { label: "5 Months", value: 5 },
+  { label: "6 Months", value: 6 },
+  { label: "9 Months", value: 9 },
+  { label: "12 Months", value: 12 },
+  { label: "18 Months", value: 18 },
+  { label: "24 Months", value: 24 },
+];
+
 const PurchaseOrderCreate = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -90,6 +141,9 @@ const PurchaseOrderCreate = () => {
     items: [{ ...emptyItem }],
     otherCharges: "0",
     terms: "",
+    paymentType: "",
+    installmentDurationMonths: 6,
+    installments: [],
     notes: "",
     poType: "STANDARD",
     purchaseRequisitionNumber: "",
@@ -141,12 +195,13 @@ const PurchaseOrderCreate = () => {
         setLoadingPO(true);
         const poData = await getPurchaseOrderById(id);
         if (poData) {
+          const instCount = poData.installments?.length || 6;
           setFormData({
-            vendorId: poData.vendorId || "",
-            orderDate: poData.orderDate ? poData.orderDate.split("T")[0] : new Date().toISOString().split("T")[0],
-            expectedDelivery: poData.expectedDelivery ? poData.expectedDelivery.split("T")[0] : "",
-            deliveryAddress: poData.deliveryAddress || "",
-            billingAddress: poData.billingAddress || "",
+            vendorId: poData.vendorId || poData.vendor_id || "",
+            orderDate: poData.orderDate ? poData.orderDate.split("T")[0] : (poData.order_date ? poData.order_date.split("T")[0] : new Date().toISOString().split("T")[0]),
+            expectedDelivery: poData.expectedDelivery ? poData.expectedDelivery.split("T")[0] : (poData.expected_delivery_date ? poData.expected_delivery_date.split("T")[0] : ""),
+            deliveryAddress: poData.deliveryAddress || poData.delivery_address || "",
+            billingAddress: poData.billingAddress || poData.billing_address || "",
             items: poData.items?.length
               ? poData.items.map((it) => ({
                 itemCode: it.itemCode || "",
@@ -159,9 +214,19 @@ const PurchaseOrderCreate = () => {
               }))
               : [{ ...emptyItem }],
             otherCharges: String(poData.otherCharges ?? 0),
-            terms: poData.paymentTerms || "",
-            notes: poData.notes || "",
-            poType: poData.poType || "STANDARD",
+            terms: poData.paymentTerms || poData.payment_terms || "",
+            paymentType: poData.paymentType || poData.payment_type || "ONE_TIME",
+            installmentDurationMonths: instCount,
+            installments: poData.installments?.length
+              ? poData.installments.map((inst) => ({
+                  installmentNumber: inst.installmentNumber || inst.installment_number,
+                  amount: inst.amount !== undefined && inst.amount !== null ? String(inst.amount) : "",
+                  dueDate: inst.dueDate ? inst.dueDate.split("T")[0] : (inst.due_date ? inst.due_date.split("T")[0] : ""),
+                  remarks: inst.remarks || "",
+                }))
+              : [],
+            notes: poData.notes || poData.description || "",
+            poType: poData.poType || poData.po_type || "STANDARD",
             purchaseRequisitionNumber: poData.purchaseRequisitionNumber || "",
             department: poData.department || "",
             costCenter: poData.costCenter || "",
@@ -170,7 +235,7 @@ const PurchaseOrderCreate = () => {
             quotationDate: poData.quotationDate ? poData.quotationDate.split("T")[0] : "",
           });
           if (poData.vendor) {
-            setVendorQuery(`${poData.vendor.vendorCode || ""} - ${poData.vendor.vendorName || poData.vendor.name || ""}`);
+            setVendorQuery(`${poData.vendor.vendorCode || poData.vendor.vendor_code || ""} - ${poData.vendor.vendorName || poData.vendor.name || ""}`);
           }
         }
       } catch (error) {
@@ -247,6 +312,25 @@ const PurchaseOrderCreate = () => {
     };
   }, [formData.vendorId, formData.items, formData.otherCharges]);
 
+  // AUTOMATIC INSTALLMENT SCHEDULE RE-CALCULATION
+  useEffect(() => {
+    if (formData.paymentType !== "INSTALLMENT") return;
+    const poTotal = roundMoney(taxPreview?.summary?.grandTotal || 0);
+    const months = Number(formData.installmentDurationMonths || 6);
+    const startDate = formData.orderDate || new Date().toISOString().split("T")[0];
+
+    const generated = generateMonthInstallments(poTotal, months, startDate);
+    setFormData((prev) => ({
+      ...prev,
+      installments: generated,
+    }));
+  }, [
+    formData.paymentType,
+    formData.installmentDurationMonths,
+    formData.orderDate,
+    taxPreview?.summary?.grandTotal,
+  ]);
+
   const selectVendor = (vendor) => {
     setFormData((prev) => ({
       ...prev,
@@ -306,15 +390,44 @@ const PurchaseOrderCreate = () => {
     return acc;
   }, {});
 
+  const preview = taxPreview || emptyPreview;
+  const poGrandTotal = roundMoney(preview.summary.grandTotal || 0);
+  const monthsCount = Number(formData.installmentDurationMonths || 6);
+  const monthlyInstallmentAmount = monthsCount > 0 ? roundMoney(poGrandTotal / monthsCount) : 0;
+  const totalInstallmentSum = formData.installments.reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const errors = validateRequiredFields("purchaseOrderCreate", formData);
+    
+    if (!formData.paymentType) {
+      if (!errors.some(e => e.field === "paymentType")) {
+        errors.push({ field: "paymentType", message: "Please select a payment type." });
+      }
+    }
+
     setValidationErrors(errors);
 
     if (errors.length) {
       notify.error("Form validation failed. Please correct all highlighted fields.");
       window.setTimeout(() => focusValidationField(errors[0].field), 0);
       return;
+    }
+
+    if (formData.paymentType === "INSTALLMENT") {
+      if (poGrandTotal <= 0) {
+        notify.error("Purchase Order Grand Total must be greater than Rs. 0 before setting up installments.");
+        return;
+      }
+      if (!formData.installments || !formData.installments.length) {
+        notify.error("Installment schedule generation failed. Please check duration selection.");
+        return;
+      }
+      const diff = Math.abs(totalInstallmentSum - poGrandTotal);
+      if (diff > 0.01) {
+        notify.error(`Total installment amount (Rs. ${totalInstallmentSum.toLocaleString('en-IN')}) does not match PO grand total (Rs. ${poGrandTotal.toLocaleString('en-IN')}).`);
+        return;
+      }
     }
 
     try {
@@ -336,6 +449,18 @@ const PurchaseOrderCreate = () => {
         })),
         otherCharges: Number(formData.otherCharges || 0),
         terms: formData.terms,
+        paymentType: formData.paymentType,
+        installmentDurationMonths: formData.paymentType === "INSTALLMENT"
+          ? Number(formData.installmentDurationMonths || formData.installments.length || 1)
+          : undefined,
+        installments: formData.paymentType === "INSTALLMENT"
+          ? formData.installments.map((inst, idx) => ({
+              installmentNumber: idx + 1,
+              amount: Number(inst.amount),
+              dueDate: inst.dueDate,
+              remarks: inst.remarks || undefined,
+            }))
+          : undefined,
         notes: formData.notes,
         poType: formData.poType,
         purchaseRequisitionNumber: formData.purchaseRequisitionNumber || undefined,
@@ -363,10 +488,10 @@ const PurchaseOrderCreate = () => {
   };
 
   const activeVendor = vendorMasterDetails || vendors.find((v) => v.id === formData.vendorId);
-  const preview = taxPreview || emptyPreview;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-5">
         <div className="flex items-center gap-3">
           <Link to="/purchase-orders" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 text-slate-600 dark:text-slate-300 shadow-sm transition hover:bg-slate-50 dark:hover:bg-slate-800">
@@ -377,7 +502,7 @@ const PurchaseOrderCreate = () => {
               {isEditMode ? "Edit Purchase Order" : "Create Purchase Order"}
             </h1>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
-              {isEditMode ? "Modify existing purchase order line items and terms." : "Draft a legally binding purchase order from approved vendor master records."}
+              {isEditMode ? "Modify existing purchase order line items and terms." : "Draft a purchase order following the step-by-step business flow."}
             </p>
           </div>
         </div>
@@ -394,12 +519,13 @@ const PurchaseOrderCreate = () => {
           <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading purchase order details...</span>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* STEP 1: PURCHASE ORDER DETAILS */}
           <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
             <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Purchase Order Information</h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Vendor and commercial details are sourced from approved database records.</p>
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Purchase Order Details</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Vendor selection and commercial terms.</p>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
@@ -543,11 +669,12 @@ const PurchaseOrderCreate = () => {
             </div>
           </section>
 
+          {/* STEP 2: ITEM DETAILS */}
           <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm dark:shadow-slate-950/40 sm:p-6">
             <div className="mb-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Item Details</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Each item is structured by product, pricing, tax, and final line value. Totals still come from the backend.</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Specify line items, rates, quantities, UOM, and GST rates.</p>
               </div>
               <button type="button" onClick={handleAddItem} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition">
                 <Plus size={16} />
@@ -640,49 +767,293 @@ const PurchaseOrderCreate = () => {
                 );
               })}
             </div>
-          </section>
-        </div>
 
-        <aside className="xl:sticky xl:top-0 xl:self-start">
-          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Tax Summary</h2>
-              {taxLoading && <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Calculating...</span>}
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={handleAddItem} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-4 py-2.5 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition">
+                <Plus size={16} />
+                Add Another Item
+              </button>
             </div>
-            <div className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Subtotal</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.subtotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Taxable Amount</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.taxableAmount)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">CGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.cgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">SGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.sgstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">IGST Total</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.igstTotal)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Total GST</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.totalGst)}</strong></div>
+          </section>
+
+          {/* STEP 3: ORDER TOTALS */}
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Other Charges</label>
-                <input type="number" min="0" step="0.01" name="otherCharges" value={formData.otherCharges} onChange={handleChange} className={input} />
+                <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Order Totals</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Summary calculated automatically by the backend tax engine.</p>
               </div>
-              <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Round Off</span><strong className="text-slate-900 dark:text-slate-100">{currency(preview.summary.roundOff)}</strong></div>
-              <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
-                <div className="flex justify-between text-lg">
-                  <span className="font-bold text-slate-950 dark:text-slate-100">Grand Total</span>
-                  <strong className="text-blue-700 dark:text-blue-400">{currency(preview.summary.grandTotal)}</strong>
+              {taxLoading && <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 animate-pulse">Calculating totals...</span>}
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 p-4">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Subtotal</span>
+                <span className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100 block">{currency(preview.summary.subtotal)}</span>
+              </div>
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 p-4">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Taxable Amount</span>
+                <span className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100 block">{currency(preview.summary.taxableAmount)}</span>
+              </div>
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 p-4">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Total GST Amount</span>
+                <span className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100 block">{currency(preview.summary.totalGst)}</span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  CGST: {currency(preview.summary.cgstTotal)} | SGST: {currency(preview.summary.sgstTotal)} | IGST: {currency(preview.summary.igstTotal)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-blue-200 dark:border-blue-900/80 bg-blue-50/50 dark:bg-blue-950/30 p-4">
+                <span className="text-xs font-extrabold text-blue-700 dark:text-blue-400 uppercase tracking-wider block">Grand Total</span>
+                <span className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-400 block">{currency(preview.summary.grandTotal)}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Other Charges (Rs.)</label>
+                <input type="number" min="0" step="0.01" name="otherCharges" value={formData.otherCharges} onChange={handleChange} className={input} placeholder="0.00" />
+              </div>
+              <div className="flex items-end pb-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Round Off: <strong className="text-slate-700 dark:text-slate-300">{currency(preview.summary.roundOff)}</strong> | Tax Type: <strong className="text-slate-700 dark:text-slate-300">{preview.summary.taxType || "-"}</strong>
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* STEP 4: PAYMENT DETAILS */}
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40">
+            <div className="mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <CreditCard className="text-blue-600 dark:text-blue-400" size={20} />
+                <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Payment Details</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Select payment type for this purchase order after reviewing order totals.</p>
+            </div>
+
+            <div className="max-w-md space-y-4">
+              <div>
+                <RequiredLabel>Payment Type</RequiredLabel>
+                <select
+                  name="paymentType"
+                  value={formData.paymentType}
+                  onChange={handleChange}
+                  className={`${input} ${fieldErrorClass(errorsByField.paymentType)}`}
+                  required
+                >
+                  <option value="">Select Payment Type</option>
+                  <option value="ONE_TIME">One-Time Payment</option>
+                  <option value="INSTALLMENT">Installment Payment</option>
+                </select>
+                {errorsByField.paymentType && (
+                  <p className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">{errorsByField.paymentType}</p>
+                )}
+              </div>
+
+              {formData.paymentType === "ONE_TIME" && (
+                <div className="rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" size={18} />
+                    <div>
+                      <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wide">One-Time Payment Selected</h4>
+                      <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                        Full payment will be disbursed as a single transaction against an approved invoice as per agreed terms ({formData.terms || "Net 30"}).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* STEP 5: MONTH-BASED INSTALLMENT PAYMENT CALCULATION (Conditional) */}
+          {formData.paymentType === "INSTALLMENT" && (
+            <section className="rounded-2xl border border-blue-200 dark:border-blue-900/80 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 space-y-6">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="text-blue-600 dark:text-blue-400" size={20} />
+                  <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Installment Payment</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+                  Select installment duration in months. Monthly installment amounts and payment schedule are calculated automatically from the total PO amount.
+                </p>
+              </div>
+
+              {/* Installment Controls: Read-only Total PO Amount, Duration Selector, Monthly Installment */}
+              <div className="grid gap-5 md:grid-cols-3 bg-slate-50/70 dark:bg-slate-950/40 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Total PO Amount
+                  </label>
+                  <input
+                    value={currency(poGrandTotal)}
+                    disabled
+                    readOnly
+                    className={`${readOnly} font-bold text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-900`}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">Source of truth from backend tax engine.</p>
+                </div>
+
+                <div>
+                  <RequiredLabel helper="User selects the duration in months.">
+                    Installment Duration *
+                  </RequiredLabel>
+                  <select
+                    name="installmentDurationMonths"
+                    value={formData.installmentDurationMonths}
+                    onChange={handleChange}
+                    className={`${input} font-semibold`}
+                  >
+                    {DURATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Monthly Installment
+                  </label>
+                  <input
+                    value={currency(monthlyInstallmentAmount)}
+                    disabled
+                    readOnly
+                    className={`${readOnly} font-bold text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900`}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">Calculated automatically ({currency(poGrandTotal)} ÷ {monthsCount} months).</p>
                 </div>
               </div>
+
+              {/* Installment Summary */}
+              <div className="rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/30 p-5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200 mb-3">
+                  Installment Summary
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-4 text-sm">
+                  <div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block uppercase">Total PO Amount</span>
+                    <strong className="text-base text-slate-900 dark:text-slate-100">{currency(poGrandTotal)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block uppercase">Installment Duration</span>
+                    <strong className="text-base text-slate-900 dark:text-slate-100">{monthsCount} Months</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block uppercase">Monthly Installment</span>
+                    <strong className="text-base text-emerald-600 dark:text-emerald-400">{currency(monthlyInstallmentAmount)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block uppercase">Total Payable</span>
+                    <strong className="text-base text-blue-700 dark:text-blue-400">{currency(totalInstallmentSum)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Month-Wise Installment Schedule Table */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Month-Wise Installment Schedule
+                  </h3>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {formData.installments.length} Monthly Installment{formData.installments.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <th className="py-3 px-4 text-center">No.</th>
+                        <th className="py-3 px-4">Month</th>
+                        <th className="py-3 px-4 text-center">Due Date</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {formData.installments.map((inst, index) => {
+                        const amt = Number(inst.amount || 0);
+                        const isLastMonth = index === formData.installments.length - 1;
+                        return (
+                          <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition">
+                            <td className="py-3 px-4 text-center font-bold text-blue-600 dark:text-blue-400">
+                              {inst.installmentNumber}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
+                              Month {inst.installmentNumber}
+                              {isLastMonth && monthsCount > 1 && (
+                                <span className="ml-2 text-[10px] font-normal text-slate-400 italic">
+                                  (Includes final rounding balance)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center font-medium text-slate-700 dark:text-slate-300">
+                              {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-slate-100">
+                              {currency(amt)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-50 dark:bg-slate-900 font-bold border-t border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
+                        <td colSpan={3} className="py-3 px-4 text-right uppercase text-xs">
+                          Total Installment Amount:
+                        </td>
+                        <td className="py-3 px-4 text-right text-sm text-blue-700 dark:text-blue-400">
+                          {currency(totalInstallmentSum)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold pt-1">
+                  <CheckCircle2 size={16} />
+                  <span>Installment schedule matches Purchase Order Grand Total ({currency(poGrandTotal)}).</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* STEP 6: NOTES & FINAL ACTIONS */}
+          <section className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm dark:shadow-slate-950/40 space-y-5">
+            <div>
+              <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Notes &amp; Internal Remarks</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Additional notes or instructions for internal approval and vendor reference.</p>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Enter any additional notes or instructions here..."
+                className={`${input} mt-3 h-auto py-3`}
+              />
             </div>
-            <label className="mt-6 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Notes
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={4} className={`${input} mt-2 h-auto py-3`} />
-            </label>
-            <div className="mt-6 grid gap-3">
-              <button type="submit" disabled={submitting || !formData.vendorId} className="rounded-xl bg-blue-600 py-3 text-center font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
-                {submitting ? (isEditMode ? "Saving..." : "Creating...") : (isEditMode ? "Save Changes" : "Create Purchase Order")}
-              </button>
-              <button type="button" onClick={() => navigate("/purchase-orders")} className="rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800">
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-5">
+              <button
+                type="button"
+                onClick={() => navigate("/purchase-orders")}
+                className="rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 py-3 text-center text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !formData.vendorId}
+                className="rounded-xl bg-blue-600 px-8 py-3 text-center text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-md shadow-blue-500/20"
+              >
+                {submitting ? (isEditMode ? "Saving Changes..." : "Creating Purchase Order...") : (isEditMode ? "Save Changes" : "Create Purchase Order")}
               </button>
             </div>
           </section>
-        </aside>
-      </form>
+
+        </form>
       )}
     </div>
   );

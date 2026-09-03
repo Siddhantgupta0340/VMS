@@ -24,6 +24,7 @@ const poInclude = {
     take: 5,
   },
   invoices: { where: { deleted_at: null }, select: { id: true, invoice_number: true, amount: true, status: true } },
+  installments: { orderBy: { installment_number: 'asc' } },
   created_by: {
     select: { id: true, email: true, first_name: true, last_name: true, role: true },
   },

@@ -5,6 +5,7 @@ const invoiceInclude = {
   purchase_order: {
     include: {
       vendor: true,
+      installments: { orderBy: { installment_number: 'asc' } },
       grns: {
         where: { deleted_at: null },
         include: {

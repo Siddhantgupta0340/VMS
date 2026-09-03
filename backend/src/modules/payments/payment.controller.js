@@ -86,6 +86,11 @@ class PaymentController {
     const invoices = await paymentService.getEligibleInvoices(req.user);
     res.status(200).json({ success: true, data: invoices });
   });
+
+  getPaymentStoreData = asyncHandler(async (req, res) => {
+    const data = await paymentService.getPaymentStoreData(req.params.invoiceId, req.user);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 export default new PaymentController();

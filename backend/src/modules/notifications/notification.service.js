@@ -75,6 +75,9 @@ export const NOTIFICATION_TYPES = {
   PAYMENT_APPROVAL_APPROVED: 'payment_approval_approved',
   PAYMENT_APPROVAL_REJECTED: 'payment_approval_rejected',
 
+  // Installment Notifications
+  INSTALLMENT_UPCOMING: 'installment_upcoming',
+  INSTALLMENT_OVERDUE:  'installment_overdue',
 };
 
 // ─── Role → DB role string mapping (for user lookup) ─────────────────────────
@@ -840,6 +843,57 @@ class NotificationService {
       );
     } catch (error) {
       console.error('[NotificationService] notifyPaymentApprovalResult failed:', toSafeErrorLog(error));
+    }
+  }
+
+  /**
+   * Periodically/dynamically checks for upcoming and overdue installments
+   * and sends notifications to Finance Head and Case Manager.
+   */
+  async checkAndNotifyInstallments() {
+    try {
+      const now = new Date();
+      const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+      const installments = await prisma.installment.findMany({
+        where: {
+          status: { in: ['PENDING', 'PARTIALLY_PAID', 'DUE'] },
+          remaining_amount: { gt: 0 },
+        },
+        include: {
+          purchase_order: { select: { id: true, po_number: true } },
+        },
+      });
+
+      for (const inst of installments) {
+        const dueDate = new Date(inst.due_date);
+        const isOverdue = dueDate < now;
+        const isUpcoming = !isOverdue && dueDate <= threeDaysFromNow;
+        const poNum = inst.purchase_order?.po_number || 'PO';
+        const amtStr = `INR ${Number(inst.remaining_amount || 0).toLocaleString('en-IN')}`;
+        const formattedDueDate = dueDate.toLocaleDateString('en-IN');
+
+        if (isOverdue) {
+          await prisma.installment.update({
+            where: { id: inst.id },
+            data: { status: 'OVERDUE' },
+          }).catch(() => {});
+
+          const title = '⚠️ Overdue Installment Payment';
+          const message = `Installment #${inst.installment_number} for PO ${poNum} (${amtStr}) was due on ${formattedDueDate} and is now overdue.`;
+
+          await this.createNotificationsForRole(ROLES.FINANCE_HEAD, NOTIFICATION_TYPES.INSTALLMENT_OVERDUE, title, message, 'purchase_order', inst.purchase_order_id).catch(() => {});
+          await this.createNotificationsForRole(ROLES.CASE_MANAGER, NOTIFICATION_TYPES.INSTALLMENT_OVERDUE, title, message, 'purchase_order', inst.purchase_order_id).catch(() => {});
+        } else if (isUpcoming) {
+          const title = '📅 Upcoming Installment Payment';
+          const message = `Installment #${inst.installment_number} for PO ${poNum} (${amtStr}) is due in 3 days on ${formattedDueDate}.`;
+
+          await this.createNotificationsForRole(ROLES.FINANCE_HEAD, NOTIFICATION_TYPES.INSTALLMENT_UPCOMING, title, message, 'purchase_order', inst.purchase_order_id).catch(() => {});
+          await this.createNotificationsForRole(ROLES.CASE_MANAGER, NOTIFICATION_TYPES.INSTALLMENT_UPCOMING, title, message, 'purchase_order', inst.purchase_order_id).catch(() => {});
+        }
+      }
+    } catch (error) {
+      console.error('[NotificationService] checkAndNotifyInstallments failed:', toSafeErrorLog(error));
     }
   }
 }

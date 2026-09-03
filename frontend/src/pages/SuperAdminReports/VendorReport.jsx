@@ -212,7 +212,7 @@ const VendorReport = () => {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {summaryCards.map((card) => (
           <ReportSummaryCard key={card.title} {...card} loading={summaryLoading} />
         ))}

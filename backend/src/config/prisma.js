@@ -38,20 +38,29 @@ const normalizeDatabaseUrl = (url) => {
 const buildPoolConfig = () => {
   const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
   let isNeonHost = false;
+  let isPooler = false;
   try {
     const parsed = new URL(connectionString);
     isNeonHost = parsed.hostname.endsWith('.neon.tech');
+    isPooler = parsed.hostname.includes('-pooler') || parsed.port === '6543';
   } catch {}
+
+  // For serverless/pooled PostgreSQL (e.g. Neon, PgBouncer), idle connections
+  // should time out client-side before the remote proxy forcefully terminates the TCP socket.
+  // Neon's PgBouncer drops idle sockets after ~20-30 seconds.
+  // A client-side idle timeout of 15s ensures the node-postgres pool cleanly closes idle sockets.
+  const defaultIdleTimeout = isNeonHost || isPooler ? 15000 : 30000;
 
   return {
     connectionString,
     max: parsePositiveInt(process.env.DB_POOL_MAX, DEFAULT_POOL_MAX),
-    idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, 60000),
-    connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECTION_TIMEOUT_MS, 30000),
+    idleTimeoutMillis: parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, defaultIdleTimeout),
+    connectionTimeoutMillis: parsePositiveInt(process.env.DB_CONNECTION_TIMEOUT_MS, 15000),
     query_timeout: parsePositiveInt(process.env.DB_QUERY_TIMEOUT_MS, 30000),
     statement_timeout: parsePositiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 30000),
     keepAlive: process.env.DB_KEEP_ALIVE !== 'false',
-    keepAliveInitialDelayMillis: parsePositiveInt(process.env.DB_KEEP_ALIVE_DELAY_MS, 10000),
+    keepAliveInitialDelayMillis: parsePositiveInt(process.env.DB_KEEP_ALIVE_DELAY_MS, 5000),
+    allowExitOnIdle: true,
     ...(isNeonHost ? { ssl: { rejectUnauthorized: false } } : {}),
   };
 };
@@ -91,7 +100,23 @@ const pool = globalForPrisma.__vmsPgPool ?? new Pool(poolConfig);
 
 if (!pool.__vmsEventsAttached) {
   pool.on('error', (error) => {
-    console.error('[DATABASE] Idle PostgreSQL client error:', {
+    // Normal serverless/proxy lifecycle: remote proxies (such as Neon PgBouncer or AWS RDS Proxy)
+    // periodically close idle TCP connections without an active query running. node-postgres
+    // automatically removes the closed client from the pool and creates a fresh one on demand.
+    const isNormalIdleClose =
+      error?.message?.includes('Connection terminated unexpectedly') ||
+      error?.code === 'ECONNRESET' ||
+      error?.code === 'EPIPE' ||
+      error?.code === '57P01';
+
+    if (isNormalIdleClose) {
+      if (process.env.DEBUG_DB_POOL === 'true') {
+        console.debug('[DATABASE] Idle PostgreSQL connection closed by remote host (auto-reconnected on next query)');
+      }
+      return;
+    }
+
+    console.error('[DATABASE] PostgreSQL pool error:', {
       name: error?.name,
       code: error?.code,
       message: error?.message,
@@ -99,7 +124,7 @@ if (!pool.__vmsEventsAttached) {
   });
 
   pool.on('remove', () => {
-    if (NODE_ENV !== 'production') {
+    if (process.env.DEBUG_DB_POOL === 'true') {
       console.debug('[DATABASE] PostgreSQL client removed from pool (idle timeout or connection reset)');
     }
   });

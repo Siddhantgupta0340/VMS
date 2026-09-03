@@ -9,6 +9,7 @@ class NotificationController {
    * @query   isRead (true/false), page, limit
    */
   getMyNotifications = asyncHandler(async (req, res) => {
+    notificationService.checkAndNotifyInstallments().catch(() => {});
     const result = await notificationService.getMyNotifications(req.user.id, req.query);
     res.status(200).json({
       success: true,

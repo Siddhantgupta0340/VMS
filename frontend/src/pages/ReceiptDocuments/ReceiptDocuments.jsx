@@ -314,7 +314,7 @@ const DocumentList = ({ title, icon: Icon, records, numberKey, dateKey, onDelete
           <div className="flex items-center gap-2">
             {isGRN && (
               <a
-                href={`/invoices/new?poId=${record.purchase_order_id || ""}&grnId=${record.id || ""}`}
+                href={`/invoices/create?poId=${record.purchase_order_id || ""}&grnId=${record.id || ""}`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
               >
                 <FileText size={14} /> Create Invoice
